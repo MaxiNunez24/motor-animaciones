@@ -1,4 +1,4 @@
-import { el, poner } from '../piezas/svg.js';
+import { el, poner, idUnico } from '../piezas/svg.js';
 import { posicionAbsoluta } from '../piezas/geometria.js';
 
 // El pintor es lo ÚNICO del motor que toca la página. Recibe un estado (lo que
@@ -16,7 +16,12 @@ export function crearPintor(svg, escena) {
         preserveAspectRatio: 'xMidYMid meet',
     });
     el('rect', { x: 0, y: 0, width: escena.ancho, height: escena.alto, fill: 'var(--ma-fondo)' }, svg);
-    const raiz = el('g', {}, svg);
+    // Cuando el dibujo no llena el lugar (una pantalla más alta que la escena),
+    // el SVG muestra también lo que queda fuera del marco: lo que la cámara
+    // dejó afuera se asomaría por arriba y por abajo. Se recorta al marco.
+    const marco = idUnico('ma-marco');
+    el('rect', { x: 0, y: 0, width: escena.ancho, height: escena.alto }, el('clipPath', { id: marco }, el('defs', {}, svg)));
+    const raiz = el('g', { 'clip-path': `url(#${marco})` }, svg);
 
     const inicial = escena.estado(0);
     const ctx = { estado: inicial, tipos: escena.tipos };

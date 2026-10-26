@@ -51,13 +51,19 @@ import { registrar, caja } from 'motor-animaciones';
 
 ## La escena
 
-- **piezas**: `caja`, `texto`, `flecha`, `tabla`, `celular`. Todas tienen `x`, `y` (el centro),
-  `escala`, `rotacion`, `opacidad` y `dentro` (para dibujarse dentro de otra, como un botón en el
-  celular). Las nuevas se hacen con `definirPieza` (ver `src/piezas/definir.js`).
+- **piezas**: `caja`, `texto`, `flecha`, `tabla`, `celular`, `cilindro` (una base de datos),
+  `contador` (un número que se anima) y `camara`. Todas tienen `x`, `y` (el centro), `escala`,
+  `rotacion`, `opacidad` y `dentro` (para dibujarse dentro de otra, como un botón en el celular).
+  Las nuevas se hacen con `definirPieza` (ver `src/piezas/definir.js`).
+- **camara**: lo que va `dentro: 'camara'` se ve a través de ella. Se mueve animando `mirarX`,
+  `mirarY` y `zoom`, y con `ancho` y `alto` recorta a su ventana. En el celular, en vez de achicar
+  la escena, la cámara se acerca a la parte que se cuenta (ver `ejemplos/expo/siges.js`).
 - **linea**: animaciones (`{ pieza, a, dur, curva, en, escalonar }`), `capitulo`, `subtitulo` y
-  `espera`.
+  `espera` (unos segundos, o `'subtitulo'`: hasta que se termine de leer el último).
 - **en**: sin nada, después de todo lo anterior; un número, a esa altura; `'+0.5'`, `'<'`, `'<0.2'`,
   `'>'`, como en GSAP. Los subtítulos van por su pista y no atrasan lo que sigue.
+- **lectura**: cuántos caracteres por segundo se leen (15 si no se dice). Un subtítulo sin `dur`
+  dura lo que se tarda en leerlo.
 - **curvas**: `suave` (la de siempre), `lineal`, `entrar`, `salir`, `pasarse`.
 - **colores**: por papel, no por valor: `fondo`, `superficie`, `texto`, `suave`, `borde`, `acento`,
   `acento2`, `exito`, `alerta`, `error`, `papel`, `marco`. Así anda en claro y en oscuro.
@@ -92,4 +98,4 @@ npm run tipos            # chequea los tipos (JSDoc)
 ```
 
 Para sacar cuadros de una escena (el comienzo del render a video):
-`node herramientas/capturar.js --url /ejemplos/prueba.html --fps 12`.
+`node herramientas/capturar.js --url ejemplos/prueba.html --fps 12`.

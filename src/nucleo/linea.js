@@ -19,9 +19,10 @@ const SUAVES_SIEMPRE = new Set(['opacidad']);
 
 // Si un subtítulo no dice cuánto dura, dura lo que se tarda en leerlo: unos 15
 // caracteres por segundo, que es lo que se usa en subtitulado, y nunca menos
-// de un segundo y medio.
-export function duracionLectura(texto) {
-    return Math.max(1.5, String(texto).length / 15);
+// de un segundo y medio. Cada escena puede pedir otro ritmo con `lectura`:
+// en una pantalla que se mira de pasada, conviene más lento.
+export function duracionLectura(texto, caracteresPorSegundo = 15) {
+    return Math.max(1.5, String(texto).length / caracteresPorSegundo);
 }
 
 /**
@@ -29,7 +30,7 @@ export function duracionLectura(texto) {
  * @typedef {{
  *     titulo?: string, descripcion?: string,
  *     ancho: number, alto: number,
- *     duracion?: number, pausaFinal?: number,
+ *     duracion?: number, pausaFinal?: number, lectura?: number,
  *     piezas: Record<string, Pieza>,
  *     linea: Array<Record<string, any>>,
  * }} Definicion
@@ -82,6 +83,7 @@ export function compilar(definicion, opciones = {}) {
     const subtitulos = [];
     let fin = 0;
     let finSubtitulos = 0;
+    let finUltimoSubtitulo = 0;
     let previo = { inicio: 0, fin: 0 };
     let orden = 0;
 
@@ -97,12 +99,16 @@ export function compilar(definicion, opciones = {}) {
             // corren el "después de todo lo anterior". Si no, escribir un
             // subtítulo atrasaría la animación que viene, que es justo lo que
             // ese subtítulo está contando.
-            const dur = item.dur ?? (item.hasta != null ? item.hasta - inicio : duracionLectura(item.subtitulo));
+            const dur = item.dur ?? (item.hasta != null ? item.hasta - inicio : duracionLectura(item.subtitulo, def.lectura));
             subtitulos.push({ texto: String(item.subtitulo), desde: inicio, hasta: inicio + dur });
             finSubtitulos = Math.max(finSubtitulos, inicio + dur);
+            finUltimoSubtitulo = inicio + dur;
             return;
         } else if ('espera' in item) {
-            finItem = inicio + item.espera;
+            // espera: 'subtitulo' es "hasta que se termine de leer el último
+            // subtítulo". Así lo que sigue no arranca mientras alguien todavía
+            // está leyendo, sin tener que calcular a mano cuánto falta.
+            finItem = item.espera === 'subtitulo' ? Math.max(inicio, finUltimoSubtitulo) : inicio + item.espera;
         } else if ('pieza' in item) {
             const ids = Array.isArray(item.pieza) ? item.pieza : [item.pieza];
             const dur = item.dur ?? 0.6;

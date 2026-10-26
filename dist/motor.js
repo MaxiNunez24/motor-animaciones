@@ -77,8 +77,8 @@ function limitar(valor, min, max) {
 
 // src/nucleo/linea.js
 var SUAVES_SIEMPRE = /* @__PURE__ */ new Set(["opacidad"]);
-function duracionLectura(texto3) {
-  return Math.max(1.5, String(texto3).length / 15);
+function duracionLectura(texto3, caracteresPorSegundo = 15) {
+  return Math.max(1.5, String(texto3).length / caracteresPorSegundo);
 }
 function compilar(definicion, opciones = {}) {
   const movimiento = opciones.movimiento ?? "completo";
@@ -113,6 +113,7 @@ function compilar(definicion, opciones = {}) {
   const subtitulos = [];
   let fin = 0;
   let finSubtitulos = 0;
+  let finUltimoSubtitulo = 0;
   let previo = { inicio: 0, fin: 0 };
   let orden = 0;
   (def.linea ?? []).forEach((item, i) => {
@@ -122,12 +123,13 @@ function compilar(definicion, opciones = {}) {
     if ("capitulo" in item) {
       capitulos.push({ nombre: String(item.capitulo), t: inicio });
     } else if ("subtitulo" in item) {
-      const dur = item.dur ?? (item.hasta != null ? item.hasta - inicio : duracionLectura(item.subtitulo));
+      const dur = item.dur ?? (item.hasta != null ? item.hasta - inicio : duracionLectura(item.subtitulo, def.lectura));
       subtitulos.push({ texto: String(item.subtitulo), desde: inicio, hasta: inicio + dur });
       finSubtitulos = Math.max(finSubtitulos, inicio + dur);
+      finUltimoSubtitulo = inicio + dur;
       return;
     } else if ("espera" in item) {
-      finItem = inicio + item.espera;
+      finItem = item.espera === "subtitulo" ? Math.max(inicio, finUltimoSubtitulo) : inicio + item.espera;
     } else if ("pieza" in item) {
       const ids2 = Array.isArray(item.pieza) ? item.pieza : [item.pieza];
       const dur = item.dur ?? 0.6;
@@ -431,6 +433,15 @@ function posicionAbsoluta(id, estado, tipos) {
   }
   return { x, y, ancho: tam.ancho * escala, alto: tam.alto * escala };
 }
+function aCoordenadasDe(punto, contenedor, estado, tipos) {
+  const donde = (x, y) => {
+    const falso = { piezas: { ...estado.piezas, __punto: { x, y, escala: 1, dentro: contenedor } } };
+    return posicionAbsoluta("__punto", falso, { ...tipos, __punto: {} });
+  };
+  const origen = donde(0, 0);
+  const escala = donde(1, 0).x - origen.x || 1;
+  return { x: (punto.x - origen.x) / escala, y: (punto.y - origen.y) / escala, escala };
+}
 function caminoFlecha(a, b, curvatura = 0, separacion = 0) {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
@@ -538,7 +549,9 @@ function crearPintor(svg, escena) {
     preserveAspectRatio: "xMidYMid meet"
   });
   el("rect", { x: 0, y: 0, width: escena.ancho, height: escena.alto, fill: "var(--ma-fondo)" }, svg);
-  const raiz = el("g", {}, svg);
+  const marco = idUnico("ma-marco");
+  el("rect", { x: 0, y: 0, width: escena.ancho, height: escena.alto }, el("clipPath", { id: marco }, el("defs", {}, svg)));
+  const raiz = el("g", { "clip-path": `url(#${marco})` }, svg);
   const inicial = escena.estado(0);
   const ctx = { estado: inicial, tipos: escena.tipos };
   const nodos = {};
@@ -951,6 +964,17 @@ ${CSS_TEMA}
 :host([pantalla]) .ma-lienzo svg,
 :host(:fullscreen) .ma-lienzo svg {
     height: 100%;
+}
+/* En una pantalla grande los subt\xEDtulos se leen desde lejos. */
+:host([pantalla]) .ma-subtitulo,
+:host(:fullscreen) .ma-subtitulo {
+    font-size: clamp(18px, 2.8cqi, 52px);
+    padding: 0.4em 1em 0.6em;
+}
+/* Sin controles no hay nada que apuntar: que el mouse no quede en el medio
+   de la pantalla de la Expo. */
+:host([pantalla][sin-controles]) {
+    cursor: none;
 }
 
 .ma-oculto {
@@ -1478,9 +1502,6 @@ var flecha = definirPieza({
   dependeDeOtras: true,
   validar(p) {
     if (p.desde == null || p.hasta == null) throw new Error('Una flecha necesita "desde" y "hasta".');
-    if (p.dentro != null) {
-      throw new Error("Las flechas se dibujan sobre la escena, no dentro de otra pieza: engancharlas a piezas de adentro ya funciona.");
-    }
   },
   crear(grupo) {
     return {
@@ -1490,8 +1511,12 @@ var flecha = definirPieza({
     };
   },
   actualizar(partes, p, ctx) {
-    const a = extremo(p.desde, ctx);
-    const b = extremo(p.hasta, ctx);
+    let a = extremo(p.desde, ctx);
+    let b = extremo(p.hasta, ctx);
+    if (p.dentro != null) {
+      a = adentro(a, p.dentro, ctx);
+      b = adentro(b, p.dentro, ctx);
+    }
     const curva2 = caminoFlecha(a, b, p.curvatura, p.separacion);
     const largos = medirCurva(curva2);
     const total = largos[largos.length - 1];
@@ -1543,6 +1568,10 @@ function extremo(cual, ctx) {
     return posicionAbsoluta(cual, ctx.estado, ctx.tipos);
   }
   return { x: cual.x, y: cual.y };
+}
+function adentro(r2, contenedor, ctx) {
+  const { x, y, escala } = aCoordenadasDe(r2, contenedor, ctx.estado, ctx.tipos);
+  return { x, y, ancho: (r2.ancho ?? 0) / escala, alto: (r2.alto ?? 0) / escala };
 }
 function n(v) {
   return Math.round(v * 100) / 100;
@@ -1679,8 +1708,8 @@ var celular = definirPieza({
     el("rect", { x: 24, y: 0, width: 24, height: 12, rx: 3, fill: "none", "stroke-width": 1.5 }, iconos);
     el("rect", { x: 26.5, y: 2.5, width: 15, height: 7, rx: 1.5 }, iconos);
     const contenido = el("g", {}, pantalla);
-    const camara = el("rect", { x: CUERPO_ANCHO / 2 - 40, y: BISEL + 10, width: 80, height: 18, rx: 9 }, cuerpo);
-    return { cuerpo, marco, fondo, barraApp, titulo, hora, iconos, contenido, camara };
+    const camara2 = el("rect", { x: CUERPO_ANCHO / 2 - 40, y: BISEL + 10, width: 80, height: 18, rx: 9 }, cuerpo);
+    return { cuerpo, marco, fondo, barraApp, titulo, hora, iconos, contenido, camara: camara2 };
   },
   actualizar(partes, p) {
     const k = p.alto / CUERPO_ALTO;
@@ -1707,6 +1736,133 @@ var celular = definirPieza({
 });
 var PANTALLA = { ancho: PANTALLA_ANCHO, alto: PANTALLA_ALTO, arriba: BARRA, debajoDelTitulo: BARRA + ENCABEZADO };
 
+// src/piezas/camara.js
+var camara = definirPieza({
+  nombre: "camara",
+  predeterminados: {
+    mirarX: 0,
+    mirarY: 0,
+    zoom: 1,
+    // La ventana, centrada en (x, y). 0: sin recortar.
+    ancho: 0,
+    alto: 0
+  },
+  crear(grupo) {
+    const id = idUnico("ma-camara");
+    const rect = el("rect", {}, el("clipPath", { id }, el("defs", {}, grupo)));
+    const ventana = el("g", {}, grupo);
+    return { id, rect, ventana, contenido: el("g", {}, ventana) };
+  },
+  actualizar(partes, p) {
+    const recorta = p.ancho > 0 && p.alto > 0;
+    poner(partes.rect, { x: -p.ancho / 2, y: -p.alto / 2, width: p.ancho, height: p.alto });
+    poner(partes.ventana, { "clip-path": recorta ? `url(#${partes.id})` : null });
+    poner(partes.contenido, {
+      transform: `scale(${p.zoom}) translate(${-p.mirarX} ${-p.mirarY})`
+    });
+  },
+  contenedor: (partes) => partes.contenido,
+  origenContenedor: (p) => ({ x: -p.mirarX * p.zoom, y: -p.mirarY * p.zoom, escala: p.zoom })
+});
+
+// src/piezas/contador.js
+var ANCLAS2 = { inicio: "start", centro: "middle", fin: "end" };
+function formatearNumero(valor, decimales = 0) {
+  const fijo = Math.abs(valor).toFixed(decimales);
+  const [entera, fraccion] = fijo.split(".");
+  const conMiles = entera.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const signo = valor < 0 && Number(fijo) !== 0 ? "-" : "";
+  return signo + conMiles + (fraccion ? `,${fraccion}` : "");
+}
+var contador2 = definirPieza({
+  nombre: "contador",
+  predeterminados: {
+    valor: 0,
+    decimales: 0,
+    prefijo: "",
+    sufijo: "",
+    tamano: 96,
+    peso: 800,
+    color: "texto",
+    alineacion: "centro"
+  },
+  colores: ["color"],
+  crear(grupo) {
+    return {
+      texto: el("text", { "dominant-baseline": "central", "font-variant-numeric": "tabular-nums" }, grupo)
+    };
+  },
+  actualizar(partes, p) {
+    poner(partes.texto, {
+      fill: aCss(p.color),
+      "font-size": p.tamano,
+      "font-weight": p.peso,
+      "text-anchor": ANCLAS2[p.alineacion] ?? "middle"
+    });
+    texto(partes.texto, `${p.prefijo}${formatearNumero(p.valor, p.decimales)}${p.sufijo}`);
+  }
+});
+
+// src/piezas/cilindro.js
+var cilindro = definirPieza({
+  nombre: "cilindro",
+  predeterminados: {
+    ancho: 200,
+    alto: 150,
+    relleno: "superficie",
+    borde: "acento",
+    grosorBorde: 4,
+    nivel: 0,
+    colorNivel: "acento",
+    texto: "",
+    tamano: 24,
+    peso: 700,
+    color: "texto"
+  },
+  colores: ["relleno", "borde", "colorNivel", "color"],
+  crear(grupo) {
+    return {
+      cuerpo: el("path", {}, grupo),
+      liquido: el("path", { stroke: "none" }, grupo),
+      tapa: el("ellipse", {}, grupo),
+      texto: el("text", { "text-anchor": "middle", "dominant-baseline": "central" }, grupo)
+    };
+  },
+  actualizar(partes, p) {
+    const rx = p.ancho / 2;
+    const ry = p.ancho * 0.14;
+    const arriba = -p.alto / 2 + ry;
+    const abajo = p.alto / 2 - ry;
+    poner(partes.cuerpo, {
+      d: `M${-rx} ${arriba} V${abajo} A${rx} ${ry} 0 0 0 ${rx} ${abajo} V${arriba} Z`,
+      fill: aCss(p.relleno),
+      stroke: aCss(p.borde),
+      "stroke-width": p.grosorBorde
+    });
+    const nivel = limitar(p.nivel, 0, 1);
+    const y = abajo - nivel * (abajo - arriba);
+    const m = p.grosorBorde / 2;
+    poner(partes.liquido, {
+      d: `M${-rx + m} ${y} V${abajo} A${rx - m} ${ry - m} 0 0 0 ${rx - m} ${abajo} V${y} A${rx - m} ${ry - m} 0 0 1 ${-rx + m} ${y} Z`,
+      fill: `color-mix(in srgb, ${aCss(p.colorNivel)} 35%, transparent)`,
+      visibility: nivel > 0 ? null : "hidden"
+    });
+    poner(partes.tapa, {
+      cx: 0,
+      cy: arriba,
+      rx,
+      ry,
+      fill: aCss(p.relleno),
+      stroke: aCss(p.borde),
+      "stroke-width": p.grosorBorde
+    });
+    poner(partes.texto, { fill: aCss(p.color), "font-size": p.tamano, "font-weight": p.peso });
+    const lineas = partirLineas(p.texto, Math.floor((p.ancho - 24) / (p.tamano * ANCHO_LETRA)));
+    renglones(partes.texto, lineas, { y: (arriba + abajo) / 2 + ry / 2, tamano: p.tamano, interlineado: 1.15 });
+  },
+  tamano: (p) => ({ ancho: p.ancho, alto: p.alto })
+});
+
 // src/index.js
 var version = "0.1.0";
 definirComponente();
@@ -1720,9 +1876,12 @@ export {
   aCss,
   azar,
   caja,
+  camara,
   caminoFlecha,
   celular,
+  cilindro,
   compilar,
+  contador2 as contador,
   crearPintor,
   curva,
   curvas,
@@ -1731,6 +1890,7 @@ export {
   duracionLectura,
   el,
   flecha,
+  formatearNumero,
   interpolar,
   limitar,
   mezclarColores,

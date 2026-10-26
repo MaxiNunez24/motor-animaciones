@@ -2,7 +2,7 @@
 // que se pidan. Es el primer paso del render a video (fase 4) y ya sirve para
 // armar GIFs y capturas de revisión.
 //
-//     node herramientas/capturar.js --url /ejemplos/prueba.html --fps 12 --ancho 960
+//     node herramientas/capturar.js --url ejemplos/prueba.html --fps 12 --ancho 960
 //
 // Como el estado depende solo de t, no hace falta "grabar la pantalla": se
 // pone la escena en cada instante y se le saca una foto. Un cuadro que tarda
@@ -15,7 +15,9 @@ import { parseArgs } from 'node:util';
 
 const { values: op } = parseArgs({
     options: {
-        url: { type: 'string', default: '/ejemplos/prueba.html' },
+        // Sin barra adelante: en Git Bash, una ruta que empieza con / se convierte
+        // en una de Windows (C:/Program Files/Git/...) antes de llegar acá.
+        url: { type: 'string', default: 'ejemplos/prueba.html' },
         base: { type: 'string', default: 'http://localhost:4173' },
         salida: { type: 'string', default: 'salida/cuadros' },
         fps: { type: 'string', default: '12' },
@@ -33,7 +35,7 @@ const pagina = await navegador.newPage({
     viewport: { width: Number(op.ancho), height: Number(op.alto) },
     deviceScaleFactor: Number(op.escala),
 });
-await pagina.goto(op.base + op.url);
+await pagina.goto(`${op.base}/${op.url.replace(/^\/+/, '')}`);
 await pagina.waitForFunction(() => document.querySelector('motor-escena')?.compilada);
 const duracion = await pagina.evaluate((tema) => {
     const m = document.querySelector('motor-escena');

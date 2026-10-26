@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>El Sistema de Gestión de Alumnos · Expo CFP 2026</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            background: #12161d;
+        }
+    </style>
+</head>
+<body>
+    <!-- Para la pantalla grande de la Expo: toda la ventana, en loop, sin
+         controles y en oscuro (en una sala iluminada, un fondo oscuro cansa
+         menos y se ve más contraste). Se abre y se pone el navegador en
+         pantalla completa con F11. -->
+    <motor-escena escena="expo-siges" pantalla loop autoplay sin-controles tema="oscuro" movimiento="completo"></motor-escena>
+
+    <!-- Todo local, sin internet: la Expo puede no tener wifi. -->
+    <script src="../../dist/motor.min.js"></script>
+    <script src="siges.js"></script>
+</body>
+</html>

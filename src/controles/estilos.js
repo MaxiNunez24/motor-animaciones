@@ -198,6 +198,17 @@ ${CSS_TEMA}
 :host(:fullscreen) .ma-lienzo svg {
     height: 100%;
 }
+/* En una pantalla grande los subtítulos se leen desde lejos. */
+:host([pantalla]) .ma-subtitulo,
+:host(:fullscreen) .ma-subtitulo {
+    font-size: clamp(18px, 2.8cqi, 52px);
+    padding: 0.4em 1em 0.6em;
+}
+/* Sin controles no hay nada que apuntar: que el mouse no quede en el medio
+   de la pantalla de la Expo. */
+:host([pantalla][sin-controles]) {
+    cursor: none;
+}
 
 .ma-oculto {
     position: absolute;

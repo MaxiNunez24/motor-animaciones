@@ -29,6 +29,27 @@ export function posicionAbsoluta(id, estado, tipos) {
 }
 
 /**
+ * Lo contrario de posicionAbsoluta: un punto del dibujo entero, en las
+ * coordenadas de adentro de un contenedor (una cámara, un celular). Lo usan las
+ * flechas que van dentro de una cámara para enganchar piezas de cualquier lado.
+ * @param {{ x: number, y: number }} punto
+ * @param {string} contenedor
+ * @param {{ piezas: Record<string, any> }} estado
+ * @param {Record<string, any>} tipos
+ */
+export function aCoordenadasDe(punto, contenedor, estado, tipos) {
+    // Lo de adentro de un contenedor solo se corre y se escala (no se gira),
+    // así que alcanza con saber dónde caen el (0, 0) y el (1, 0) de adentro.
+    const donde = (x, y) => {
+        const falso = { piezas: { ...estado.piezas, __punto: { x, y, escala: 1, dentro: contenedor } } };
+        return posicionAbsoluta('__punto', falso, { ...tipos, __punto: {} });
+    };
+    const origen = donde(0, 0);
+    const escala = donde(1, 0).x - origen.x || 1;
+    return { x: (punto.x - origen.x) / escala, y: (punto.y - origen.y) / escala, escala };
+}
+
+/**
  * El camino de una flecha entre dos rectángulos (o dos puntos): una curva que
  * sale del borde del primero y llega al borde del segundo, no a su centro.
  * @param {{ x: number, y: number, ancho?: number, alto?: number }} a
