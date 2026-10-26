@@ -7,6 +7,7 @@
 // Deja, al lado del video:
 //   .srt               los subtítulos, para subir a YouTube aparte
 //   .vtt               los mismos, para un <video> en una página web
+//   .gif               con --gif, una versión liviana para mandar por mensaje
 //   .descripcion.txt   el título, la descripción y los capítulos, para pegar en YouTube
 //
 // Cómo funciona: como el estado depende solo de t, no se graba la pantalla.
@@ -25,7 +26,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { createRequire } from 'node:module';
-import { aSrt, aVtt, capitulosYouTube, duracionWav } from './lib/textos-video.js';
+import { aSrt, aVtt, capitulosYouTube, duracionWav, prepararParaVoz } from './lib/textos-video.js';
 
 const { values: op } = parseArgs({
     options: {
@@ -43,11 +44,23 @@ const { values: op } = parseArgs({
         subtitulos: { type: 'string', default: 'srt' },
         narrar: { type: 'boolean', default: false },
         voz: { type: 'string', default: join(process.env.LOCALAPPDATA ?? join(process.env.HOME ?? '.', '.local', 'share'), 'motor-animaciones', 'voces', 'es_AR-daniela-high.onnx') },
-        // Más de 1: habla más despacio.
-        pausado: { type: 'string', default: '1.05' },
+        // Cómo habla la voz. Los valores por defecto se eligieron de oído: con los
+        // de Piper sola, el final de cada frase sonaba apurado y plano.
+        //   pausado    más de 1: más despacio
+        //   expresion  cuánto varía la entonación (Piper: noise_scale)
+        //   ritmo      cuánto varía la duración de cada sonido (Piper: noise_w)
+        //   silencio   segundos de pausa al terminar cada oración
+        pausado: { type: 'string', default: '1.08' },
+        expresion: { type: 'string', default: '0.72' },
+        ritmo: { type: 'string', default: '0.9' },
+        silencio: { type: 'string', default: '0.35' },
         desde: { type: 'string', default: '0' },
         hasta: { type: 'string' },
         calidad: { type: 'string', default: '20' },
+        // Además del video, un GIF (para WhatsApp, una presentación, un mensaje).
+        gif: { type: 'boolean', default: false },
+        'gif-ancho': { type: 'string', default: '800' },
+        'gif-fps': { type: 'string', default: '12' },
     },
 });
 
@@ -153,7 +166,23 @@ const creditos = op.narrar
     ? '\n\nVoz: Piper, es_AR-daniela (datos de OpenSLR 61, CC BY-SA 4.0).'
     : '';
 writeFileSync(`${base}.descripcion.txt`, `${info.titulo}\n\n${info.descripcion}\n\n${yt.texto}${creditos}\n`, 'utf-8');
-for (const p of yt.problemas) console.warn(`⚠️ Capítulos: ${p}`);
+// Sin capítulos es normal (una lección corta): solo se avisa si hay y no sirven.
+if (capitulos.length) for (const p of yt.problemas) console.warn(`⚠️ Capítulos: ${p}`);
+
+// ---------------- El GIF ----------------
+// Sale del MP4, en dos pasadas: la primera arma una paleta de 256 colores con
+// los que de verdad aparecen, la segunda la usa. Con la paleta genérica, los
+// degradés y el texto chico quedarían manchados.
+if (op.gif) {
+    const gif = `${base}.gif`;
+    const escala = `fps=${op['gif-fps']},scale=${op['gif-ancho']}:-1:flags=lanczos`;
+    execFileSync(ffmpeg, [
+        '-y', '-loglevel', 'error', '-i', salida,
+        '-vf', `${escala},split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle`,
+        gif,
+    ]);
+    console.log(`GIF → ${gif} (${(readFileSync(gif).length / 1024 / 1024).toFixed(1)} MB)`);
+}
 
 const seg = (Date.now() - inicio) / 1000;
 console.log(`Listo en ${seg.toFixed(0)} s → ${salida}`);
@@ -187,10 +216,12 @@ function narrar(subtitulos) {
     const resultado = [];
     let largos = 0;
     for (const s of subtitulos) {
-        const clave = createHash('sha1').update(`${op.voz}|${op.pausado}|${s.texto}`).digest('hex').slice(0, 16);
+        const dicho = prepararParaVoz(s.texto);
+        const ajustes = ['--length-scale', op.pausado, '--noise-scale', op.expresion, '--noise-w-scale', op.ritmo, '--sentence-silence', op.silencio];
+        const clave = createHash('sha1').update(`${op.voz}|${ajustes.join(' ')}|${dicho}`).digest('hex').slice(0, 16);
         const archivo = join(cache, `${clave}.wav`);
         if (!existsSync(archivo)) {
-            execFileSync(python, ['-m', 'piper', '-m', op.voz, '--length-scale', op.pausado, '-f', archivo, '--', s.texto], { stdio: 'ignore' });
+            execFileSync(python, ['-m', 'piper', '-m', op.voz, ...ajustes, '-f', archivo, '--', dicho], { stdio: 'ignore' });
         }
         const dura = duracionWav(readFileSync(archivo));
         const lugar = s.hasta - s.desde;

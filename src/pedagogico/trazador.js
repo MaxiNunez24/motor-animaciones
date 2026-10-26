@@ -30,3 +30,20 @@ export function trazarConPyodide(pyodide, codigo, opciones = {}) {
         trazar.destroy?.();
     }
 }
+
+/**
+ * Corre los tests de un programa (las funciones test_...) en el navegador, y
+ * anota cada assert: lo que espera desdeTests().
+ * @param {{ runPython: (codigo: string) => any, globals: { get: (nombre: string) => any } }} pyodide
+ * @param {string} codigo
+ * @returns {{ codigo: string, tests: any[], error?: string }}
+ */
+export function probarConPyodide(pyodide, codigo) {
+    pyodide.runPython(TRAZADOR_PY);
+    const probar = pyodide.globals.get('_motor_probar');
+    try {
+        return JSON.parse(probar(codigo));
+    } finally {
+        probar.destroy?.();
+    }
+}

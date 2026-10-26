@@ -3,7 +3,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { tiempoSrt, aSrt, aVtt, reloj, capitulosYouTube, duracionWav } from '../../herramientas/lib/textos-video.js';
+import { tiempoSrt, aSrt, aVtt, reloj, capitulosYouTube, duracionWav, prepararParaVoz } from '../../herramientas/lib/textos-video.js';
 
 describe('subtítulos .srt', () => {
     test('el tiempo va con horas, minutos, segundos y milisegundos', () => {
@@ -87,5 +87,23 @@ describe('duración de un .wav', () => {
 describe('subtítulos .vtt, para la web', () => {
     test('encabezado WEBVTT y punto en los milisegundos', () => {
         assert.equal(aVtt([{ texto: 'Hola', desde: 1, hasta: 2.5 }]), 'WEBVTT\n\n1\n00:00:01.000 --> 00:00:02.500\nHola\n');
+    });
+});
+
+describe('el texto que lee la voz', () => {
+    test('sin emojis, y los símbolos en palabras', () => {
+        assert.equal(prepararParaVoz('🌡️ Estuvo 2,1 °C más caliente: 83 % de chances'), 'Estuvo 2,1 grados más caliente: 83 por ciento de chances.');
+    });
+
+    test('el código se dice como se lee', () => {
+        assert.equal(prepararParaVoz('WHERE presentes >= 8'), 'WHERE presentes mayor o igual a 8.');
+        assert.equal(prepararParaVoz('porcentaje(10, 20) == 50'), 'porcentaje(10, 20) igual a 50.');
+        assert.equal(prepararParaVoz('test_mitad falla'), 'test mitad falla.');
+        assert.equal(prepararParaVoz('marcar() sobre Alumno #1'), 'marcar sobre Alumno número 1.');
+    });
+
+    test('siempre termina en punto, para que la entonación baje', () => {
+        assert.equal(prepararParaVoz('¿Qué pasa con a?'), '¿Qué pasa con a?');
+        assert.equal(prepararParaVoz('Listo'), 'Listo.');
     });
 });

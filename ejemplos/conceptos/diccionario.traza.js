@@ -26,7 +26,8 @@ Motor.trazas["diccionario"] = {
        "'Beto'",
        "25"
       ]
-     ]
+     ],
+     "ref": 1
     }
    },
    "salida": ""
@@ -50,7 +51,8 @@ Motor.trazas["diccionario"] = {
        "'Cami'",
        "41"
       ]
-     ]
+     ],
+     "ref": 1
     }
    },
    "salida": ""
@@ -74,7 +76,8 @@ Motor.trazas["diccionario"] = {
        "'Cami'",
        "41"
       ]
-     ]
+     ],
+     "ref": 1
     }
    },
    "salida": "30\n"
@@ -98,7 +101,8 @@ Motor.trazas["diccionario"] = {
        "'Cami'",
        "41"
       ]
-     ]
+     ],
+     "ref": 1
     }
    },
    "salida": "30\n",

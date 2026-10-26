@@ -1840,7 +1840,11 @@ var flecha = definirPieza({
     punteada: false,
     etiqueta: "",
     tamanoEtiqueta: 24,
-    colorEtiqueta: "suave"
+    colorEtiqueta: "suave",
+    // De qué lado del camino va la etiqueta: 1 o -1 (para que no quede encima de otra pieza).
+    ladoEtiqueta: 1,
+    // Girar la etiqueta para que siga la flecha (en una flecha vertical, no ocupa ancho).
+    girarEtiqueta: false
   },
   colores: ["color", "colorEtiqueta"],
   // Depende de dónde están las otras piezas, así que se recalcula siempre.
@@ -1892,13 +1896,19 @@ var flecha = definirPieza({
     });
     const medio = puntoCurva(curva2, 0.5);
     const angMedio = anguloCurva(curva2, 0.5);
-    const ex = Math.sin(angMedio);
-    const ey = -Math.cos(angMedio);
+    const ex = Math.sin(angMedio) * (p.ladoEtiqueta < 0 ? -1 : 1);
+    const ey = -Math.cos(angMedio) * (p.ladoEtiqueta < 0 ? -1 : 1);
     const medioAncho = Array.from(p.etiqueta).length * p.tamanoEtiqueta * ANCHO_LETRA / 2;
-    const corrimiento = p.tamanoEtiqueta * 0.5 + Math.abs(ex) * medioAncho + Math.abs(ey) * p.tamanoEtiqueta * 0.5;
+    const corrimiento = p.girarEtiqueta ? p.tamanoEtiqueta * 0.8 : p.tamanoEtiqueta * 0.5 + Math.abs(ex) * medioAncho + Math.abs(ey) * p.tamanoEtiqueta * 0.5;
+    const ex2 = medio.x + ex * corrimiento;
+    const ey2 = medio.y + ey * corrimiento;
+    let grados = angMedio * 180 / Math.PI;
+    if (grados > 90) grados -= 180;
+    if (grados < -90) grados += 180;
     poner(partes.etiqueta, {
-      x: medio.x + ex * corrimiento,
-      y: medio.y + ey * corrimiento,
+      x: ex2,
+      y: ey2,
+      transform: p.girarEtiqueta ? `rotate(${grados.toFixed(1)} ${ex2.toFixed(1)} ${ey2.toFixed(1)})` : null,
       "font-size": p.tamanoEtiqueta,
       fill: aCss(p.colorEtiqueta),
       opacity: limitar((avance - 0.5) / 0.4, 0, 1),
@@ -1940,7 +1950,10 @@ var tabla = definirPieza({
     borde: "borde",
     encabezado: "acento",
     colorEncabezado: "fondo",
-    color: "texto"
+    color: "texto",
+    // 'centro': y es el centro (como las demás piezas). 'arriba': y es el borde de
+    // arriba, para una tabla que va creciendo y no tiene que saltar.
+    anclaje: "centro"
   },
   colores: ["relleno", "borde", "encabezado", "colorEncabezado", "color"],
   validar(p) {
@@ -1955,7 +1968,7 @@ var tabla = definirPieza({
     const anchos = p.anchos ?? p.columnas.map(() => p.ancho / p.columnas.length);
     const total = anchos.reduce((a, b) => a + b, 0);
     const izq = -total / 2;
-    const arriba = -((p.filas.length + 1) * p.altoFila) / 2;
+    const arriba = p.anclaje === "arriba" ? 0 : -((p.filas.length + 1) * p.altoFila) / 2;
     const forma = `${p.columnas.length}x${p.filas.length}`;
     if (partes.forma !== forma) {
       partes.grupo.replaceChildren();
@@ -1990,15 +2003,15 @@ var tabla = definirPieza({
         "stroke-width": 2
       });
       let x = izq;
-      fila.celdas.forEach((celda, j) => {
-        poner(celda, {
+      fila.celdas.forEach((celda2, j) => {
+        poner(celda2, {
           x: x + 16,
           y: y + p.altoFila / 2,
           "font-size": p.tamano,
           "font-weight": esEncabezado || resaltada ? 700 : 400,
           fill: esEncabezado ? aCss(p.colorEncabezado) : aCss(p.color)
         });
-        texto(celda, String(datos?.[j] ?? ""));
+        texto(celda2, String(datos?.[j] ?? ""));
         x += anchos[j];
       });
     });
@@ -2294,9 +2307,46 @@ var PROPIAS = {
     "False",
     "None"
   ]),
-  js: /* @__PURE__ */ new Set(["console", "document", "window", "true", "false", "null", "undefined", "Math", "JSON"])
+  js: /* @__PURE__ */ new Set(["console", "document", "window", "true", "false", "null", "undefined", "Math", "JSON"]),
+  sql: /* @__PURE__ */ new Set(["COUNT", "SUM", "AVG", "MIN", "MAX", "NULL", "TRUE", "FALSE"])
 };
-var COMENTARIO = { python: "#", js: "//" };
+PALABRAS.sql = /* @__PURE__ */ new Set([
+  "SELECT",
+  "FROM",
+  "WHERE",
+  "AND",
+  "OR",
+  "NOT",
+  "ORDER",
+  "BY",
+  "ASC",
+  "DESC",
+  "LIMIT",
+  "INSERT",
+  "INTO",
+  "VALUES",
+  "UPDATE",
+  "SET",
+  "DELETE",
+  "CREATE",
+  "TABLE",
+  "JOIN",
+  "ON",
+  "AS",
+  "GROUP",
+  "HAVING",
+  "DISTINCT",
+  "LIKE",
+  "IN",
+  "IS",
+  "BETWEEN",
+  "PRIMARY",
+  "KEY",
+  "INTEGER",
+  "TEXT",
+  "REAL"
+]);
+var COMENTARIO = { python: "#", js: "//", sql: "--" };
 var LETRA = /[A-Za-z_ÁÉÍÓÚáéíóúÑñÜü]/;
 var PALABRA = /[A-Za-z0-9_ÁÉÍÓÚáéíóúÑñÜü]/;
 function tokenizar(linea, lenguaje = "python") {
@@ -2336,7 +2386,8 @@ function tokenizar(linea, lenguaje = "python") {
       while (j < linea.length && PALABRA.test(linea[j])) j++;
       const palabra = linea.slice(i, j);
       const sigue = linea.slice(j).trimStart()[0];
-      const clase = palabras.has(palabra) ? "palabra" : propias.has(palabra) ? "propia" : sigue === "(" ? "funcion" : "normal";
+      const clave = lenguaje === "sql" ? palabra.toUpperCase() : palabra;
+      const clase = palabras.has(clave) ? "palabra" : propias.has(clave) ? "propia" : sigue === "(" ? "funcion" : "normal";
       agregar(palabra, clase);
       i = j;
       continue;
@@ -2382,8 +2433,8 @@ var codigo = definirPieza({
     return { grupo, clave: "", lineas: [] };
   },
   actualizar(partes, p) {
-    const medidas = medir(p);
-    const { arriba, izq, alto, altoLinea, xCodigo } = medidas;
+    const medidas2 = medir(p);
+    const { arriba, izq, alto, altoLinea, xCodigo } = medidas2;
     const clave = `${p.lenguaje}|${p.tamano}|${p.ancho}|${p.titulo}|${p.numeros}|${p.codigo}`;
     if (partes.clave !== clave) {
       partes.grupo.replaceChildren();
@@ -2391,8 +2442,8 @@ var codigo = definirPieza({
       partes.pestana = el("text", { "font-size": p.tamano * 0.75, "dominant-baseline": "central" }, partes.grupo);
       partes.barra = el("rect", {}, partes.grupo);
       partes.borde = el("rect", {}, partes.grupo);
-      partes.lineas = medidas.lineas.map((linea, i) => {
-        const y2 = arriba + medidas.encabezado + (i + 0.5) * altoLinea + medidas.margen;
+      partes.lineas = medidas2.lineas.map((linea, i) => {
+        const y2 = arriba + medidas2.encabezado + (i + 0.5) * altoLinea + medidas2.margen;
         const numero = el("text", {
           x: izq + 16 + 2 * p.tamano * ANCHO_MONO,
           y: y2,
@@ -2435,14 +2486,14 @@ var codigo = definirPieza({
     });
     poner(partes.pestana, {
       x: izq + 20,
-      y: arriba + medidas.encabezado / 2,
+      y: arriba + medidas2.encabezado / 2,
       fill: "var(--ma-suave)",
       "font-family": "var(--ma-fuente-mono)",
       visibility: p.titulo ? null : "hidden"
     });
     texto(partes.pestana, p.titulo);
-    const n2 = medidas.lineas.length;
-    const y = arriba + medidas.encabezado + medidas.margen + (limitar(p.linea, 1, Math.max(n2, 1)) - 1) * altoLinea;
+    const n2 = medidas2.lineas.length;
+    const y = arriba + medidas2.encabezado + medidas2.margen + (limitar(p.linea, 1, Math.max(n2, 1)) - 1) * altoLinea;
     const marca = limitar(p.marca, 0, 1);
     poner(partes.barra, {
       x: izq + 2,
@@ -2698,12 +2749,154 @@ function medir2(p) {
   return { altoLinea, encabezado, alto: encabezado + p.renglones * altoLinea + 12 };
 }
 
+// src/pedagogico/piezas/pila.js
+var pila = definirPieza({
+  nombre: "pila",
+  predeterminados: {
+    // [{ funcion: 'sumar', filas: [['a', '3'], ['b', '4']], retorno: '7' }], de la de afuera a la actual.
+    marcos: [],
+    ancho: 460,
+    tamano: 24,
+    titulo: "Llamadas",
+    relleno: "superficie",
+    borde: "acento2",
+    destello: 0
+  },
+  colores: ["relleno", "borde"],
+  crear(grupo) {
+    return {
+      titulo: el("text", { "dominant-baseline": "central", "font-weight": 700 }, grupo),
+      cuerpo: el("g", {}, grupo),
+      clave: ""
+    };
+  },
+  actualizar(partes, p) {
+    const { altoFila, encabezado, separacion } = medidas(p);
+    const izq = -p.ancho / 2;
+    poner(partes.titulo, {
+      x: izq + 4,
+      y: -p.tamano * 0.6,
+      "font-size": p.tamano * 0.8,
+      fill: "var(--ma-suave)",
+      visibility: p.titulo && p.marcos.length ? null : "hidden"
+    });
+    texto(partes.titulo, p.titulo);
+    const clave = JSON.stringify(p.marcos);
+    if (partes.clave !== clave) {
+      partes.cuerpo.replaceChildren();
+      partes.actual = null;
+      const enOrden = [...p.marcos].reverse();
+      let y = 0;
+      enOrden.forEach((m, i) => {
+        const actual = i === 0;
+        const filas = [...m.filas];
+        if (m.retorno !== void 0) filas.push(["\u21A9 devuelve", m.retorno]);
+        const alto = encabezado + Math.max(filas.length, 1) * altoFila + 10;
+        const g = el("g", { transform: `translate(0 ${y})`, opacity: actual ? 1 : 0.62 }, partes.cuerpo);
+        el("rect", {
+          x: izq,
+          y: 0,
+          width: p.ancho,
+          height: alto,
+          rx: 10,
+          fill: aCss(p.relleno),
+          stroke: actual ? aCss(p.borde) : "var(--ma-borde)",
+          "stroke-width": actual ? 3 : 2
+        }, g);
+        el("rect", {
+          x: izq,
+          y: 0,
+          width: p.ancho,
+          height: encabezado,
+          rx: 10,
+          fill: `color-mix(in srgb, ${aCss(p.borde)} ${actual ? 24 : 10}%, transparent)`
+        }, g);
+        const nombre = el("text", {
+          x: izq + 14,
+          y: encabezado / 2,
+          "dominant-baseline": "central",
+          "font-weight": 700,
+          "font-family": "var(--ma-fuente-mono)",
+          "font-size": p.tamano,
+          fill: "var(--ma-texto)"
+        }, g);
+        texto(nombre, `${m.funcion}()`);
+        if (filas.length === 0) {
+          const vacio = el("text", {
+            x: izq + 14,
+            y: encabezado + altoFila / 2,
+            "dominant-baseline": "central",
+            "font-size": p.tamano * 0.8,
+            fill: "var(--ma-suave)"
+          }, g);
+          texto(vacio, "sin variables todav\xEDa");
+        }
+        filas.forEach(([k, v], j) => {
+          const fy = encabezado + (j + 0.5) * altoFila + 4;
+          const esRetorno = k === "\u21A9 devuelve";
+          const color = esRetorno ? "var(--ma-exito)" : "var(--ma-texto)";
+          const nk = el("text", {
+            x: izq + 18,
+            y: fy,
+            "dominant-baseline": "central",
+            "font-family": "var(--ma-fuente-mono)",
+            "font-size": p.tamano * 0.9,
+            fill: esRetorno ? color : "var(--ma-suave)",
+            "font-weight": esRetorno ? 700 : 400
+          }, g);
+          texto(nk, k);
+          const lugar = p.ancho * 0.58 - 18;
+          const tam = Math.min(p.tamano * 0.9, lugar / (Math.max(String(v).length, 1) * ANCHO_MONO));
+          const nv = el("text", {
+            x: izq + p.ancho - 16,
+            y: fy,
+            "text-anchor": "end",
+            "dominant-baseline": "central",
+            "font-family": "var(--ma-fuente-mono)",
+            "font-size": tam,
+            fill: color,
+            "font-weight": 700
+          }, g);
+          texto(nv, String(v));
+        });
+        if (actual) {
+          partes.actual = el("rect", { x: izq, y: 0, width: p.ancho, height: alto, rx: 10, fill: "var(--ma-acento2)" }, g);
+        }
+        y += alto + separacion;
+      });
+      partes.clave = clave;
+    }
+    if (partes.actual) {
+      poner(partes.actual, { opacity: p.destello * 0.25, visibility: p.destello > 0 ? null : "hidden" });
+    }
+  },
+  // Lo que ocupa, por si se le engancha una flecha.
+  tamano(p) {
+    const { altoFila, encabezado, separacion } = medidas(p);
+    const alto = p.marcos.reduce((n2, m) => n2 + encabezado + Math.max(m.filas.length + (m.retorno !== void 0 ? 1 : 0), 1) * altoFila + 10 + separacion, 0);
+    return { ancho: p.ancho, alto };
+  }
+});
+function medidas(p) {
+  return { altoFila: p.tamano * 1.5, encabezado: p.tamano * 1.75, separacion: p.tamano * 0.5 };
+}
+
 // src/pedagogico/explicar.js
 var LIMITE = 28;
 function corto(repr, limite = LIMITE) {
   return repr.length > limite ? `${repr.slice(0, limite - 1)}\u2026` : repr;
 }
-function crear(nombre, v) {
+function queEs(v) {
+  if (v.atributos) return "el mismo objeto";
+  if (v.tipo === "dict") return "el mismo diccionario";
+  return "la misma lista";
+}
+function crear(nombre, v, otras) {
+  const gemela = v.ref !== void 0 && Object.entries(otras).find(([n2, o]) => n2 !== nombre && o.ref === v.ref);
+  if (gemela) return `${nombre} no es una copia: es ${queEs(v)} que ${gemela[0]}.`;
+  const copia = v.ref !== void 0 && Object.entries(otras).find(([n2, o]) => n2 !== nombre && o.ref !== void 0 && o.ref !== v.ref && o.repr === v.repr);
+  if (copia) return `${nombre} es una copia: tiene lo mismo que ${copia[0]}, pero es otra ${v.atributos ? "cosa" : "lista"}.`;
+  if (v.atributos) return `${nombre} es un objeto ${v.tipo}.`;
   if (v.items) {
     const cuantos = v.items.length;
     const que = v.tipo === "tuple" ? "una tupla" : "una lista";
@@ -2716,8 +2909,15 @@ function crear(nombre, v) {
   return `${nombre} vale ${corto(v.repr)}.`;
 }
 function cambiar(nombre, antes, ahora) {
+  if (ahora.atributos && antes.atributos) {
+    const previos = Object.fromEntries(antes.atributos);
+    const cambio2 = ahora.atributos.find(([k, val]) => previos[k] !== val);
+    if (cambio2) {
+      return cambio2[0] in previos ? `${nombre}.${cambio2[0]} pasa de ${corto(previos[cambio2[0]])} a ${corto(cambio2[1])}.` : `${nombre} tiene un atributo nuevo: ${cambio2[0]} vale ${corto(cambio2[1])}.`;
+    }
+  }
   if (ahora.items && antes.items) {
-    if (ahora.items.length === antes.items.length + 1) return `Se agreg\xF3 ${corto(ahora.items.at(-1))} a ${nombre}.`;
+    if (ahora.items.length === antes.items.length + 1) return `Se agreg\xF3 ${corto(ahora.items.at(-1))} a la lista ${nombre}.`;
     if (ahora.items.length === antes.items.length - 1) return `${nombre} ahora tiene un elemento menos.`;
     return `${nombre} cambi\xF3: ahora es ${corto(ahora.repr)}.`;
   }
@@ -2728,31 +2928,79 @@ function cambiar(nombre, antes, ahora) {
   }
   return `${nombre} pasa de ${corto(antes.repr)} a ${corto(ahora.repr)}.`;
 }
-function explicarPaso(traza, i, lineas) {
-  const paso = traza[i];
-  if (i === 0) return "Arranca el programa, por la primera l\xEDnea.";
-  const antes = traza[i - 1];
+function cambio(a, b) {
+  return a.repr !== b.repr || JSON.stringify(a.atributos) !== JSON.stringify(b.atributos);
+}
+function diferencias(varsAntes, vars, delFor) {
   const frases = [];
-  if (paso.excepcion) {
-    const { tipo, mensaje } = paso.excepcion;
-    return `Se corta con un error en la l\xEDnea ${paso.linea}: ${tipo}${mensaje ? ` (${mensaje})` : ""}.`;
-  }
-  const varsAntes = antes.variables ?? {};
-  const delFor = (lineas[antes.linea - 1] ?? "").trim().match(/^for\s+([A-Za-z_]\w*)\s+in\b/)?.[1];
-  for (const [nombre, v] of Object.entries(paso.variables ?? {})) {
+  const cambiadas = [];
+  for (const [nombre, v] of Object.entries(vars)) {
     const previa = varsAntes[nombre];
     if (nombre === delFor && previa?.repr !== v.repr) {
       frases.push(previa ? `Otra vuelta del for: ${nombre} vale ${corto(v.repr)}.` : `El for toma el primer elemento: ${nombre} vale ${corto(v.repr)}.`);
     } else if (!previa) {
-      frases.push(crear(nombre, v));
-    } else if (previa.repr !== v.repr) {
-      frases.push(cambiar(nombre, previa, v));
+      frases.push(crear(nombre, v, vars));
+    } else if (cambio(previa, v)) {
+      cambiadas.push({ nombre, previa, v });
     }
   }
+  const yaDichas = /* @__PURE__ */ new Set();
+  for (const c of cambiadas) {
+    if (yaDichas.has(c.nombre)) continue;
+    const juntas = cambiadas.filter((o) => o.v.ref !== void 0 && o.v.ref === c.v.ref);
+    if (juntas.length > 1) {
+      juntas.forEach((o) => yaDichas.add(o.nombre));
+      const nombres = juntas.map((o) => o.nombre);
+      frases.push(`${cambiar(c.nombre, c.previa, c.v)} Y tambi\xE9n ${nombres.slice(1).join(" y ")}: son ${queEs(c.v)}.`);
+    } else {
+      frases.push(cambiar(c.nombre, c.previa, c.v));
+    }
+  }
+  return frases;
+}
+function explicarPaso(traza, i, lineas) {
+  const paso = traza[i];
+  if (i === 0) return "Arranca el programa, por la primera l\xEDnea.";
+  const antes = traza[i - 1];
+  if (paso.excepcion) {
+    const { tipo, mensaje } = paso.excepcion;
+    return `Se corta con un error en la l\xEDnea ${paso.linea}: ${tipo}${mensaje ? ` (${mensaje})` : ""}.`;
+  }
+  const pila2 = paso.pila ?? [];
+  const pilaAntes = antes.pila ?? [];
+  if (paso.retorno) {
+    const { funcion, valor } = paso.retorno;
+    const hizo = pila2.length && pila2.length === pilaAntes.length ? diferencias(pilaAntes[pilaAntes.length - 1].variables, pila2[pila2.length - 1].variables, null).slice(0, 1) : [];
+    const termina = funcion === "__init__" ? "Termina __init__: el objeto queda armado." : valor === "None" ? `${funcion} termina (no devuelve nada).` : `${funcion} termina y devuelve ${corto(valor)}.`;
+    return [...hizo, termina].join(" ");
+  }
+  if (pila2.length > pilaAntes.length) {
+    const actual = pila2[pila2.length - 1];
+    const vars = Object.entries(actual.variables);
+    const yo = vars.find(([k]) => k === "self");
+    const parametros = vars.filter(([k]) => k !== "self");
+    const adentro2 = parametros.length ? ` Adentro, ${parametros.map(([k, v]) => `${k} vale ${corto(v.repr)}`).join(" y ")}.` : "";
+    if (actual.funcion === "__init__") return `Se crea un objeto nuevo y se ejecuta __init__.${adentro2}`;
+    const llamada = `${actual.funcion}(${parametros.map(([, v]) => corto(v.repr)).join(", ")})`;
+    const otraVez = pilaAntes.length && pilaAntes[pilaAntes.length - 1].funcion === actual.funcion ? ": la funci\xF3n se llama a s\xED misma" : "";
+    const sobre = yo ? ` sobre ${corto(yo[1].repr)}` : "";
+    return `Se llama a ${llamada}${sobre}${otraVez}.${adentro2}`;
+  }
+  const delFor = (lineas[antes.linea - 1] ?? "").trim().match(/^for\s+([A-Za-z_]\w*)\s+in\b/)?.[1];
+  const frases = [];
+  if (pila2.length && pila2.length === pilaAntes.length) {
+    frases.push(...diferencias(pilaAntes[pilaAntes.length - 1].variables, pila2[pila2.length - 1].variables, delFor));
+  }
+  frases.push(...diferencias(antes.variables ?? {}, paso.variables ?? {}, delFor));
   const nueva = (paso.salida ?? "").slice((antes.salida ?? "").length).replace(/\n$/, "");
   if (nueva) frases.push(`Se muestra: ${corto(nueva.split("\n").at(-1), 60)}`);
   if (frases.length === 0) {
     const texto3 = (lineas[antes.linea - 1] ?? "").trim();
+    const def = texto3.match(/^def\s+([A-Za-z_]\w*)/);
+    if (def) return `Se define la funci\xF3n ${def[1]}: todav\xEDa no se ejecuta, queda guardada para cuando se la llame.`;
+    const clase = texto3.match(/^class\s+([A-Za-z_]\w*)/);
+    if (clase) return `Se define la clase ${clase[1]}: es el molde, todav\xEDa no hay ning\xFAn objeto.`;
+    if (pila2.length < pilaAntes.length) return "Vuelve a donde se hab\xEDa llamado a la funci\xF3n.";
     if (/^(for|while)\b/.test(texto3) && paso.linea === antes.linea + 1) return "Entra al bucle.";
     if (/^for\b/.test(texto3)) return "No quedan elementos: termina el for.";
     if (/^while\b/.test(texto3)) return "La condici\xF3n del while ya no se cumple: sale del bucle.";
@@ -2794,6 +3042,18 @@ function detectarPunteros(traza) {
 }
 
 // src/pedagogico/traza.js
+function claseDeVariable(v) {
+  if (v.atributos) return "objeto";
+  if (v.tipo === "dict") return "dict";
+  if (v.items) return "lista";
+  return "valor";
+}
+function queEs2(v) {
+  if (v.atributos) return "el mismo objeto";
+  if (v.tipo === "dict") return "el mismo diccionario";
+  if (v.tipo === "set") return "el mismo conjunto";
+  return "la misma lista";
+}
 function desdeTraza(opciones) {
   const {
     traza,
@@ -2813,19 +3073,43 @@ function desdeTraza(opciones) {
   if (!Array.isArray(traza) || traza.length === 0) throw new Error("La traza tiene que ser una lista de pasos, y no puede estar vac\xEDa.");
   const variables2 = [];
   const vistas = /* @__PURE__ */ new Set();
-  let maxPares = 0;
+  const maxFilas = {};
   let maxItems = 0;
   for (const paso of traza) {
     for (const [nombre, v] of Object.entries(paso.variables ?? {})) {
-      if (v.tipo === "dict") maxPares = Math.max(maxPares, v.pares?.length ?? 0);
+      const filas = v.atributos ?? (v.tipo === "dict" ? v.pares : null);
+      if (filas) maxFilas[nombre] = Math.max(maxFilas[nombre] ?? 0, filas.length);
       if (v.items) maxItems = Math.max(maxItems, v.items.length);
       if (vistas.has(nombre)) continue;
       vistas.add(nombre);
-      variables2.push({ nombre, clase: v.tipo === "dict" ? "dict" : v.items ? "lista" : "valor" });
+      variables2.push({ nombre, clase: claseDeVariable(v), primera: v });
     }
   }
   const conSalida = traza.some((p) => p.salida);
   const conError = traza.some((p) => p.excepcion);
+  const conPila = traza.some((p) => p.pila?.length);
+  const compartidas = /* @__PURE__ */ new Set();
+  const pares = /* @__PURE__ */ new Map();
+  for (const paso of traza) {
+    const porRef = /* @__PURE__ */ new Map();
+    const anotar = (nombre, v, global) => {
+      if (v.ref === void 0) return;
+      if (!porRef.has(v.ref)) porRef.set(v.ref, []);
+      porRef.get(v.ref).push({ nombre, global, v });
+    };
+    for (const [n2, v] of Object.entries(paso.variables ?? {})) anotar(n2, v, true);
+    for (const m of paso.pila ?? []) for (const [n2, v] of Object.entries(m.variables)) anotar(n2, v, false);
+    for (const [ref, nombres] of porRef) {
+      if (nombres.length < 2) continue;
+      compartidas.add(ref);
+      const globales = nombres.filter((x) => x.global);
+      for (let k = 1; k < globales.length; k++) {
+        const clave = `${globales[0].nombre}|${globales[k].nombre}`;
+        if (!pares.has(clave)) pares.set(clave, { a: globales[0].nombre, b: globales[k].nombre, que: queEs2(globales[0].v) });
+      }
+    }
+  }
+  const conRef = (nombre, v) => v?.ref !== void 0 && compartidas.has(v.ref) ? `${nombre} \xB7 #${v.ref}` : nombre;
   return function(disposicion) {
     const angosta = disposicion.nombre === "angosta";
     const W = angosta ? 640 : 1600;
@@ -2834,6 +3118,9 @@ function desdeTraza(opciones) {
     const cod = angosta ? { x: 320, ancho: 610, tamano: 22 } : { x: 440, ancho: 820, tamano: 36 };
     const necesario = Math.max(...programa.split("\n").map((l) => l.length));
     cod.tamano = Math.min(cod.tamano, cod.tamano * caracteresPorLinea(cod) / necesario);
+    const lineasCodigo = programa.split("\n").length;
+    const disponible = angosta ? H * 0.42 : H - arriba - 30 - (conSalida ? 230 : 0);
+    cod.tamano = Math.min(cod.tamano, disponible / (lineasCodigo * 1.6 + (archivo ? 2.6 : 1)));
     const piezaCodigo = codigo({
       x: cod.x,
       y: 0,
@@ -2879,32 +3166,35 @@ function desdeTraza(opciones) {
       const id = "var_" + v.nombre;
       lugarVariable[v.nombre] = id;
       if (v.clase === "lista") {
-        const celda = Math.min(angosta ? 84 : 120, col.ancho / Math.max(maxItems, 1));
+        const celda2 = Math.min(angosta ? 84 : 120, col.ancho / Math.max(maxItems, 1));
         const alto = angosta ? 68 : 96;
         piezas[id] = lista({
           x: col.x,
           y: y + alto / 2,
-          nombre: v.nombre,
-          celda,
+          nombre: conRef(v.nombre, v.primera),
+          celda: celda2,
           alto,
           tamano: angosta ? 26 : 36,
           puntero: Object.entries(punteros).find(([l]) => l === v.nombre)?.[1] ?? "",
           opacidad: 0
         });
         y += alto + (angosta ? 115 : 160);
-      } else if (v.clase === "dict") {
-        const altoFila = angosta ? 44 : 60;
+      } else if (v.clase === "dict" || v.clase === "objeto") {
+        const altoFila = angosta ? 44 : 56;
+        const filas = maxFilas[v.nombre] ?? 0;
+        const columnas = v.clase === "objeto" ? [v.nombre, conRef(v.primera.tipo, v.primera).replace(" \xB7 ", " ")] : [`${v.nombre}: clave`, conRef("valor", v.primera)];
         piezas[id] = tabla({
           x: col.x,
-          y: y + (maxPares + 1) * altoFila / 2,
+          y: y + (filas + 1) * altoFila / 2,
           ancho: Math.min(col.ancho, 480),
-          columnas: [`${v.nombre}: clave`, "valor"],
+          columnas,
           filas: [],
           altoFila,
-          tamano: angosta ? 24 : 32,
-          opacidad: 0
+          tamano: angosta ? 24 : 30,
+          opacidad: 0,
+          encabezado: v.clase === "objeto" ? "acento2" : "acento"
         });
-        y += (maxPares + 1) * altoFila + 80;
+        y += (filas + 1) * altoFila + 80;
       } else {
         const alto = angosta ? 68 : 96;
         piezas[id] = variable({
@@ -2919,8 +3209,31 @@ function desdeTraza(opciones) {
         y += alto + (angosta ? 72 : 100);
       }
     }
+    if (conPila) {
+      piezas.pila = pila({ x: col.x, y: y - (angosta ? 10 : 20), ancho: Math.min(col.ancho, angosta ? 560 : 600), tamano: angosta ? 22 : 32 });
+    }
+    const costado = (id) => {
+      const { tipo, props } = piezas[id];
+      const ancho = tipo.nombre === "lista" ? props.celda * Math.max(maxItems, 1) : tipo.tamano?.(props).ancho ?? 0;
+      return { x: props.x - ancho / 2 - 12, y: props.y };
+    };
+    for (const [clave, par] of pares) {
+      piezas["alias_" + clave.replace("|", "_")] = flecha({
+        desde: costado(lugarVariable[par.a]),
+        hasta: costado(lugarVariable[par.b]),
+        progreso: 0,
+        curvatura: 0.45,
+        separacion: 0,
+        color: "acento2",
+        etiqueta: par.que,
+        tamanoEtiqueta: angosta ? 18 : 22,
+        colorEtiqueta: "acento2",
+        ladoEtiqueta: -1,
+        girarEtiqueta: true
+      });
+    }
     Object.assign(piezas, opciones.piezas?.(disposicion, { W, H, col, y }) ?? {});
-    if (!angosta) {
+    if (!angosta && !conPila) {
       let minimo = Infinity;
       let maximo = -Infinity;
       for (const [id, pieza] of Object.entries(piezas)) {
@@ -2938,6 +3251,9 @@ function desdeTraza(opciones) {
     let t = 0.7;
     let salidaAnterior = "";
     let respuesta = "";
+    let pilaAnterior = "[]";
+    let estabaDentro = false;
+    const aliasActivos = {};
     const lineasDelPrograma = programa.split("\n");
     traza.forEach((paso, i) => {
       if (capitulos[i]) linea.push({ capitulo: capitulos[i], en: t });
@@ -2945,17 +3261,19 @@ function desdeTraza(opciones) {
       for (const [nombre, v] of Object.entries(vars)) {
         const id = lugarVariable[nombre];
         const antes = anterior[nombre];
-        if (antes && antes.repr === v.repr) continue;
+        if (antes && antes.repr === v.repr && JSON.stringify(antes.atributos) === JSON.stringify(v.atributos)) continue;
         if (!antes) linea.push({ pieza: id, a: { opacidad: 1 }, dur: 0.4, en: t });
         const clase = variables2.find((x) => x.nombre === nombre).clase;
         if (clase === "lista") {
           linea.push({ pieza: id, a: { items: v.items }, dur: 0, en: t });
         } else if (clase === "dict") {
           linea.push({ pieza: id, a: { filas: v.pares ?? [] }, dur: 0, en: t });
+        } else if (clase === "objeto") {
+          linea.push({ pieza: id, a: { filas: v.atributos ?? [] }, dur: 0, en: t });
         } else {
           linea.push({ pieza: id, a: { valor: v.repr, tipoDato: v.tipo ?? "" }, dur: 0, en: t });
         }
-        if (antes && clase !== "dict") {
+        if (antes && (clase === "lista" || clase === "valor")) {
           linea.push({ pieza: id, a: { destello: 1 }, dur: 0.12, en: t, curva: "lineal" });
           linea.push({ pieza: id, a: { destello: 0 }, dur: 0.8, en: t + 0.12, curva: "salir" });
         }
@@ -2974,6 +3292,34 @@ function desdeTraza(opciones) {
       }
       for (const nombre of Object.keys(anterior)) if (!(nombre in vars)) delete anterior[nombre];
       Object.assign(anterior, vars);
+      if (conPila) {
+        const marcos = (paso.pila ?? []).map((m) => ({
+          funcion: m.funcion,
+          filas: Object.entries(m.variables).map(([k, v]) => [k, v.repr])
+        }));
+        if (paso.retorno && marcos.length) marcos[marcos.length - 1].retorno = paso.retorno.valor;
+        const clave = JSON.stringify(marcos);
+        if (clave !== pilaAnterior) {
+          linea.push({ pieza: "pila", a: { marcos }, dur: 0, en: t });
+          linea.push({ pieza: "pila", a: { destello: 1 }, dur: 0.12, en: t, curva: "lineal" });
+          linea.push({ pieza: "pila", a: { destello: 0 }, dur: 0.8, en: t + 0.12, curva: "salir" });
+          pilaAnterior = clave;
+        }
+        const dentro = marcos.length > 0;
+        if (dentro !== estabaDentro && !paso.excepcion) {
+          linea.push({ pieza: "codigo", a: { colorMarca: dentro ? "acento2" : "acento" }, dur: 0.3, en: t + 0.45 });
+          estabaDentro = dentro;
+        }
+      }
+      for (const [clave, par] of pares) {
+        const a = vars[par.a];
+        const b = vars[par.b];
+        const juntas = a?.ref !== void 0 && a.ref === b?.ref;
+        if (juntas !== Boolean(aliasActivos[clave])) {
+          linea.push({ pieza: "alias_" + clave.replace("|", "_"), a: { progreso: juntas ? 1 : 0 }, dur: 0.6, en: t + 0.2 });
+          aliasActivos[clave] = juntas;
+        }
+      }
       if (conSalida && (paso.salida ?? "") !== salidaAnterior) {
         if (!salidaAnterior) linea.push({ pieza: "consola", a: { opacidad: 1 }, dur: 0.3, en: t });
         linea.push({ pieza: "consola", a: { salida: paso.salida ?? "" }, dur: 0, en: t });
@@ -3031,7 +3377,7 @@ function desdeTraza(opciones) {
 }
 
 // src/pedagogico/trazador-py.js
-var TRAZADOR_PY = '# -*- coding: utf-8 -*-\n# El trazador: corre un programa de Python y anota cada paso que da.\n#\n# Este archivo es el \xDANICO lugar donde est\xE1. Lo usan:\n#   - herramientas/trazar.py, desde la consola;\n#   - el navegador, con Pyodide: herramientas/construir.js lo copia, tal cual,\n#     a src/pedagogico/trazador-py.js (un test verifica que sean iguales).\n#\n# Cada paso es la l\xEDnea que est\xE1 por correr, con las variables como est\xE1n en\n# ese momento y todo lo que se mostr\xF3 hasta ah\xED. Usa sys.settrace, igual que\n# la medici\xF3n de pasos de la plataforma del curso.\n\nimport io\nimport json\nimport sys\nimport types\nimport builtins\nfrom contextlib import redirect_stdout\n\n_ARCHIVO = "<programa>"\n\n\nclass _Tope(Exception):\n    pass\n\n\nclass _SinEntrada(Exception):\n    pass\n\n\ndef _describir(valor):\n    """Un valor como lo necesita la escena: su tipo, c\xF3mo se escribe y, si es\n    una colecci\xF3n, sus elementos ya escritos."""\n    d = {"tipo": type(valor).__name__, "repr": repr(valor)}\n    if isinstance(valor, (list, tuple)):\n        d["items"] = [repr(x) for x in valor]\n    elif isinstance(valor, dict):\n        d["pares"] = [[repr(k), repr(v)] for k, v in valor.items()]\n    return d\n\n\ndef _variables(espacio):\n    """Las variables del programa, sin lo que pone Python por su cuenta."""\n    return {\n        nombre: _describir(valor)\n        for nombre, valor in espacio.items()\n        if not nombre.startswith("__")\n        and not isinstance(valor, (types.ModuleType, types.FunctionType, types.BuiltinFunctionType, type))\n    }\n\n\ndef _motor_trazar(codigo, max_pasos=400, entradas=()):\n    """Devuelve la traza como texto JSON: {"codigo", "lenguaje", "traza"}.\n\n    `entradas` son las respuestas para input(), en orden: un programa que\n    pregunta algo no puede quedarse esperando a que alguien escriba.\n    """\n    pasos = []\n    salida = io.StringIO()\n    espacio = {"__name__": "__main__"}\n    pendientes = list(entradas)\n\n    def entrada(mensaje=""):\n        # Como en la consola: se ve la pregunta y lo que "escribi\xF3" el usuario.\n        salida.write(str(mensaje))\n        if not pendientes:\n            raise _SinEntrada()\n        valor = str(pendientes.pop(0))\n        salida.write(valor + "\\n")\n        return valor\n\n    def local(frame, evento, arg):\n        if evento == "line":\n            if len(pasos) >= max_pasos:\n                raise _Tope()\n            # Por ahora solo el nivel del programa: las variables de adentro de\n            # una funci\xF3n van a necesitar mostrar la pila de llamadas.\n            pasos.append({\n                "linea": frame.f_lineno,\n                "variables": _variables(frame.f_locals),\n                "salida": salida.getvalue(),\n            })\n        return local\n\n    def global_(frame, evento, arg):\n        if frame.f_code.co_filename == _ARCHIVO and frame.f_code.co_name == "<module>":\n            return local\n        return None\n\n    def cortar(tipo, mensaje):\n        ultimo = pasos[-1]["linea"] if pasos else 0\n        pasos.append({\n            "linea": ultimo,\n            "variables": _variables(espacio),\n            "salida": salida.getvalue(),\n            "excepcion": {"tipo": tipo, "mensaje": mensaje},\n        })\n\n    try:\n        compilado = compile(codigo, _ARCHIVO, "exec")\n    except SyntaxError as e:\n        return json.dumps({"codigo": codigo, "lenguaje": "python", "traza": [{\n            "linea": e.lineno or 1, "variables": {}, "salida": "",\n            "excepcion": {"tipo": "SyntaxError", "mensaje": e.msg},\n        }]}, ensure_ascii=False)\n\n    input_original = builtins.input\n    builtins.input = entrada\n    try:\n        with redirect_stdout(salida):\n            sys.settrace(global_)\n            try:\n                exec(compilado, espacio)\n            finally:\n                sys.settrace(None)\n        pasos.append({"linea": 0, "variables": _variables(espacio), "salida": salida.getvalue()})\n    except _Tope:\n        cortar("Corte", f"m\xE1s de {max_pasos} pasos: \xBFun bucle que no termina?")\n    except _SinEntrada:\n        cortar("Falta una entrada", "el programa pidi\xF3 un input() m\xE1s de los que se cargaron")\n    except Exception as e:\n        cortar(type(e).__name__, repr(e.args[0]) if isinstance(e, KeyError) and e.args else str(e))\n    finally:\n        builtins.input = input_original\n    return json.dumps({"codigo": codigo, "lenguaje": "python", "traza": pasos}, ensure_ascii=False)\n';
+var TRAZADOR_PY = '# -*- coding: utf-8 -*-\n# El trazador: corre un programa de Python y anota cada paso que da.\n#\n# Este archivo es el \xDANICO lugar donde est\xE1. Lo usan:\n#   - herramientas/trazar.py, desde la consola;\n#   - el navegador, con Pyodide: herramientas/construir.js lo copia, tal cual,\n#     a src/pedagogico/trazador-py.js (un test verifica que sean iguales).\n#\n# Cada paso es la l\xEDnea que est\xE1 por correr, con las variables como est\xE1n en\n# ese momento y todo lo que se mostr\xF3 hasta ah\xED. Si el programa est\xE1 adentro de\n# una funci\xF3n, el paso trae tambi\xE9n la PILA de llamadas: cada funci\xF3n que se\n# est\xE1 ejecutando, con sus variables. Usa sys.settrace, igual que la medici\xF3n\n# de pasos de la plataforma del curso.\n#\n# Las listas, los diccionarios y los objetos llevan un n\xFAmero ("ref"): el\n# mismo n\xFAmero en dos variables quiere decir que son LA MISMA lista, no dos\n# iguales. Es lo que hace falta para entender por qu\xE9 cambiar una "cambia la otra".\n#\n# Abajo de todo est\xE1 _motor_probar(), que corre los tests (las funciones\n# test_...) y anota cada assert: qu\xE9 se esperaba y qu\xE9 dio.\n\nimport ast\nimport io\nimport json\nimport sys\nimport types\nimport builtins\nfrom contextlib import redirect_stdout\n\n_ARCHIVO = "<programa>"\n# Las funciones (no los cuerpos de las clases ni los <genexpr>) tienen esta\n# marca en su c\xF3digo: son las que van a la pila de llamadas.\n_CO_OPTIMIZADO = 0x1\n\n\nclass _Tope(Exception):\n    pass\n\n\nclass _SinEntrada(Exception):\n    pass\n\n\nclass _Describir:\n    """Escribe valores para la escena, y les pone n\xFAmero a los que se comparten.\n\n    Los n\xFAmeros van en orden de aparici\xF3n (1, 2, 3...) y no son el id() de\n    Python: el id cambia de una corrida a otra, y la animaci\xF3n tiene que salir\n    igual cada vez. Los objetos se guardan en `vivos` para que Python no los\n    borre y reuse su id con otro.\n    """\n\n    def __init__(self):\n        self.numeros = {}\n        self.vivos = []\n\n    def ref(self, valor):\n        clave = id(valor)\n        if clave not in self.numeros:\n            self.numeros[clave] = len(self.numeros) + 1\n            self.vivos.append(valor)\n        return self.numeros[clave]\n\n    @staticmethod\n    def es_objeto(valor):\n        """Un objeto de una clase del programa (no un int, una lista, etc.)."""\n        return type(valor).__module__ == "__main__" and hasattr(valor, "__dict__") and not isinstance(valor, type)\n\n    def texto(self, valor, profundidad=0):\n        """C\xF3mo se escribe un valor, sin direcciones de memoria (que cambian\n        en cada corrida): un objeto sin __repr__ propio se escribe Clase #n."""\n        if self.es_objeto(valor):\n            if type(valor).__repr__ is not object.__repr__:\n                return repr(valor)\n            return f"{type(valor).__name__} #{self.ref(valor)}"\n        if profundidad > 3:\n            return "\u2026"\n        if isinstance(valor, list):\n            return "[" + ", ".join(self.texto(x, profundidad + 1) for x in valor) + "]"\n        if isinstance(valor, tuple):\n            interior = ", ".join(self.texto(x, profundidad + 1) for x in valor)\n            return f"({interior},)" if len(valor) == 1 else f"({interior})"\n        if isinstance(valor, dict):\n            return "{" + ", ".join(f"{self.texto(k, profundidad + 1)}: {self.texto(v, profundidad + 1)}" for k, v in valor.items()) + "}"\n        if isinstance(valor, set):\n            return "{" + ", ".join(sorted(self.texto(x, profundidad + 1) for x in valor)) + "}" if valor else "set()"\n        return repr(valor)\n\n    def describir(self, valor):\n        d = {"tipo": type(valor).__name__, "repr": self.texto(valor)}\n        if isinstance(valor, (list, tuple)):\n            d["items"] = [self.texto(x) for x in valor]\n        elif isinstance(valor, dict):\n            d["pares"] = [[self.texto(k), self.texto(v)] for k, v in valor.items()]\n        elif self.es_objeto(valor):\n            d["atributos"] = [[k, self.texto(v)] for k, v in vars(valor).items() if not k.startswith("__")]\n        if isinstance(valor, (list, dict, set)) or self.es_objeto(valor):\n            d["ref"] = self.ref(valor)\n        return d\n\n    def variables(self, espacio):\n        """Las variables del programa, sin lo que pone Python por su cuenta."""\n        return {\n            nombre: self.describir(valor)\n            for nombre, valor in list(espacio.items())\n            if not nombre.startswith("__")\n            and not isinstance(valor, (types.ModuleType, types.FunctionType, types.BuiltinFunctionType, type))\n        }\n\n\ndef _es_del_programa(codigo):\n    return codigo.co_filename == _ARCHIVO\n\n\ndef _es_funcion(codigo):\n    return _es_del_programa(codigo) and bool(codigo.co_flags & _CO_OPTIMIZADO) and not codigo.co_name.startswith("<")\n\n\n# M\xE1s llamadas que estas no entran en la pantalla, y una recursi\xF3n sin caso\n# base llegar\xEDa a cientos: la traza pesar\xEDa megas (y en el navegador, con\n# Pyodide, se notar\xEDa). Se guardan las \xFAltimas, con un aviso de cu\xE1ntas faltan.\n_MAX_MARCOS = 10\n\n\ndef _pila(frame, d):\n    """Las funciones que se est\xE1n ejecutando, de la de m\xE1s afuera a la actual."""\n    funciones = []\n    while frame is not None:\n        if _es_funcion(frame.f_code):\n            funciones.append(frame)\n        frame = frame.f_back\n    ocultas = max(len(funciones) - _MAX_MARCOS, 0)\n    marcos = [{"funcion": f.f_code.co_name, "linea": f.f_lineno, "variables": d.variables(f.f_locals)}\n              for f in reversed(funciones[:_MAX_MARCOS])]\n    if ocultas:\n        marcos.insert(0, {"funcion": f"\u2026 y {ocultas} llamadas m\xE1s", "linea": 0, "variables": {}})\n    return marcos\n\n\ndef _motor_trazar(codigo, max_pasos=400, entradas=()):\n    """Devuelve la traza como texto JSON: {"codigo", "lenguaje", "traza"}.\n\n    `entradas` son las respuestas para input(), en orden: un programa que\n    pregunta algo no puede quedarse esperando a que alguien escriba.\n    """\n    pasos = []\n    salida = io.StringIO()\n    espacio = {"__name__": "__main__"}\n    pendientes = list(entradas)\n    d = _Describir()\n\n    def entrada(mensaje=""):\n        # Como en la consola: se ve la pregunta y lo que "escribi\xF3" el usuario.\n        salida.write(str(mensaje))\n        if not pendientes:\n            raise _SinEntrada()\n        valor = str(pendientes.pop(0))\n        salida.write(valor + "\\n")\n        return valor\n\n    def anotar(frame, **extra):\n        if len(pasos) >= max_pasos:\n            raise _Tope()\n        paso = {"linea": frame.f_lineno, "variables": d.variables(espacio), "salida": salida.getvalue()}\n        pila = _pila(frame, d)\n        if pila:\n            paso["pila"] = pila\n        paso.update(extra)\n        pasos.append(paso)\n\n    def local(frame, evento, arg):\n        if evento == "line":\n            anotar(frame)\n        elif evento == "return" and _es_funcion(frame.f_code):\n            # La funci\xF3n termina: se anota qu\xE9 devuelve, mientras todav\xEDa est\xE1 en la pila.\n            anotar(frame, retorno={"funcion": frame.f_code.co_name, "valor": d.texto(arg)})\n        return local\n\n    def global_(frame, evento, arg):\n        codigo_frame = frame.f_code\n        if _es_del_programa(codigo_frame) and (codigo_frame.co_name == "<module>" or _es_funcion(codigo_frame)):\n            return local\n        return None\n\n    def cortar(tipo, mensaje):\n        ultimo = pasos[-1] if pasos else {"linea": 0}\n        paso = {"linea": ultimo["linea"], "variables": d.variables(espacio), "salida": salida.getvalue(),\n                "excepcion": {"tipo": tipo, "mensaje": mensaje}}\n        if ultimo.get("pila"):\n            paso["pila"] = ultimo["pila"]\n        pasos.append(paso)\n\n    try:\n        compilado = compile(codigo, _ARCHIVO, "exec")\n    except SyntaxError as e:\n        return json.dumps({"codigo": codigo, "lenguaje": "python", "traza": [{\n            "linea": e.lineno or 1, "variables": {}, "salida": "",\n            "excepcion": {"tipo": "SyntaxError", "mensaje": e.msg},\n        }]}, ensure_ascii=False)\n\n    input_original = builtins.input\n    builtins.input = entrada\n    try:\n        with redirect_stdout(salida):\n            sys.settrace(global_)\n            try:\n                exec(compilado, espacio)\n            finally:\n                sys.settrace(None)\n        pasos.append({"linea": 0, "variables": d.variables(espacio), "salida": salida.getvalue()})\n    except _Tope:\n        # Si la pila estaba llena, no era un bucle: era una funci\xF3n llam\xE1ndose sin parar.\n        recursiva = bool(pasos) and len(pasos[-1].get("pila", [])) > _MAX_MARCOS\n        motivo = "la funci\xF3n se llama a s\xED misma sin parar: \xBFfalta el caso base?" if recursiva else "\xBFun bucle que no termina?"\n        cortar("Corte", f"m\xE1s de {max_pasos} pasos: {motivo}")\n    except _SinEntrada:\n        cortar("Falta una entrada", "el programa pidi\xF3 un input() m\xE1s de los que se cargaron")\n    except RecursionError:\n        cortar("RecursionError", "la funci\xF3n se llama a s\xED misma sin parar: \xBFfalta el caso base?")\n    except Exception as e:\n        cortar(type(e).__name__, repr(e.args[0]) if isinstance(e, KeyError) and e.args else str(e))\n    finally:\n        builtins.input = input_original\n    return json.dumps({"codigo": codigo, "lenguaje": "python", "traza": pasos}, ensure_ascii=False)\n\n\n# ---------------------------------------------------------------------------\n# Los tests\n# ---------------------------------------------------------------------------\n\nclass _Asserts(ast.NodeTransformer):\n    """Cambia cada `assert A == B` por una llamada que anota A y B por separado.\n\n    As\xED, cuando falla, se puede decir "esperaba 75 y dio 0", que es lo que\n    hace falta para encontrar el error (un AssertionError pelado no dice nada).\n    """\n\n    def visit_Assert(self, nodo):\n        prueba = nodo.test\n        texto = ast.unparse(prueba)\n        if isinstance(prueba, ast.Compare) and len(prueba.ops) == 1 and isinstance(prueba.ops[0], ast.Eq):\n            izq, der = prueba.left, prueba.comparators[0]\n        else:\n            izq, der = prueba, ast.Constant(True)\n        llamada = ast.Call(\n            func=ast.Name("__motor_assert", ast.Load()),\n            args=[\n                ast.Lambda(ast.arguments([], [], None, [], [], None, []), izq),\n                ast.Lambda(ast.arguments([], [], None, [], [], None, []), der),\n                ast.Constant(texto),\n                ast.Constant(nodo.lineno),\n            ],\n            keywords=[],\n        )\n        return ast.copy_location(ast.Expr(llamada), nodo)\n\n\nclass _FallaAssert(Exception):\n    pass\n\n\ndef _motor_probar(codigo):\n    """Corre el programa y despu\xE9s cada funci\xF3n test_..., en orden.\n\n    Devuelve JSON: {"codigo", "tests": [{"nombre", "linea", "estado", "asserts": [...], "error"}]}.\n    estado es "pasa", "falla" (un assert no se cumpli\xF3) o "error" (se rompi\xF3 otra cosa).\n    """\n    try:\n        arbol = ast.fix_missing_locations(_Asserts().visit(ast.parse(codigo)))\n        compilado = compile(arbol, _ARCHIVO, "exec")\n    except SyntaxError as e:\n        return json.dumps({"codigo": codigo, "tests": [], "error": f"SyntaxError en la l\xEDnea {e.lineno}: {e.msg}"}, ensure_ascii=False)\n\n    d = _Describir()\n    anotados = []\n\n    def assert_(izq, der, texto, linea):\n        obtenido = izq()\n        esperado = der()\n        ok = obtenido == esperado\n        anotados.append({"linea": linea, "texto": texto, "obtenido": d.texto(obtenido), "esperado": d.texto(esperado), "ok": ok})\n        if not ok:\n            raise _FallaAssert()\n\n    espacio = {"__name__": "__main__", "__motor_assert": assert_}\n    salida = io.StringIO()\n    resultado = {"codigo": codigo, "tests": []}\n    with redirect_stdout(salida):\n        try:\n            exec(compilado, espacio)\n        except Exception as e:\n            resultado["error"] = f"{type(e).__name__}: {e}"\n            return json.dumps(resultado, ensure_ascii=False)\n        nombres = [n for n, v in espacio.items() if n.startswith("test_") and isinstance(v, types.FunctionType)]\n        for nombre in nombres:\n            funcion = espacio[nombre]\n            anotados.clear()\n            test = {"nombre": nombre, "linea": funcion.__code__.co_firstlineno, "estado": "pasa"}\n            try:\n                funcion()\n            except _FallaAssert:\n                test["estado"] = "falla"\n            except Exception as e:\n                test["estado"] = "error"\n                test["error"] = f"{type(e).__name__}: {e}"\n            test["asserts"] = list(anotados)\n            resultado["tests"].append(test)\n    return json.dumps(resultado, ensure_ascii=False)\n';
 
 // src/pedagogico/trazador.js
 function trazarConPyodide(pyodide, codigo2, opciones = {}) {
@@ -3044,9 +3390,369 @@ function trazarConPyodide(pyodide, codigo2, opciones = {}) {
     trazar.destroy?.();
   }
 }
+function probarConPyodide(pyodide, codigo2) {
+  pyodide.runPython(TRAZADOR_PY);
+  const probar = pyodide.globals.get("_motor_probar");
+  try {
+    return JSON.parse(probar(codigo2));
+  } finally {
+    probar.destroy?.();
+  }
+}
+
+// src/pedagogico/consulta.js
+var PATRON = /^\s*SELECT\s+(.+?)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+?))?(?:\s+ORDER\s+BY\s+(\w+)(?:\s+(ASC|DESC))?)?(?:\s+LIMIT\s+(\d+))?\s*;?\s*$/is;
+function ejecutarConsulta(sql, t) {
+  const m = sql.replace(/\s+/g, " ").match(PATRON);
+  if (!m) throw new Error("No entiendo esa consulta. Uso SELECT ... FROM ... [WHERE ...] [ORDER BY ...] [LIMIT n].");
+  const [, columnasTexto, nombreTabla, dondeTexto, ordenCol, ordenDir, limite] = m;
+  if (nombreTabla.toLowerCase() !== t.nombre.toLowerCase()) {
+    throw new Error(`La consulta lee de "${nombreTabla}", pero la tabla se llama "${t.nombre}".`);
+  }
+  const indice = (col) => {
+    const i = t.columnas.findIndex((c) => c.toLowerCase() === col.toLowerCase());
+    if (i === -1) throw new Error(`La tabla ${t.nombre} no tiene la columna "${col}". Tiene: ${t.columnas.join(", ")}.`);
+    return i;
+  };
+  const seleccion = columnasTexto.trim() === "*" ? [...t.columnas] : columnasTexto.split(",").map((c) => t.columnas[indice(c.trim())]);
+  const condicion = dondeTexto ? condicionDesde(dondeTexto, indice) : null;
+  const recorrido = t.filas.map((fila) => ({ fila, cumple: condicion ? condicion(fila) : true }));
+  let resultado = recorrido.filter((r2) => r2.cumple).map((r2) => r2.fila);
+  const filtradas = resultado;
+  const conColumnas = resultado.map((f) => seleccion.map((c) => f[indice(c)]));
+  let ordenadas = conColumnas;
+  if (ordenCol) {
+    const i = seleccion.findIndex((c) => c.toLowerCase() === ordenCol.toLowerCase());
+    if (i === -1) throw new Error(`Para ordenar por "${ordenCol}", esa columna tiene que estar en el SELECT.`);
+    const signo = (ordenDir ?? "ASC").toUpperCase() === "DESC" ? -1 : 1;
+    const conPosicion = conColumnas.map((f, k) => [f, k]);
+    ordenadas = conPosicion.sort((a, b) => comparar(a[0][i], b[0][i]) * signo || a[1] - b[1]).map(([f]) => f);
+  }
+  resultado = limite ? ordenadas.slice(0, Number(limite)) : ordenadas;
+  return {
+    seleccion,
+    donde: dondeTexto?.trim() ?? "",
+    orden: ordenCol ? { columna: ordenCol, descendente: (ordenDir ?? "").toUpperCase() === "DESC" } : null,
+    limite: limite ? Number(limite) : null,
+    recorrido,
+    filtradas,
+    conColumnas,
+    ordenadas,
+    resultado
+  };
+}
+function comparar(a, b) {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return String(a).localeCompare(String(b), "es");
+}
+function condicionDesde(textoDonde, indice) {
+  const alternativas = textoDonde.split(/\s+OR\s+/i).map((parte) => parte.split(/\s+AND\s+/i).map((c) => comparacion(c, indice)));
+  return (fila) => alternativas.some((todas) => todas.every((f) => f(fila)));
+}
+function comparacion(textoComparacion, indice) {
+  const m = textoComparacion.trim().match(/^(\w+)\s*(<=|>=|<>|!=|=|<|>)\s*('(?:[^']|'')*'|-?\d+(?:\.\d+)?)$/);
+  if (!m) throw new Error(`No entiendo la condici\xF3n "${textoComparacion.trim()}". Uso columna, un operador (= != < <= > >=) y un n\xFAmero o un 'texto'.`);
+  const [, col, op, crudo] = m;
+  const i = indice(col);
+  const valor = crudo.startsWith("'") ? crudo.slice(1, -1).replace(/''/g, "'") : Number(crudo);
+  const ops = {
+    "=": (a, b) => a === b,
+    "!=": (a, b) => a !== b,
+    "<>": (a, b) => a !== b,
+    "<": (a, b) => comparar(a, b) < 0,
+    "<=": (a, b) => comparar(a, b) <= 0,
+    ">": (a, b) => comparar(a, b) > 0,
+    ">=": (a, b) => comparar(a, b) >= 0
+  };
+  return (fila) => ops[op](fila[i], valor);
+}
+var celda = (v) => String(v);
+function desdeConsulta(opciones) {
+  const { tabla: t, titulo = "", descripcion = "", archivo = "consulta.sql", ritmo = 0.9, lectura = 13, preguntas = {} } = opciones;
+  const sql = String(opciones.sql).trim().replace(/\s+(FROM|WHERE|ORDER BY|LIMIT)\s+/gi, (_, p) => `
+${p.toUpperCase()} `).replace(/^select\s+/i, "SELECT ");
+  const r2 = ejecutarConsulta(sql, t);
+  const lineas = sql.split("\n");
+  const lineaDe = (palabra) => lineas.findIndex((l) => l.toUpperCase().startsWith(palabra)) + 1;
+  return function(disposicion) {
+    const angosta = disposicion.nombre === "angosta";
+    const W = angosta ? 640 : 1600;
+    const H = angosta ? 1140 : 900;
+    const arriba = titulo ? 100 : 30;
+    const cod = angosta ? { x: 320, ancho: 610, tamano: 22 } : { x: 430, ancho: 800, tamano: 32 };
+    const necesario = Math.max(...lineas.map((l) => l.length));
+    cod.tamano = Math.min(cod.tamano, cod.tamano * caracteresPorLinea(cod) / necesario);
+    const piezaCodigo = codigo({ x: cod.x, y: 0, ancho: cod.ancho, tamano: cod.tamano, codigo: sql, lenguaje: "sql", titulo: archivo, marca: 0 });
+    const altoCodigo = piezaCodigo.tipo.tamano(piezaCodigo.props).alto;
+    piezaCodigo.props.y = arriba + altoCodigo / 2;
+    const n2 = t.filas.length;
+    const altoFila = angosta ? Math.min(36, 230 / (n2 + 1)) : Math.min(54, 400 / (n2 + 1));
+    const tamTabla = angosta ? 18 : 27;
+    const origen = angosta ? { x: 320, y: arriba + altoCodigo + 50, ancho: 610 } : { x: 430, y: arriba + altoCodigo + 60, ancho: 800 };
+    const destino = angosta ? { x: 320, y: origen.y + (n2 + 1) * altoFila + 60, ancho: 610 } : { x: 1210, y: arriba + 40, ancho: 680 };
+    const piezas = {};
+    if (titulo) piezas.titulo = texto2({ x: W / 2, y: angosta ? 50 : 52, texto: titulo, tamano: angosta ? 30 : 40, peso: 800, anchoMax: W - 40 });
+    piezas.codigo = piezaCodigo;
+    piezas.rotuloOrigen = texto2({ x: origen.x - origen.ancho / 2, y: origen.y - 6, texto: `Tabla ${t.nombre}`, tamano: tamTabla, peso: 700, alineacion: "inicio", color: "suave", opacidad: 0 });
+    piezas.origen = tabla({
+      x: origen.x,
+      y: origen.y + 14,
+      ancho: origen.ancho,
+      altoFila,
+      tamano: tamTabla,
+      anclaje: "arriba",
+      columnas: t.columnas,
+      filas: t.filas.map((f) => f.map(celda)),
+      opacidad: 0
+    });
+    piezas.rotuloDestino = texto2({ x: destino.x - destino.ancho / 2, y: destino.y - 6, texto: "Resultado", tamano: tamTabla, peso: 700, alineacion: "inicio", color: "suave", opacidad: 0 });
+    piezas.destino = tabla({
+      // Anclada arriba: va creciendo fila por fila, y el encabezado no tiene que saltar.
+      x: destino.x,
+      y: destino.y + 14,
+      ancho: destino.ancho,
+      altoFila,
+      tamano: tamTabla,
+      anclaje: "arriba",
+      columnas: t.columnas,
+      filas: [],
+      filasVisibles: 0,
+      encabezado: "exito",
+      opacidad: 0
+    });
+    const linea = [];
+    let tiempo = 0.3;
+    const decir = (subtitulo, extra = 0.4) => {
+      const dur = Math.max(ritmo * 2, duracionLectura(subtitulo, lectura));
+      linea.push({ subtitulo, en: tiempo, dur });
+      tiempo += dur + extra;
+    };
+    const marcar = (n3, en = tiempo) => linea.push({ pieza: "codigo", a: { linea: n3, marca: 1 }, dur: 0.35, en });
+    const preguntar = (clave) => {
+      const p = preguntas[clave];
+      if (!p) return "";
+      const enunciado = `${p.pregunta} Paus\xE1 y pensalo.`;
+      const dur = Math.max(p.dur ?? 4, duracionLectura(enunciado, lectura) + 1.5);
+      linea.push({ marca: "pregunta", datos: p, en: tiempo, dur }, { subtitulo: enunciado, en: tiempo, dur });
+      tiempo += dur + 0.2;
+      return p.opciones && p.correcta !== void 0 ? `Respuesta: ${p.opciones[p.correcta]}. ${p.explicacion ?? ""} ` : "";
+    };
+    linea.push({ capitulo: "Se escribe en un orden...", en: 0 });
+    decir("SQL se escribe empezando por SELECT, pero la base lo ejecuta en otro orden. Mir\xE1 qu\xE9 parte se ilumina en cada momento.");
+    linea.push({ capitulo: `FROM ${t.nombre}`, en: tiempo });
+    marcar(lineaDe("FROM"));
+    linea.push({ pieza: ["rotuloOrigen", "origen"], a: { opacidad: 1 }, dur: 0.5, en: tiempo });
+    decir(`Primero FROM: la consulta toma la tabla ${t.nombre}, con sus ${n2} filas.`);
+    if (r2.donde) {
+      const respuesta = preguntar("donde");
+      linea.push({ capitulo: `WHERE ${r2.donde}`, en: tiempo });
+      marcar(lineaDe("WHERE"));
+      linea.push({ pieza: "origen", a: { columnas: [...t.columnas, "\xBFcumple?"], filas: t.filas.map((f) => [...f.map(celda), ""]) }, dur: 0, en: tiempo });
+      linea.push({ pieza: ["rotuloDestino", "destino"], a: { opacidad: 1 }, dur: 0.5, en: tiempo });
+      decir(`${respuesta}Despu\xE9s WHERE ${r2.donde}: revisa fila por fila, y se queda solo con las que cumplen.`, 0);
+      const marcas = t.filas.map((f) => [...f.map(celda), ""]);
+      const elegidas = [];
+      r2.recorrido.forEach(({ fila, cumple }, i) => {
+        marcas[i] = [...fila.map(celda), cumple ? "\u2713 s\xED" : "\u2717 no"];
+        linea.push({ pieza: "origen", a: { resaltarFila: i, filas: marcas.map((x) => [...x]) }, dur: 0, en: tiempo });
+        if (cumple) {
+          elegidas.push(fila.map(celda));
+          linea.push({ pieza: "destino", a: { filas: elegidas.map((x) => [...x]), filasVisibles: elegidas.length - 1 }, dur: 0, en: tiempo });
+          linea.push({ pieza: "destino", a: { filasVisibles: elegidas.length }, dur: 0.45, en: tiempo + 0.1 });
+        }
+        tiempo += ritmo;
+      });
+      linea.push({ pieza: "origen", a: { resaltarFila: -1 }, dur: 0, en: tiempo });
+      decir(`Cumplen ${r2.filtradas.length} de ${n2}.`);
+    } else {
+      linea.push({ pieza: ["rotuloDestino", "destino"], a: { opacidad: 1 }, dur: 0.5, en: tiempo });
+      linea.push({ pieza: "destino", a: { filas: t.filas.map((f) => f.map(celda)), filasVisibles: n2 }, dur: 0.8, en: tiempo });
+      tiempo += 1;
+    }
+    const respuestaSeleccion = preguntar("seleccion");
+    linea.push({ capitulo: `SELECT ${r2.seleccion.join(", ")}`, en: tiempo });
+    marcar(lineaDe("SELECT"));
+    linea.push({ pieza: "destino", a: { columnas: r2.seleccion, filas: r2.conColumnas.map((f) => f.map(celda)), filasVisibles: r2.conColumnas.length }, dur: 0, en: tiempo + 0.5 });
+    decir(`${respuestaSeleccion}Reci\xE9n ahora SELECT: de cada fila quedan solo las columnas pedidas, ${r2.seleccion.join(" y ")}.`);
+    if (r2.orden) {
+      const respuestaOrden = preguntar("orden");
+      linea.push({ capitulo: `ORDER BY ${r2.orden.columna}`, en: tiempo });
+      marcar(lineaDe("ORDER BY"));
+      linea.push({ pieza: "destino", a: { filas: r2.ordenadas.map((f) => f.map(celda)) }, dur: 0, en: tiempo + 0.6 });
+      decir(`${respuestaOrden}ORDER BY ${r2.orden.columna}${r2.orden.descendente ? " DESC" : ""}: ordena el resultado ${r2.orden.descendente ? "de mayor a menor" : "de menor a mayor"}.`);
+    }
+    if (r2.limite !== null) {
+      linea.push({ capitulo: `LIMIT ${r2.limite}`, en: tiempo });
+      marcar(lineaDe("LIMIT"));
+      linea.push({ pieza: "destino", a: { filas: r2.resultado.map((f) => f.map(celda)), filasVisibles: r2.resultado.length }, dur: 0, en: tiempo + 0.6 });
+      decir(`Y LIMIT ${r2.limite}: se queda con las primeras ${r2.limite}.`);
+    }
+    linea.push({ pieza: "codigo", a: { marca: 0 }, dur: 0.4, en: tiempo });
+    decir(`Listo: el resultado tiene ${r2.resultado.length} ${r2.resultado.length === 1 ? "fila" : "filas"}.`);
+    return {
+      titulo: titulo || "Una consulta, paso a paso",
+      descripcion: descripcion || `La consulta ${sql.replace(/\n/g, " ")} sobre la tabla ${t.nombre}, en el orden en que la ejecuta la base.`,
+      ancho: W,
+      alto: H,
+      lectura,
+      pausaFinal: 1.5,
+      piezas,
+      linea
+    };
+  };
+}
+
+// src/pedagogico/tests-animados.js
+var ICONO = { espera: "\u23F3", corre: "\u25B6", pasa: "\u2705", falla: "\u274C", error: "\u{1F4A5}" };
+var COLOR = { espera: "borde", corre: "acento", pasa: "exito", falla: "error", error: "error" };
+function desdeTests(opciones) {
+  const { titulo = "", descripcion = "", archivo = "test_programa.py", ritmo = 1.1, lectura = 13, preguntas = {} } = opciones;
+  if (!opciones.corridas?.length) throw new Error("desdeTests necesita al menos una corrida: { codigo, resultado }.");
+  const corridas = opciones.corridas.map((c) => ({ ...c, resultado: c.resultado ?? { tests: c.tests ?? [] } }));
+  const maxTests = Math.max(...corridas.map((c) => c.resultado.tests.length));
+  return function(disposicion) {
+    const angosta = disposicion.nombre === "angosta";
+    const W = angosta ? 640 : 1600;
+    const H = angosta ? 1140 : 900;
+    const arriba = titulo ? 100 : 30;
+    const programas = corridas.map((c) => c.codigo.replace(/\s+$/, ""));
+    const maxLineas = Math.max(...programas.map((p) => p.split("\n").length));
+    const necesario = Math.max(...programas.flatMap((p) => p.split("\n").map((l) => l.length)));
+    const cod = angosta ? { x: 320, ancho: 610, tamano: 20 } : { x: 450, ancho: 840, tamano: 30 };
+    cod.tamano = Math.min(cod.tamano, cod.tamano * caracteresPorLinea(cod) / necesario);
+    const disponible = angosta ? H * 0.45 : H - arriba - 40;
+    cod.tamano = Math.min(cod.tamano, disponible / (maxLineas * 1.6 + 2.6));
+    const piezaCodigo = codigo({ x: cod.x, y: 0, ancho: cod.ancho, tamano: cod.tamano, codigo: programas[0], titulo: archivo, marca: 0 });
+    const altoCodigo = piezaCodigo.tipo.tamano(piezaCodigo.props).alto;
+    piezaCodigo.props.y = arriba + altoCodigo / 2;
+    const col = angosta ? { x: 320, ancho: 600, y: arriba + altoCodigo + 40, alto: 52, tamano: 22 } : { x: 1250, ancho: 560, y: arriba + 40, alto: 64, tamano: 27 };
+    const piezas = {};
+    if (titulo) piezas.titulo = texto2({ x: W / 2, y: angosta ? 50 : 52, texto: titulo, tamano: angosta ? 30 : 40, peso: 800, anchoMax: W - 40 });
+    piezas.codigo = piezaCodigo;
+    piezas.rotulo = texto2({ x: col.x - col.ancho / 2, y: col.y - 4, texto: "pytest", tamano: col.tamano * 0.85, peso: 700, alineacion: "inicio", color: "suave", fuente: "mono", opacidad: 0 });
+    for (let i = 0; i < maxTests; i++) {
+      piezas["test" + i] = caja({
+        x: col.x,
+        y: col.y + 20 + col.alto / 2 + i * (col.alto + 12),
+        ancho: col.ancho,
+        alto: col.alto,
+        radio: 10,
+        texto: "",
+        tamano: col.tamano,
+        peso: 600,
+        borde: "borde",
+        grosorBorde: 3,
+        opacidad: 0
+      });
+    }
+    const yDetalle = col.y + 20 + maxTests * (col.alto + 12) + (angosta ? 60 : 90);
+    piezas.detalle = caja({
+      x: col.x,
+      y: yDetalle,
+      ancho: col.ancho,
+      alto: angosta ? 120 : 170,
+      radio: 10,
+      texto: "",
+      tamano: col.tamano,
+      peso: 500,
+      borde: "borde",
+      opacidad: 0
+    });
+    piezas.resumen = texto2({
+      x: col.x,
+      y: yDetalle + (angosta ? 100 : 140),
+      texto: "",
+      tamano: col.tamano * 1.15,
+      peso: 800,
+      color: "exito",
+      opacidad: 0,
+      anchoMax: col.ancho
+    });
+    const linea = [];
+    let t = 0.3;
+    const decir = (subtitulo, extra = 0.3) => {
+      const dur = Math.max(ritmo * 1.6, duracionLectura(subtitulo, lectura));
+      linea.push({ subtitulo, en: t, dur });
+      t += dur + extra;
+    };
+    const ponerTest = (i, estado, nombre) => {
+      linea.push({ pieza: "test" + i, a: { texto: `${ICONO[estado]}  ${nombre}`, borde: COLOR[estado], color: estado === "espera" ? "suave" : "texto" }, dur: 0, en: t });
+      linea.push({ pieza: "test" + i, a: { resaltado: estado === "corre" ? 1 : 0 }, dur: 0.25, en: t });
+    };
+    corridas.forEach((corrida, c) => {
+      const tests = corrida.resultado.tests;
+      linea.push({ capitulo: corrida.titulo ?? (c === 0 ? "Corren los tests" : `Otra vez, ${c + 1}`), en: t });
+      if (c > 0) {
+        linea.push({ pieza: "codigo", a: { codigo: programas[c], marca: 0, colorMarca: "acento" }, dur: 0, en: t });
+        linea.push({ pieza: ["detalle", "resumen"], a: { opacidad: 0 }, dur: 0.3, en: t });
+        if (corrida.explicacion) decir(corrida.explicacion);
+      }
+      tests.forEach((test, i) => ponerTest(i, "espera", test.nombre));
+      for (let i = tests.length; i < maxTests; i++) linea.push({ pieza: "test" + i, a: { opacidad: 0 }, dur: 0, en: t });
+      linea.push({ pieza: ["rotulo", ...tests.map((_, i) => "test" + i)], a: { opacidad: 1 }, dur: 0.4, en: t });
+      if (c === 0) decir("pytest busca las funciones que empiezan con test_, y las corre una por una.");
+      else decir("Se vuelven a correr todos los tests, no solo el que fallaba.");
+      tests.forEach((test, i) => {
+        ponerTest(i, "corre", test.nombre);
+        linea.push({ pieza: "codigo", a: { linea: test.linea, marca: 1, colorMarca: "acento" }, dur: 0.35, en: t });
+        t += ritmo * 0.6;
+        const p = preguntas[`${c}.${test.nombre}`];
+        let respuesta = "";
+        if (p) {
+          const enunciado = `${p.pregunta} Paus\xE1 y pensalo.`;
+          const dur = Math.max(p.dur ?? 4, duracionLectura(enunciado, lectura) + 1.5);
+          linea.push({ marca: "pregunta", datos: p, en: t, dur }, { subtitulo: enunciado, en: t, dur });
+          t += dur + 0.2;
+          if (p.opciones && p.correcta !== void 0) respuesta = `Respuesta: ${p.opciones[p.correcta]}. ${p.explicacion ?? ""} `;
+        }
+        for (const a of test.asserts) {
+          linea.push({ pieza: "codigo", a: { linea: a.linea, colorMarca: a.ok ? "acento" : "error" }, dur: 0.3, en: t });
+          const llamada = a.texto.split(" == ")[0];
+          linea.push({
+            pieza: "detalle",
+            a: {
+              texto: a.ok ? `assert ${a.texto}
+\u2713 dio ${a.obtenido}` : `assert ${a.texto}
+\u2717 esperaba ${a.esperado}, y dio ${a.obtenido}`,
+              borde: a.ok ? "exito" : "error",
+              color: a.ok ? "texto" : "error",
+              opacidad: 1
+            },
+            dur: 0,
+            en: t + 0.4
+          });
+          decir(a.ok ? `${respuesta}${llamada} da ${a.obtenido}, como se esperaba.` : `${respuesta}${llamada} dio ${a.obtenido}, y se esperaba ${a.esperado}: el test falla.`);
+          respuesta = "";
+        }
+        if (test.estado === "error") {
+          linea.push({ pieza: "detalle", a: { texto: `\u{1F4A5} ${test.error}`, borde: "error", color: "error", opacidad: 1 }, dur: 0, en: t });
+          decir(`El test se rompi\xF3 antes de terminar: ${test.error}.`);
+        }
+        ponerTest(i, test.estado, test.nombre);
+        t += ritmo * 0.4;
+      });
+      const fallan = tests.filter((x) => x.estado !== "pasa").length;
+      const pasan = tests.length - fallan;
+      const resumen = fallan ? `${fallan} ${fallan === 1 ? "falla" : "fallan"}, ${pasan} ${pasan === 1 ? "pasa" : "pasan"}` : `${pasan} de ${tests.length}: todos pasan`;
+      linea.push({ pieza: "codigo", a: { marca: 0 }, dur: 0.3, en: t });
+      linea.push({ pieza: "resumen", a: { texto: resumen, color: fallan ? "error" : "exito", opacidad: 1 }, dur: 0.4, en: t });
+      decir(fallan ? `Resultado: ${resumen}. Un test que falla no es una mala noticia: encontr\xF3 un error antes que los usuarios.` : `Resultado: ${resumen}. Ahora el c\xF3digo hace lo que los tests dicen que tiene que hacer.`);
+    });
+    return {
+      titulo: titulo || "Tests, paso a paso",
+      descripcion: descripcion || "Los tests de un programa, corriendo uno por uno: qu\xE9 se esperaba, qu\xE9 dio, y cu\xE1les pasan.",
+      ancho: W,
+      alto: H,
+      lectura,
+      pausaFinal: 1.5,
+      piezas,
+      linea
+    };
+  };
+}
 
 // src/index.js
-var version = "0.5.0";
+var version = "0.6.0";
 definirComponente();
 definirLeccion();
 export {
@@ -3078,9 +3784,12 @@ export {
   definirComponente,
   definirLeccion,
   definirPieza,
+  desdeConsulta,
+  desdeTests,
   desdeTraza,
   detectarPunteros,
   duracionLectura,
+  ejecutarConsulta,
   el,
   explicarPaso,
   flecha,
@@ -3090,8 +3799,10 @@ export {
   lista,
   mezclarColores,
   partirLineas,
+  pila,
   poner,
   posicionAbsoluta,
+  probarConPyodide,
   registrar,
   renglones,
   revelar,

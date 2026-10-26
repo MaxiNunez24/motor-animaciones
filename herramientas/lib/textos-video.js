@@ -68,6 +68,43 @@ export function capitulosYouTube(capitulos, duracion) {
     return { texto, problemas };
 }
 
+// Lo que la voz lee raro si se lo deja tal cual: símbolos, código, siglas.
+// El orden importa: ">=" tiene que ir antes que ">" y que "=".
+const PARA_LEER = [
+    [/°C\b/g, ' grados'],
+    [/°/g, ' grados'],
+    [/(\d)\s*%/g, '$1 por ciento'],
+    [/>=/g, ' mayor o igual a '],
+    [/<=/g, ' menor o igual a '],
+    [/!=|<>/g, ' distinto de '],
+    [/==/g, ' igual a '],
+    [/\/\//g, ' división entera '],
+    [/\s>\s/g, ' mayor que '],
+    [/\s<\s/g, ' menor que '],
+    [/#(\d+)/g, 'número $1'],
+    [/\bNOAA\b/g, 'Noá'],
+    [/\(\)/g, ''],
+    [/[[\]{}«»"“”]/g, ''],
+    [/\s[·—–]\s/g, ', '],
+    [/…/g, '...'],
+    // nombres_con_guion_bajo: "test mitad", no "test guion bajo mitad".
+    [/([A-Za-z])_(?=[A-Za-z])/g, '$1 '],
+];
+
+/**
+ * Un subtítulo, preparado para que lo lea la voz: sin emojis, con los
+ * símbolos dichos en palabras, y terminado en punto (si no, la voz deja la
+ * frase "colgada", con la entonación para arriba, y suena a robot).
+ * @param {string} texto
+ */
+export function prepararParaVoz(texto) {
+    let t = String(texto).replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '');
+    for (const [patron, reemplazo] of PARA_LEER) t = t.replace(patron, reemplazo);
+    t = t.replace(/\s+/g, ' ').replace(/\s+([.,:;!?])/g, '$1').trim();
+    if (t && !/[.!?…]$/.test(t)) t += '.';
+    return t;
+}
+
 /**
  * Cuánto dura un .wav, leyendo su encabezado. Alcanza con los que escribe
  * Piper (PCM), sin traer una librería de audio.

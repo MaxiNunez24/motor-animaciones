@@ -21,7 +21,8 @@ Motor.trazas["bucle-for"] = {
       "4",
       "8",
       "15"
-     ]
+     ],
+     "ref": 1
     }
    },
    "salida": ""
@@ -36,7 +37,8 @@ Motor.trazas["bucle-for"] = {
       "4",
       "8",
       "15"
-     ]
+     ],
+     "ref": 1
     },
     "total": {
      "tipo": "int",
@@ -55,7 +57,8 @@ Motor.trazas["bucle-for"] = {
       "4",
       "8",
       "15"
-     ]
+     ],
+     "ref": 1
     },
     "total": {
      "tipo": "int",
@@ -78,7 +81,8 @@ Motor.trazas["bucle-for"] = {
       "4",
       "8",
       "15"
-     ]
+     ],
+     "ref": 1
     },
     "total": {
      "tipo": "int",
@@ -101,7 +105,8 @@ Motor.trazas["bucle-for"] = {
       "4",
       "8",
       "15"
-     ]
+     ],
+     "ref": 1
     },
     "total": {
      "tipo": "int",
@@ -124,7 +129,8 @@ Motor.trazas["bucle-for"] = {
       "4",
       "8",
       "15"
-     ]
+     ],
+     "ref": 1
     },
     "total": {
      "tipo": "int",
@@ -147,7 +153,8 @@ Motor.trazas["bucle-for"] = {
       "4",
       "8",
       "15"
-     ]
+     ],
+     "ref": 1
     },
     "total": {
      "tipo": "int",
@@ -170,7 +177,8 @@ Motor.trazas["bucle-for"] = {
       "4",
       "8",
       "15"
-     ]
+     ],
+     "ref": 1
     },
     "total": {
      "tipo": "int",
@@ -193,7 +201,8 @@ Motor.trazas["bucle-for"] = {
       "4",
       "8",
       "15"
-     ]
+     ],
+     "ref": 1
     },
     "total": {
      "tipo": "int",
@@ -216,7 +225,8 @@ Motor.trazas["bucle-for"] = {
       "4",
       "8",
       "15"
-     ]
+     ],
+     "ref": 1
     },
     "total": {
      "tipo": "int",

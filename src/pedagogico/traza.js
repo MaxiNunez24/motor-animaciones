@@ -1,10 +1,27 @@
 import { duracionLectura } from '../nucleo/linea.js';
-import { caja, texto, tabla } from '../piezas/index.js';
+import { caja, texto, tabla, flecha } from '../piezas/index.js';
 import { codigo, caracteresPorLinea } from './piezas/codigo.js';
 import { variable } from './piezas/variable.js';
 import { lista } from './piezas/lista.js';
 import { consola } from './piezas/consola.js';
+import { pila } from './piezas/pila.js';
 import { explicarPaso, detectarPunteros } from './explicar.js';
+
+/** De qué clase es una variable, para elegir con qué pieza se muestra. */
+function claseDeVariable(v) {
+    if (v.atributos) return 'objeto';
+    if (v.tipo === 'dict') return 'dict';
+    if (v.items) return 'lista';
+    return 'valor';
+}
+
+/** Cómo se dice "la misma ..." según lo que sea. */
+function queEs(v) {
+    if (v.atributos) return 'el mismo objeto';
+    if (v.tipo === 'dict') return 'el mismo diccionario';
+    if (v.tipo === 'set') return 'el mismo conjunto';
+    return 'la misma lista';
+}
 
 // Una escena armada sola a partir de la TRAZA de un programa: la lista de
 // pasos que dio, con la línea que estaba por correr y cuánto valía cada
@@ -67,19 +84,49 @@ export function desdeTraza(opciones) {
     // Qué variables aparecen, en orden, y de qué clase es cada una.
     const variables = [];
     const vistas = new Set();
-    let maxPares = 0;
+    const maxFilas = {};
     let maxItems = 0;
     for (const paso of traza) {
         for (const [nombre, v] of Object.entries(paso.variables ?? {})) {
-            if (v.tipo === 'dict') maxPares = Math.max(maxPares, v.pares?.length ?? 0);
+            const filas = v.atributos ?? (v.tipo === 'dict' ? v.pares : null);
+            if (filas) maxFilas[nombre] = Math.max(maxFilas[nombre] ?? 0, filas.length);
             if (v.items) maxItems = Math.max(maxItems, v.items.length);
             if (vistas.has(nombre)) continue;
             vistas.add(nombre);
-            variables.push({ nombre, clase: v.tipo === 'dict' ? 'dict' : v.items ? 'lista' : 'valor' });
+            variables.push({ nombre, clase: claseDeVariable(v), primera: v });
         }
     }
     const conSalida = traza.some((p) => p.salida);
     const conError = traza.some((p) => p.excepcion);
+    const conPila = traza.some((p) => p.pila?.length);
+
+    // Las referencias compartidas: dos nombres (o un nombre y un `self`) que
+    // son LA MISMA lista u objeto. Solo esas llevan su número a la vista; en
+    // un programa sin nada compartido, el número sería ruido.
+    const compartidas = new Set();
+    // Los pares de variables que en algún momento son lo mismo: cada uno lleva
+    // una flecha "la misma lista" que aparece cuando empiezan a compartir.
+    const pares = new Map();
+    for (const paso of traza) {
+        const porRef = new Map();
+        const anotar = (nombre, v, global) => {
+            if (v.ref === undefined) return;
+            if (!porRef.has(v.ref)) porRef.set(v.ref, []);
+            porRef.get(v.ref).push({ nombre, global, v });
+        };
+        for (const [n, v] of Object.entries(paso.variables ?? {})) anotar(n, v, true);
+        for (const m of paso.pila ?? []) for (const [n, v] of Object.entries(m.variables)) anotar(n, v, false);
+        for (const [ref, nombres] of porRef) {
+            if (nombres.length < 2) continue;
+            compartidas.add(ref);
+            const globales = nombres.filter((x) => x.global);
+            for (let k = 1; k < globales.length; k++) {
+                const clave = `${globales[0].nombre}|${globales[k].nombre}`;
+                if (!pares.has(clave)) pares.set(clave, { a: globales[0].nombre, b: globales[k].nombre, que: queEs(globales[0].v) });
+            }
+        }
+    }
+    const conRef = (nombre, v) => (v?.ref !== undefined && compartidas.has(v.ref) ? `${nombre} · #${v.ref}` : nombre);
 
     return function (disposicion) {
         const angosta = disposicion.nombre === 'angosta';
@@ -94,6 +141,11 @@ export function desdeTraza(opciones) {
         const necesario = Math.max(...programa.split('\n').map((l) => l.length));
         // Si una línea no entra, se achica la letra: cortar código es peor.
         cod.tamano = Math.min(cod.tamano, cod.tamano * caracteresPorLinea(cod) / necesario);
+        // Y si el programa es largo, también por alto: que entre entero, con la
+        // consola abajo en ancho. Un código cortado no se puede seguir.
+        const lineasCodigo = programa.split('\n').length;
+        const disponible = angosta ? H * 0.42 : H - arriba - 30 - (conSalida ? 230 : 0);
+        cod.tamano = Math.min(cod.tamano, disponible / (lineasCodigo * 1.6 + (archivo ? 2.6 : 1)));
         const piezaCodigo = codigo({
             x: cod.x, y: 0, ancho: cod.ancho, tamano: cod.tamano, codigo: programa, lenguaje,
             titulo: archivo, linea: traza[0].linea || 1, marca: 0,
@@ -137,17 +189,23 @@ export function desdeTraza(opciones) {
                 const celda = Math.min(angosta ? 84 : 120, col.ancho / Math.max(maxItems, 1));
                 const alto = angosta ? 68 : 96;
                 piezas[id] = lista({
-                    x: col.x, y: y + alto / 2, nombre: v.nombre, celda, alto, tamano: angosta ? 26 : 36,
+                    x: col.x, y: y + alto / 2, nombre: conRef(v.nombre, v.primera), celda, alto, tamano: angosta ? 26 : 36,
                     puntero: Object.entries(punteros).find(([l]) => l === v.nombre)?.[1] ?? '', opacidad: 0,
                 });
                 y += alto + (angosta ? 115 : 160);
-            } else if (v.clase === 'dict') {
-                const altoFila = angosta ? 44 : 60;
+            } else if (v.clase === 'dict' || v.clase === 'objeto') {
+                // Un objeto se muestra como un diccionario: cada atributo con su valor.
+                const altoFila = angosta ? 44 : 56;
+                const filas = maxFilas[v.nombre] ?? 0;
+                const columnas = v.clase === 'objeto'
+                    ? [v.nombre, conRef(v.primera.tipo, v.primera).replace(' · ', ' ')]
+                    : [`${v.nombre}: clave`, conRef('valor', v.primera)];
                 piezas[id] = tabla({
-                    x: col.x, y: y + ((maxPares + 1) * altoFila) / 2, ancho: Math.min(col.ancho, 480),
-                    columnas: [`${v.nombre}: clave`, 'valor'], filas: [], altoFila, tamano: angosta ? 24 : 32, opacidad: 0,
+                    x: col.x, y: y + ((filas + 1) * altoFila) / 2, ancho: Math.min(col.ancho, 480),
+                    columnas, filas: [], altoFila, tamano: angosta ? 24 : 30, opacidad: 0,
+                    encabezado: v.clase === 'objeto' ? 'acento2' : 'acento',
                 });
-                y += (maxPares + 1) * altoFila + 80;
+                y += (filas + 1) * altoFila + 80;
             } else {
                 const alto = angosta ? 68 : 96;
                 piezas[id] = variable({
@@ -157,12 +215,32 @@ export function desdeTraza(opciones) {
                 y += alto + (angosta ? 72 : 100);
             }
         }
+        // La pila de llamadas, debajo de las variables. Crece para abajo.
+        if (conPila) {
+            piezas.pila = pila({ x: col.x, y: y - (angosta ? 10 : 20), ancho: Math.min(col.ancho, angosta ? 560 : 600), tamano: angosta ? 22 : 32 });
+        }
+        // Las flechas entre dos variables que son lo mismo. Van por afuera, por
+        // el costado izquierdo de las dos: entre una y otra no hay lugar, y una
+        // flecha recta cruzaría por encima de la segunda.
+        const costado = (id) => {
+            const { tipo, props } = piezas[id];
+            const ancho = tipo.nombre === 'lista' ? props.celda * Math.max(maxItems, 1) : (tipo.tamano?.(props).ancho ?? 0);
+            return { x: props.x - ancho / 2 - 12, y: props.y };
+        };
+        for (const [clave, par] of pares) {
+            piezas['alias_' + clave.replace('|', '_')] = flecha({
+                desde: costado(lugarVariable[par.a]), hasta: costado(lugarVariable[par.b]), progreso: 0, curvatura: 0.45,
+                separacion: 0, color: 'acento2', etiqueta: par.que, tamanoEtiqueta: angosta ? 18 : 22,
+                colorEtiqueta: 'acento2', ladoEtiqueta: -1, girarEtiqueta: true,
+            });
+        }
         Object.assign(piezas, opciones.piezas?.(disposicion, { W, H, col, y }) ?? {});
 
         // En ancho, un programa corto deja la mitad de abajo vacía: se baja
         // todo para que quede centrado debajo del título. En angosto no, porque
-        // la consola va pegada abajo a propósito.
-        if (!angosta) {
+        // la consola va pegada abajo a propósito. Con pila tampoco: la pila
+        // crece, y centrada se iría por abajo.
+        if (!angosta && !conPila) {
             let minimo = Infinity;
             let maximo = -Infinity;
             for (const [id, pieza] of Object.entries(piezas)) {
@@ -185,6 +263,9 @@ export function desdeTraza(opciones) {
         let t = 0.7;
         let salidaAnterior = '';
         let respuesta = '';
+        let pilaAnterior = '[]';
+        let estabaDentro = false;
+        const aliasActivos = {};
         const lineasDelPrograma = programa.split('\n');
         traza.forEach((paso, i) => {
             if (capitulos[i]) linea.push({ capitulo: capitulos[i], en: t });
@@ -194,17 +275,22 @@ export function desdeTraza(opciones) {
             for (const [nombre, v] of Object.entries(vars)) {
                 const id = lugarVariable[nombre];
                 const antes = anterior[nombre];
-                if (antes && antes.repr === v.repr) continue;
+                // Se compara también los atributos: un objeto se escribe "Alumno #1"
+                // antes y después de cambiarle uno, y igual hay que redibujarlo.
+                if (antes && antes.repr === v.repr && JSON.stringify(antes.atributos) === JSON.stringify(v.atributos)) continue;
                 if (!antes) linea.push({ pieza: id, a: { opacidad: 1 }, dur: 0.4, en: t });
                 const clase = variables.find((x) => x.nombre === nombre).clase;
                 if (clase === 'lista') {
                     linea.push({ pieza: id, a: { items: v.items }, dur: 0, en: t });
                 } else if (clase === 'dict') {
                     linea.push({ pieza: id, a: { filas: v.pares ?? [] }, dur: 0, en: t });
+                } else if (clase === 'objeto') {
+                    linea.push({ pieza: id, a: { filas: v.atributos ?? [] }, dur: 0, en: t });
                 } else {
                     linea.push({ pieza: id, a: { valor: v.repr, tipoDato: v.tipo ?? '' }, dur: 0, en: t });
                 }
-                if (antes && clase !== 'dict') {
+                // Las tablas (diccionarios y objetos) no tienen destello: cambian sus filas.
+                if (antes && (clase === 'lista' || clase === 'valor')) {
                     linea.push({ pieza: id, a: { destello: 1 }, dur: 0.12, en: t, curva: 'lineal' });
                     linea.push({ pieza: id, a: { destello: 0 }, dur: 0.8, en: t + 0.12, curva: 'salir' });
                 }
@@ -224,6 +310,40 @@ export function desdeTraza(opciones) {
             }
             for (const nombre of Object.keys(anterior)) if (!(nombre in vars)) delete anterior[nombre];
             Object.assign(anterior, vars);
+
+            // La pila de llamadas: si cambió, se redibuja y la de arriba se ilumina.
+            if (conPila) {
+                const marcos = (paso.pila ?? []).map((m) => ({
+                    funcion: m.funcion,
+                    filas: Object.entries(m.variables).map(([k, v]) => [k, v.repr]),
+                }));
+                if (paso.retorno && marcos.length) marcos[marcos.length - 1].retorno = paso.retorno.valor;
+                const clave = JSON.stringify(marcos);
+                if (clave !== pilaAnterior) {
+                    linea.push({ pieza: 'pila', a: { marcos }, dur: 0, en: t });
+                    linea.push({ pieza: 'pila', a: { destello: 1 }, dur: 0.12, en: t, curva: 'lineal' });
+                    linea.push({ pieza: 'pila', a: { destello: 0 }, dur: 0.8, en: t + 0.12, curva: 'salir' });
+                    pilaAnterior = clave;
+                }
+                // Adentro de una función, la marca del código cambia de color.
+                const dentro = marcos.length > 0;
+                if (dentro !== estabaDentro && !paso.excepcion) {
+                    linea.push({ pieza: 'codigo', a: { colorMarca: dentro ? 'acento2' : 'acento' }, dur: 0.3, en: t + 0.45 });
+                    estabaDentro = dentro;
+                }
+            }
+
+            // Las flechas de "la misma lista": aparecen cuando dos nombres
+            // empiezan a ser lo mismo, y se van cuando dejan de serlo.
+            for (const [clave, par] of pares) {
+                const a = vars[par.a];
+                const b = vars[par.b];
+                const juntas = a?.ref !== undefined && a.ref === b?.ref;
+                if (juntas !== Boolean(aliasActivos[clave])) {
+                    linea.push({ pieza: 'alias_' + clave.replace('|', '_'), a: { progreso: juntas ? 1 : 0 }, dur: 0.6, en: t + 0.2 });
+                    aliasActivos[clave] = juntas;
+                }
+            }
 
             if (conSalida && (paso.salida ?? '') !== salidaAnterior) {
                 if (!salidaAnterior) linea.push({ pieza: 'consola', a: { opacidad: 1 }, dur: 0.3, en: t });

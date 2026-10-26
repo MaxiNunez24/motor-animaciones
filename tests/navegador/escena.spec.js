@@ -8,6 +8,15 @@ import { resolve } from 'node:path';
 async function abrirEn(page, t, url = '/ejemplos/prueba.html') {
     await page.goto(url);
     await page.waitForFunction(() => document.querySelector('motor-escena')?.compilada);
+    // Las fuentes (y la de los emojis) tienen que estar cargadas: si no, con la
+    // compu cargada, la primera captura sale sin el emoji y la segunda con él.
+    // Se recorre toda la escena antes, porque una fuente se pide recién cuando
+    // aparece en pantalla el primer texto que la usa.
+    await page.evaluate(async () => {
+        const m = document.querySelector('motor-escena');
+        for (let t = 0; t <= m.duracion; t += 0.5) m.irA(t);
+        await document.fonts.ready;
+    });
     await page.evaluate((t) => {
         const m = document.querySelector('motor-escena');
         m.pausar();

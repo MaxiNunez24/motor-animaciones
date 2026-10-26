@@ -101,6 +101,15 @@
         motor-leccion {
             margin: 1em 0;
         }
+        .muestra {
+            display: block;
+            width: 100%;
+            max-width: 720px;
+            height: auto;
+            margin: 1em 0;
+            border-radius: 12px;
+            border: 1px solid var(--borde);
+        }
         video {
             display: block;
             width: 100%;
@@ -157,7 +166,7 @@
         <ul class="virtudes">
             <li><strong>Determinista</strong><span>Lo que se ve en cada instante depende solo del instante: se ve igual en vivo, paso a paso y en video.</span></li>
             <li><strong>Para enseñar</strong><span>Frena y pregunta «¿qué creés que pasa ahora?». Se aprende prediciendo, no mirando.</span></li>
-            <li><strong>Liviano y sin dependencias</strong><span>Un solo archivo de 24 KB. Anda en una página de alumno, abierta con doble clic.</span></li>
+            <li><strong>Liviano y sin dependencias</strong><span>Un solo archivo de 33 KB. Anda en una página de alumno, abierta con doble clic.</span></li>
             <li><strong>Accesible</strong><span>Teclado, lector de pantalla, subtítulos, movimiento reducido, modo oscuro, y en un celular de 360 px.</span></li>
         </ul>
 
@@ -181,6 +190,30 @@
             bucles que no terminan.
         </p>
         <p><a class="tarjeta" href="ejemplos/tu-programa/"><strong>Probalo con tu programa →</strong><span>Python en el navegador, sin instalar nada.</span></a></p>
+
+        <h2>De las funciones a los tests</h2>
+        <p>
+            Cada función que se está ejecutando aparece en la <strong>pila de llamadas</strong>, con sus propias
+            variables y lo que devuelve; una recursión se ve como tarjetas apiladas. Cuando dos nombres son la
+            <strong>misma</strong> lista o el mismo objeto, una flecha los une: «b no es una copia: es la misma
+            lista que a». Y también: consultas de <strong>SQL</strong> en el orden en que las ejecuta la base, y
+            <strong>tests</strong> que fallan, se corrigen y pasan.
+        </p>
+        <img class="muestra" src="medios/referencias.gif" width="720" height="405" loading="lazy"
+            alt="Animación: a = [1, 2, 3] y b = a. Al hacer b.append(4) cambian las dos listas, que llevan el mismo número, #1, y una flecha que dice «la misma lista» las une.">
+        <div class="tarjetas">
+            <a class="tarjeta" href="ejemplos/funciones-y-objetos/"><strong>Funciones y objetos →</strong><span>La pila de llamadas, la recursión, las referencias y self.</span></a>
+            <a class="tarjeta" href="ejemplos/sql/"><strong>SQL, paso a paso →</strong><span>FROM, WHERE, SELECT, ORDER BY: fila por fila.</span></a>
+            <a class="tarjeta" href="ejemplos/tests/"><strong>Tests, paso a paso →</strong><span>Un test que falla, el error que encuentra, y el verde.</span></a>
+        </div>
+
+        <h2>Hacé la tuya</h2>
+        <p>
+            En el <strong>editor de escenas</strong> escribís a la izquierda y la escena se rearma a la derecha mientras
+            tipeás. Arranca con plantillas, explica los errores en castellano, y exporta una página lista para abrir
+            con doble clic o publicar.
+        </p>
+        <p><a class="tarjeta" href="ejemplos/editor/"><strong>Abrir el editor →</strong><span>Sin instalar nada: todo en el navegador.</span></a></p>
 
         <h2>También en 3D</h2>
         <p>
@@ -222,6 +255,10 @@
         <div class="tarjetas">
             <a class="tarjeta" href="ejemplos/conceptos/"><strong>Conceptos, paso a paso</strong><span>Un for, un diccionario y un evento, con preguntas.</span></a>
             <a class="tarjeta" href="ejemplos/tu-programa/"><strong>Animá tu programa</strong><span>Escribís Python y la animación se arma sola.</span></a>
+            <a class="tarjeta" href="ejemplos/funciones-y-objetos/"><strong>Funciones y objetos</strong><span>Pila de llamadas, recursión, referencias y self.</span></a>
+            <a class="tarjeta" href="ejemplos/sql/"><strong>SQL, paso a paso</strong><span>Una consulta en el orden en que la ejecuta la base.</span></a>
+            <a class="tarjeta" href="ejemplos/tests/"><strong>Tests, paso a paso</strong><span>Rojo, el error, y verde.</span></a>
+            <a class="tarjeta" href="ejemplos/editor/"><strong>Editor de escenas</strong><span>Escribí una escena y mirala mientras tipeás.</span></a>
             <a class="tarjeta" href="ejemplos/el-nino/"><strong>El Niño, explicado</strong><span>Globo 3D, corte del océano, y qué esperar en 2026.</span></a>
             <a class="tarjeta" href="ejemplos/expo/"><strong>El Sistema de Gestión de Alumnos</strong><span>La Expo, con controles. En el celular, la cámara se acerca a cada parte.</span></a>
             <a class="tarjeta" href="ejemplos/expo/pantalla.html"><strong>La Expo en pantalla grande</strong><span>Toda la ventana, en loop, sin controles.</span></a>
@@ -231,7 +268,7 @@
         <h2>Usarlo</h2>
         <p>En cualquier página, con un solo archivo:</p>
         <pre><code>&lt;motor-escena escena="hola" autoplay&gt;&lt;/motor-escena&gt;
-&lt;script src="https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.5.0/dist/motor.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.6.0/dist/motor.min.js"&gt;&lt;/script&gt;
 &lt;script&gt;
     const { caja, flecha } = Motor;
     Motor.registrar('hola', {
@@ -249,11 +286,18 @@
     });
 &lt;/script&gt;</code></pre>
         <p>Desde un proyecto (Astro, Vite…):</p>
-        <pre><code>pnpm add github:MaxiNunez24/motor-animaciones#v0.5.0</code></pre>
+        <pre><code>pnpm add github:MaxiNunez24/motor-animaciones#v0.6.0</code></pre>
         <p>
             Todo lo demás está en <a href="https://github.com/MaxiNunez24/motor-animaciones#readme">el README</a>,
             y cómo sumarlo a una plataforma con Astro y Starlight, en
             <a href="https://github.com/MaxiNunez24/motor-animaciones/blob/main/docs/usar-en-el-curso.md">esta guía</a>.
+        </p>
+
+        <h2>Aportar</h2>
+        <p>
+            Es código abierto: se puede sumar una escena, una pieza, una lección o una corrección. Las reglas
+            (determinista, accesible, en castellano) y cómo mandar un cambio están en
+            <a href="https://github.com/MaxiNunez24/motor-animaciones/blob/main/CONTRIBUTING.md">CONTRIBUTING</a>.
         </p>
 
         <footer>

@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Editor de escenas · motor de animaciones</title>
+    <style>
+        :root {
+            --fondo: #f6f4ef;
+            --superficie: #ffffff;
+            --texto: #1c2230;
+            --suave: #5a6372;
+            --borde: #d7dbe2;
+            --acento: #1f5fd1;
+            --error: #b91c1c;
+            font-family: system-ui, "Segoe UI", sans-serif;
+            color-scheme: light;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --fondo: #0d1117;
+                --superficie: #161c25;
+                --texto: #e8ebf0;
+                --suave: #9ba5b3;
+                --borde: #2a3340;
+                --acento: #73a9ff;
+                --error: #f87171;
+                color-scheme: dark;
+            }
+        }
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            background: var(--fondo);
+            color: var(--texto);
+            line-height: 1.5;
+        }
+        header {
+            padding: 14px 16px 6px;
+            max-width: 1500px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: clamp(1.3rem, 4vw, 1.8rem);
+            margin: 0;
+        }
+        header p {
+            margin: 0.2em 0 0;
+            color: var(--suave);
+        }
+        main {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+            gap: 16px;
+            padding: 10px 16px 32px;
+            max-width: 1500px;
+            margin: 0 auto;
+        }
+        /* En el celular, uno arriba del otro: primero se ve, después se edita. */
+        @media (max-width: 900px) {
+            main {
+                grid-template-columns: minmax(0, 1fr);
+            }
+            .vista {
+                order: -1;
+            }
+        }
+        .barra {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        select,
+        button {
+            font: 600 0.95rem system-ui, sans-serif;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--borde);
+            background: var(--superficie);
+            color: var(--texto);
+            cursor: pointer;
+        }
+        button:hover,
+        select:hover {
+            border-color: var(--acento);
+        }
+        button:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible {
+            outline: 3px solid var(--acento);
+            outline-offset: 1px;
+        }
+        textarea {
+            width: 100%;
+            min-height: 62vh;
+            resize: vertical;
+            font: 15px/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--borde);
+            background: var(--superficie);
+            color: var(--texto);
+            tab-size: 4;
+            white-space: pre;
+        }
+        #error {
+            margin-top: 8px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 2px solid var(--error);
+            color: var(--error);
+            font-family: ui-monospace, Consolas, monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+        }
+        #error[hidden] {
+            display: none;
+        }
+        #estado {
+            color: var(--suave);
+            font-size: 0.9rem;
+            min-height: 1.4em;
+        }
+        details {
+            margin-top: 14px;
+            background: var(--superficie);
+            border: 1px solid var(--borde);
+            border-radius: 10px;
+            padding: 8px 14px;
+        }
+        summary {
+            cursor: pointer;
+            font-weight: 700;
+        }
+        details code {
+            font-size: 0.88rem;
+        }
+        details li {
+            margin: 0.2em 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Editor de escenas</h1>
+        <p>Escribí a la izquierda y mirá a la derecha: la escena se rearma sola mientras tipeás.</p>
+    </header>
+    <main>
+        <section aria-label="Editor">
+            <div class="barra">
+                <label for="plantilla">Arrancar con:</label>
+                <select id="plantilla"></select>
+                <button type="button" id="copiar">Copiar como página</button>
+                <button type="button" id="bajar">Bajar el .html</button>
+            </div>
+            <textarea id="codigo" spellcheck="false" aria-label="El código de la escena" aria-describedby="ayuda-editor"></textarea>
+            <p id="ayuda-editor" class="nota" style="color: var(--suave); font-size: 0.9rem; margin: 4px 0 0;">
+                El código devuelve la escena con <code>return { ... }</code>. Tab escribe cuatro espacios.
+                Lo que escribís se guarda en este navegador.
+            </p>
+            <div id="error" role="alert" hidden></div>
+            <details>
+                <summary>Lo que se puede usar</summary>
+                <ul>
+                    <li><strong>Piezas:</strong> <code>caja</code>, <code>texto</code>, <code>flecha</code>, <code>tabla</code>,
+                        <code>celular</code>, <code>contador</code>, <code>cilindro</code>, <code>camara</code>,
+                        y para programas <code>codigo</code>, <code>variable</code>, <code>lista</code>, <code>consola</code>.</li>
+                    <li><strong>Todas tienen</strong> <code>x</code>, <code>y</code> (el centro), <code>escala</code>,
+                        <code>rotacion</code>, <code>opacidad</code> y <code>dentro</code>.</li>
+                    <li><strong>La línea:</strong> <code>{ pieza, a: {...}, dur, curva, en }</code>,
+                        <code>{ capitulo }</code>, <code>{ subtitulo }</code>, <code>{ espera }</code>,
+                        <code>{ marca: 'pregunta', datos: { pregunta, opciones, correcta } }</code>.</li>
+                    <li><strong>en:</strong> nada (después de lo anterior), un número, <code>'+0.5'</code>, <code>'&lt;'</code> (junto con lo anterior), <code>'&gt;'</code>.</li>
+                    <li><strong>Curvas:</strong> <code>suave</code>, <code>lineal</code>, <code>entrar</code>, <code>salir</code>, <code>pasarse</code>.</li>
+                    <li><strong>Colores:</strong> <code>fondo</code>, <code>superficie</code>, <code>texto</code>, <code>suave</code>,
+                        <code>borde</code>, <code>acento</code>, <code>acento2</code>, <code>exito</code>, <code>alerta</code>,
+                        <code>error</code>, <code>papel</code>, <code>marco</code>.</li>
+                    <li>Todo está en <a href="https://github.com/MaxiNunez24/motor-animaciones#readme">el README</a>.</li>
+                </ul>
+            </details>
+        </section>
+        <section class="vista" aria-label="La escena">
+            <motor-leccion id="vista"></motor-leccion>
+            <p id="estado" aria-live="polite"></p>
+        </section>
+    </main>
+
+    <script src="../../dist/motor.min.js"></script>
+    <script src="plantillas.js"></script>
+    <script>
+        // Lo que el código del editor tiene a mano sin escribir "Motor.": todo lo
+        // que exporta el motor (caja, flecha, desdeTraza, azar...).
+        const NOMBRES = Object.keys(Motor).filter((n) => /^[a-z]/.test(n));
+        const GUARDADO = 'motor-editor:codigo';
+        const editor = document.getElementById('codigo');
+        const vista = document.getElementById('vista');
+        const caja = document.getElementById('error');
+        const estado = document.getElementById('estado');
+        const plantilla = document.getElementById('plantilla');
+
+        for (const nombre of Object.keys(PLANTILLAS)) plantilla.add(new Option(nombre, nombre));
+
+        function leerGuardado() {
+            try {
+                return localStorage.getItem(GUARDADO);
+            } catch {
+                return null;
+            }
+        }
+        function guardar(texto) {
+            try {
+                localStorage.setItem(GUARDADO, texto);
+            } catch {
+                // Sin lugar para guardar (ventana privada): se puede seguir igual.
+            }
+        }
+
+        // El código del editor es el cuerpo de una función que recibe las
+        // piezas por nombre y devuelve la escena.
+        function armar(texto) {
+            const fabrica = new Function(...NOMBRES, `"use strict";\n${texto}`);
+            const escena = fabrica(...NOMBRES.map((n) => Motor[n]));
+            if (!escena || (typeof escena !== 'object' && typeof escena !== 'function')) {
+                throw new Error('El código tiene que terminar con return { ... }: la escena.');
+            }
+            // Se compila acá mismo para atajar los errores y mostrarlos junto al editor.
+            Motor.compilar(escena);
+            return escena;
+        }
+
+        let espera = null;
+        function actualizar() {
+            const texto = editor.value;
+            guardar(texto);
+            try {
+                const escena = armar(texto);
+                caja.hidden = true;
+                const corriendo = vista.corriendo;
+                vista.escena = escena;
+                if (corriendo || !vista._yaVista) vista.reproducir();
+                vista._yaVista = true;
+                estado.textContent = `Lista: ${vista.duracion.toFixed(1)} segundos.`;
+            } catch (error) {
+                caja.textContent = `⚠️ ${error.message}`;
+                caja.hidden = false;
+                estado.textContent = 'Hay un error: la escena de la derecha es la última que anduvo.';
+            }
+        }
+        // Se espera un poquito a que se deje de tipear: rearmar en cada tecla
+        // sería pesado en una compu lenta, y mostraría errores a mitad de palabra.
+        editor.addEventListener('input', () => {
+            clearTimeout(espera);
+            espera = setTimeout(actualizar, 450);
+        });
+
+        // Tab escribe cuatro espacios (y Shift+Tab sale del editor, para el teclado).
+        editor.addEventListener('keydown', (e) => {
+            if (e.key !== 'Tab' || e.shiftKey) return;
+            e.preventDefault();
+            const { selectionStart: i, selectionEnd: f, value } = editor;
+            editor.value = value.slice(0, i) + '    ' + value.slice(f);
+            editor.selectionStart = editor.selectionEnd = i + 4;
+            editor.dispatchEvent(new Event('input'));
+        });
+
+        plantilla.addEventListener('change', () => {
+            editor.value = PLANTILLAS[plantilla.value];
+            vista._yaVista = false;
+            actualizar();
+        });
+
+        // Una página completa, lista para abrir o publicar, con esta escena.
+        function comoPagina() {
+            const version = Motor.version;
+            return `<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mi escena</title>
+</head>
+<body>
+    <motor-leccion escena="mi-escena" autoplay></motor-leccion>
+
+    <script src="https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v${version}/dist/motor.min.js"><\/script>
+    <script>
+        Motor.registrar('mi-escena', (function () {
+            const { ${NOMBRES.filter((n) => editor.value.includes(n)).join(', ')} } = Motor;
+${editor.value.split('\n').map((l) => '            ' + l).join('\n')}
+        })());
+    <\/script>
+</body>
+</html>
+`;
+        }
+        document.getElementById('copiar').addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(comoPagina());
+                estado.textContent = 'Copiada: pegala en un archivo .html y abrilo con doble clic.';
+            } catch {
+                estado.textContent = 'No se pudo copiar: usá "Bajar el .html".';
+            }
+        });
+        document.getElementById('bajar').addEventListener('click', () => {
+            const enlace = document.createElement('a');
+            enlace.href = URL.createObjectURL(new Blob([comoPagina()], { type: 'text/html' }));
+            enlace.download = 'mi-escena.html';
+            enlace.click();
+            URL.revokeObjectURL(enlace.href);
+        });
+
+        editor.value = leerGuardado() ?? PLANTILLAS['Cajas y una flecha'];
+        actualizar();
+    </script>
+</body>
+</html>

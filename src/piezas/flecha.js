@@ -28,6 +28,10 @@ export const flecha = definirPieza({
         etiqueta: '',
         tamanoEtiqueta: 24,
         colorEtiqueta: 'suave',
+        // De qué lado del camino va la etiqueta: 1 o -1 (para que no quede encima de otra pieza).
+        ladoEtiqueta: 1,
+        // Girar la etiqueta para que siga la flecha (en una flecha vertical, no ocupa ancho).
+        girarEtiqueta: false,
     },
     colores: ['color', 'colorEtiqueta'],
     // Depende de dónde están las otras piezas, así que se recalcula siempre.
@@ -93,13 +97,24 @@ export const flecha = definirPieza({
         // flecha vertical, medio ancho de la etiqueta; en una horizontal, media altura.
         const medio = puntoCurva(curva, 0.5);
         const angMedio = anguloCurva(curva, 0.5);
-        const ex = Math.sin(angMedio);
-        const ey = -Math.cos(angMedio);
+        const ex = Math.sin(angMedio) * (p.ladoEtiqueta < 0 ? -1 : 1);
+        const ey = -Math.cos(angMedio) * (p.ladoEtiqueta < 0 ? -1 : 1);
         const medioAncho = (Array.from(p.etiqueta).length * p.tamanoEtiqueta * ANCHO_LETRA) / 2;
-        const corrimiento = p.tamanoEtiqueta * 0.5 + Math.abs(ex) * medioAncho + Math.abs(ey) * p.tamanoEtiqueta * 0.5;
+        // Girada, la etiqueta sigue la flecha: alcanza con correrla media altura.
+        // Si no, en una flecha vertical hay que correrla medio ancho de texto.
+        const corrimiento = p.girarEtiqueta
+            ? p.tamanoEtiqueta * 0.8
+            : p.tamanoEtiqueta * 0.5 + Math.abs(ex) * medioAncho + Math.abs(ey) * p.tamanoEtiqueta * 0.5;
+        const ex2 = medio.x + ex * corrimiento;
+        const ey2 = medio.y + ey * corrimiento;
+        // El ángulo se da vuelta si haría falta leerla cabeza abajo.
+        let grados = (angMedio * 180) / Math.PI;
+        if (grados > 90) grados -= 180;
+        if (grados < -90) grados += 180;
         poner(partes.etiqueta, {
-            x: medio.x + ex * corrimiento,
-            y: medio.y + ey * corrimiento,
+            x: ex2,
+            y: ey2,
+            transform: p.girarEtiqueta ? `rotate(${grados.toFixed(1)} ${ex2.toFixed(1)} ${ey2.toFixed(1)})` : null,
             'font-size': p.tamanoEtiqueta,
             fill: aCss(p.colorEtiqueta),
             opacity: limitar((avance - 0.5) / 0.4, 0, 1),

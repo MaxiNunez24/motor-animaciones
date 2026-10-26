@@ -3,7 +3,7 @@
 Animaciones web **deterministas**: el estado en el instante *t* depende solo de *t*. Por eso la
 misma escena se ve igual en vivo, paso a paso y grabada a video, y se puede probar con tests.
 
-Sin dependencias. 24 KB con gzip con todo (14 KB sin la capa pedagógica, en `motor-base.min.js`).
+Sin dependencias. 33 KB con gzip con todo (15 KB sin la capa pedagógica, en `motor-base.min.js`).
 
 **Ejemplos en vivo:** <https://maxinunez24.github.io/motor-animaciones/>
 
@@ -37,12 +37,12 @@ Sin dependencias. 24 KB con gzip con todo (14 KB sin la capa pedagógica, en `mo
 
 `motor.min.js` es un script clásico a propósito: anda abriendo el `.html` con doble clic
 (`file://`), donde los módulos no cargan. Con internet también se puede usar desde jsDelivr:
-`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.5.0/dist/motor.min.js`.
+`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.6.0/dist/motor.min.js`.
 
 ## Desde otro proyecto (Astro, Vite…)
 
 ```bash
-pnpm add github:MaxiNunez24/motor-animaciones#v0.5.0
+pnpm add github:MaxiNunez24/motor-animaciones#v0.6.0
 ```
 
 ```js
@@ -100,8 +100,9 @@ Está encima del motor, y el motor no sabe que existe (vive en `src/pedagogico/`
   - **Paso a paso** (el botón, o el atributo `paso-a-paso`): frena en cada `{ marca: 'paso' }`, y
     ⏮ ⏭ van de un paso al otro.
   - Con el atributo `video` no frena: la pregunta queda como cartel durante su tramo.
-- **Piezas**: `codigo` (con la línea que corre resaltada, Python o JavaScript), `variable` (una
-  caja con su nombre), `lista` (casilleros con índices y una flechita) y `consola`.
+- **Piezas**: `codigo` (con la línea que corre resaltada, en Python, JavaScript o SQL), `variable`
+  (una caja con su nombre), `lista` (casilleros con índices y una flechita), `consola` y `pila` (la
+  pila de llamadas: una tarjeta por función que se está ejecutando, con sus variables).
 - **`desdeTraza({ codigo, traza, explicaciones, preguntas, punteros })`**: arma la escena sola a
   partir de la traza de un programa (qué línea corrió y cuánto valía cada variable). La traza se
   saca de un programa de verdad con `python herramientas/trazar.py programa.py`, o se escribe a
@@ -135,6 +136,36 @@ Pyodide que le pasás) y devuelve la traza. Con `desdeTraza({ ...traza, explicar
 
 El trazador es uno solo, `src/pedagogico/trazador.py`: lo usan la consola
 (`herramientas/trazar.py`) y el navegador (se copia a `trazador-py.js` al construir).
+
+Entiende **funciones** (cada llamada va a la pila, con sus parámetros, y cuando termina se ve qué
+devuelve; una recursión apila una tarjeta por llamada), **objetos** (con sus atributos, y `self`
+dentro de un método) y **referencias**: cuando dos nombres son la misma lista o el mismo objeto,
+llevan el mismo número y una flecha los une. Las explicaciones lo dicen: «b no es una copia: es la
+misma lista que a», «Se llama a factorial(3): la función se llama a sí misma». Ejemplos en
+[Funciones y objetos](ejemplos/funciones-y-objetos/).
+
+### SQL, paso a paso
+
+`Motor.desdeConsulta({ tabla, sql, preguntas })` anima una consulta sobre una tabla: muestra que SQL
+se **escribe** en un orden (`SELECT`, `FROM`, `WHERE`...) y se **ejecuta** en otro (`FROM`, `WHERE`,
+`SELECT`, `ORDER BY`, `LIMIT`), marca fila por fila si cumple el `WHERE` y arma el resultado. Entiende
+`SELECT` con `WHERE` (`AND`, `OR`, `= != < <= > >=`), `ORDER BY` y `LIMIT`; con otra cosa avisa en vez
+de mostrar algo equivocado. Los tests comparan cada resultado con SQLite de verdad.
+Ejemplos en [SQL, paso a paso](ejemplos/sql/).
+
+### Tests, paso a paso
+
+`Motor.desdeTests({ corridas })` muestra cómo corre pytest: cada test, cada `assert` con lo que se
+esperaba y lo que dio, el rojo y el verde, y el resumen. Con dos corridas se cuenta la historia
+completa: falla, se encuentra el error, se corrige, pasa. Los datos salen de
+`python herramientas/trazar.py test_programa.py --tests` (o de `Motor.probarConPyodide()` en el
+navegador). Ejemplo en [Tests, paso a paso](ejemplos/tests/).
+
+### El editor de escenas
+
+[El editor](ejemplos/editor/) tiene el código a la izquierda y la escena a la derecha, y se rearma
+mientras se tipea. Trae plantillas, explica los errores al lado del código, guarda el borrador y
+exporta una página lista para abrir o publicar.
 
 ## 3D
 
@@ -176,15 +207,25 @@ las preguntas no frenan, se leen y quedan como cartel, y el paso siguiente dice 
   [`es_AR-daniela-high`](https://huggingface.co/rhasspy/piper-voices/tree/main/es/es_AR/daniela/high)
   en `%LOCALAPPDATA%\motor-animaciones\voces\` (o pasala con `--voz`). Los datos de esa voz son
   CC BY-SA 4.0 (OpenSLR 61): la descripción que genera ya incluye el crédito.
-- `--subtitulos srt|quemados|ambos|no` (srt, aparte, es lo que conviene en YouTube).
+  Antes de leer, el texto se prepara: sin emojis, con los símbolos en palabras («°C» se dice
+  «grados», «>=» «mayor o igual a», `test_mitad` «test mitad») y terminado en punto, para que la
+  entonación baje al final. Se puede afinar la voz con `--pausado`, `--expresion`, `--ritmo` y
+  `--silencio`.
+- `--gif` también deja un GIF, con su propia paleta de colores (`--gif-ancho`, `--gif-fps`): para
+  mandarlo por mensaje o ponerlo en una presentación.
+- `--subtitulos srt|quemados|ambos|no` (srt, aparte, es lo que conviene en YouTube). También deja un
+  `.vtt`, para un `<video>` en una página web.
 - `--desde` y `--hasta` para grabar un pedazo; `--fps`, `--tema`, `--calidad` (crf de x264).
 - Usa el ffmpeg de `ffmpeg-static` (viene con `npm install`), o el de la variable `FFMPEG`.
 
 ## Trabajar en el motor
 
+Para aportar, leé [CONTRIBUTING.md](CONTRIBUTING.md): las reglas que no se negocian, cómo se escribe
+y cómo mandar un cambio.
+
 ```bash
 npm install
-npm run construir        # dist/motor.js, dist/motor.min.js y dist/motor-base.min.js
+npm run construir        # dist/: el motor, la versión base y la 3D
 npm run servir           # http://localhost:4173/
 npm test                 # el núcleo, en Node
 npm run test:navegador   # los ejemplos, en Chromium

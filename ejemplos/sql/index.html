@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SQL, paso a paso · motor de animaciones</title>
+    <style>
+        :root {
+            font-family: system-ui, "Segoe UI", sans-serif;
+            color-scheme: light dark;
+        }
+        body {
+            margin: 0;
+            padding: 20px 16px 48px;
+            background: Canvas;
+            color: CanvasText;
+            line-height: 1.5;
+        }
+        main {
+            max-width: 1040px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: clamp(1.4rem, 4.5vw, 2rem);
+            margin: 0 0 0.3em;
+        }
+        h2 {
+            font-size: clamp(1.15rem, 3.6vw, 1.5rem);
+            margin: 2em 0 0.3em;
+        }
+        motor-leccion {
+            margin-top: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>SQL, paso a paso</h1>
+        <p>
+            Una consulta se escribe empezando por <code>SELECT</code>, pero la base la ejecuta en otro orden:
+            primero <code>FROM</code>, después <code>WHERE</code>, después <code>SELECT</code>, y al final
+            <code>ORDER BY</code>. Mirá qué parte se ilumina en cada momento.
+        </p>
+
+        <h2>Filtrar y ordenar</h2>
+        <motor-leccion escena="sql-filtrar"></motor-leccion>
+
+        <h2>Dos condiciones a la vez</h2>
+        <motor-leccion escena="sql-y"></motor-leccion>
+    </main>
+
+    <script src="../../dist/motor.min.js"></script>
+    <script src="lecciones.js"></script>
+</body>
+</html>

@@ -8,6 +8,6 @@ export { crearPintor } from './pintor/pintor.js';
 export { TEMAS } from './pintor/tema.js';
 export { registrar, MotorEscena, definirComponente } from './controles/componente.js';
 
-export const version = '0.5.0';
+export const version = '0.6.0';
 
 definirComponente();

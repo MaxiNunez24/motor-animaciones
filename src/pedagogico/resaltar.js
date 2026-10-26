@@ -25,16 +25,24 @@ const PROPIAS = {
         'sum', 'max', 'min', 'sorted', 'enumerate', 'zip', 'abs', 'round', 'True', 'False', 'None',
     ]),
     js: new Set(['console', 'document', 'window', 'true', 'false', 'null', 'undefined', 'Math', 'JSON']),
+    sql: new Set(['COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'NULL', 'TRUE', 'FALSE']),
 };
 
-const COMENTARIO = { python: '#', js: '//' };
+// SQL no distingue mayúsculas: sus palabras se comparan siempre en mayúscula.
+PALABRAS.sql = new Set([
+    'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'ORDER', 'BY', 'ASC', 'DESC', 'LIMIT', 'INSERT', 'INTO',
+    'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE', 'JOIN', 'ON', 'AS', 'GROUP', 'HAVING', 'DISTINCT',
+    'LIKE', 'IN', 'IS', 'BETWEEN', 'PRIMARY', 'KEY', 'INTEGER', 'TEXT', 'REAL',
+]);
+
+const COMENTARIO = { python: '#', js: '//', sql: '--' };
 const LETRA = /[A-Za-z_ÁÉÍÓÚáéíóúÑñÜü]/;
 const PALABRA = /[A-Za-z0-9_ÁÉÍÓÚáéíóúÑñÜü]/;
 
 /**
  * Parte una línea de código en pedazos con su clase.
  * @param {string} linea
- * @param {'python' | 'js'} lenguaje
+ * @param {'python' | 'js' | 'sql'} lenguaje
  * @returns {{ texto: string, clase: 'normal' | 'palabra' | 'texto' | 'numero' | 'comentario' | 'propia' | 'funcion' }[]}
  */
 export function tokenizar(linea, lenguaje = 'python') {
@@ -76,8 +84,9 @@ export function tokenizar(linea, lenguaje = 'python') {
             while (j < linea.length && PALABRA.test(linea[j])) j++;
             const palabra = linea.slice(i, j);
             const sigue = linea.slice(j).trimStart()[0];
-            const clase = palabras.has(palabra) ? 'palabra'
-                : propias.has(palabra) ? 'propia'
+            const clave = lenguaje === 'sql' ? palabra.toUpperCase() : palabra;
+            const clase = palabras.has(clave) ? 'palabra'
+                : propias.has(clave) ? 'propia'
                     : sigue === '(' ? 'funcion'
                         : 'normal';
             agregar(palabra, clase);

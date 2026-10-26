@@ -21,7 +21,7 @@ La ruta lleva el `base` adelante, como los demás scripts de `public/`: sin él,
 1. Instalarlo, fijado a una versión (un tag del repo):
 
    ```bash
-   pnpm add github:MaxiNunez24/motor-animaciones#v0.5.0
+   pnpm add github:MaxiNunez24/motor-animaciones#v0.6.0
    ```
 
    `dist/` está subido al repo, así que no hace falta compilar nada al instalar (pnpm no corre
@@ -127,5 +127,37 @@ Así cualquier ejercicio tiene su animación, sin escribir nada a mano. Lo que n
 (las preguntas, una explicación mejor) se agrega por número de paso, como en
 `ejemplos/conceptos/lecciones.js`.
 
-Por ahora el trazador muestra las variables del programa principal: lo que pasa adentro de una
-función (con su pila de llamadas) es lo próximo para agregar.
+El trazador entiende funciones (con su pila de llamadas y lo que devuelven), recursión, objetos
+(con `self` y sus atributos) y referencias (dos nombres para la misma lista): sirve desde Funciones
+I hasta POO.
+
+## Animar los tests del alumno
+
+Para la clase de Testing, el mismo worker puede correr los tests del alumno y mostrar cuáles pasan:
+
+```ts
+// en el worker, cuando llega { tipo: 'probar', codigo }:
+pyodide.runPython(TRAZADOR_PY);
+const probar = pyodide.globals.get('_motor_probar');
+postMessage({ tipo: 'pruebas', json: probar(codigo) });
+probar.destroy();
+```
+
+```ts
+// en la página:
+import { desdeTests } from 'motor-animaciones';
+leccion.escena = desdeTests({ corridas: [{ codigo, ...JSON.parse(json) }] });
+```
+
+Cada `assert` dice lo que se esperaba y lo que dio ("esperaba 50, y dio 0"), que es justo lo que
+hace falta para encontrar el error.
+
+## Las consultas de la clase de SQLite
+
+```js
+import { registrar, desdeConsulta } from 'motor-animaciones';
+registrar('consulta', desdeConsulta({
+    tabla: { nombre: 'alumnos', columnas: ['nombre', 'presentes'], filas: [['Ana', 12], ['Beto', 5]] },
+    sql: 'SELECT nombre FROM alumnos WHERE presentes >= 8',
+}));
+```

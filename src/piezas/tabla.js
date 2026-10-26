@@ -24,6 +24,9 @@ export const tabla = definirPieza({
         encabezado: 'acento',
         colorEncabezado: 'fondo',
         color: 'texto',
+        // 'centro': y es el centro (como las demás piezas). 'arriba': y es el borde de
+        // arriba, para una tabla que va creciendo y no tiene que saltar.
+        anclaje: 'centro',
     },
     colores: ['relleno', 'borde', 'encabezado', 'colorEncabezado', 'color'],
 
@@ -41,7 +44,7 @@ export const tabla = definirPieza({
         const anchos = p.anchos ?? p.columnas.map(() => p.ancho / p.columnas.length);
         const total = anchos.reduce((a, b) => a + b, 0);
         const izq = -total / 2;
-        const arriba = -((p.filas.length + 1) * p.altoFila) / 2;
+        const arriba = p.anclaje === 'arriba' ? 0 : -((p.filas.length + 1) * p.altoFila) / 2;
 
         // La estructura se rearma solo si cambia la cantidad de filas o de
         // columnas; en cada cuadro se cambian textos y opacidades, que es barato.
