@@ -3,7 +3,9 @@
 Animaciones web **deterministas**: el estado en el instante *t* depende solo de *t*. Por eso la
 misma escena se ve igual en vivo, paso a paso y grabada a video, y se puede probar con tests.
 
-Sin dependencias. 13 KB con gzip, controles incluidos.
+Sin dependencias. 20 KB con gzip con todo (14 KB sin la capa pedagógica, en `motor-base.min.js`).
+
+**Ejemplos en vivo:** <https://maxinunez24.github.io/motor-animaciones/>
 
 ## En una página HTML, sin herramientas
 
@@ -35,19 +37,20 @@ Sin dependencias. 13 KB con gzip, controles incluidos.
 
 `motor.min.js` es un script clásico a propósito: anda abriendo el `.html` con doble clic
 (`file://`), donde los módulos no cargan. Con internet también se puede usar desde jsDelivr:
-`https://cdn.jsdelivr.net/gh/<usuario>/motor-animaciones@v0.1.0/dist/motor.min.js`.
+`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.3.0/dist/motor.min.js`.
 
 ## Desde otro proyecto (Astro, Vite…)
 
 ```bash
-pnpm add github:<usuario>/motor-animaciones#v0.1.0
+pnpm add github:MaxiNunez24/motor-animaciones#v0.3.0
 ```
 
 ```js
 import { registrar, caja } from 'motor-animaciones';
 ```
 
-`dist/` está subido al repo: pnpm no corre scripts de build de las dependencias.
+`dist/` está subido al repo: pnpm no corre scripts de build de las dependencias. Cómo usarlo en
+la plataforma del curso, con un componente de Astro listo: [docs/usar-en-el-curso.md](docs/usar-en-el-curso.md).
 
 ## La escena
 
@@ -86,12 +89,48 @@ Teclado: espacio reproduce y pausa, ← → saltan de capítulo, `,` `.` van cua
 
 Los colores se cambian desde afuera con `--motor-acento` (y `--motor-acento-oscuro`), etc.
 
+## La capa pedagógica
+
+Está encima del motor, y el motor no sabe que existe (vive en `src/pedagogico/`).
+
+- **`<motor-leccion>`**: como `<motor-escena>`, más dos cosas.
+  - **Preguntas**: donde la escena tiene `{ marca: 'pregunta', datos: { pregunta, opciones, correcta,
+    explicacion } }`, la animación frena y pregunta antes de mostrar lo que pasa. Al contestar
+    avisa si estuvo bien (y dispara el evento `respuesta`).
+  - **Paso a paso** (el botón, o el atributo `paso-a-paso`): frena en cada `{ marca: 'paso' }`, y
+    ⏮ ⏭ van de un paso al otro.
+  - Con el atributo `video` no frena: la pregunta queda como cartel durante su tramo.
+- **Piezas**: `codigo` (con la línea que corre resaltada, Python o JavaScript), `variable` (una
+  caja con su nombre), `lista` (casilleros con índices y una flechita) y `consola`.
+- **`desdeTraza({ codigo, traza, explicaciones, preguntas, punteros })`**: arma la escena sola a
+  partir de la traza de un programa (qué línea corrió y cuánto valía cada variable). La traza se
+  saca de un programa de verdad con `python herramientas/trazar.py programa.py`, o se escribe a
+  mano en el mismo formato (ver `ejemplos/conceptos/`).
+
+```html
+<motor-leccion escena="bucle-for"></motor-leccion>
+
+<script src="motor.min.js"></script>
+<script src="bucle-for.traza.js"></script>   <!-- python herramientas/trazar.py ... -->
+<script>
+    Motor.registrar('bucle-for', Motor.desdeTraza({
+        ...Motor.trazas['bucle-for'],
+        punteros: { numeros: 'n' },
+        explicaciones: { 3: 'El for toma el primer elemento: n vale 4.' },
+        preguntas: { 7: { pregunta: '¿Cuánto va a valer total?', opciones: ['15', '27'], correcta: 1 } },
+    }));
+</script>
+```
+
+Las marcas y las paradas que usa son del núcleo, y sirven para cualquier cosa:
+`{ marca: 'tipo', datos, dur }` en la línea queda en `escena.marcas`, y el reloj acepta `paradas`.
+
 ## Trabajar en el motor
 
 ```bash
 npm install
-npm run construir        # dist/motor.js y dist/motor.min.js
-npm run servir           # http://localhost:4173/ejemplos/
+npm run construir        # dist/motor.js, dist/motor.min.js y dist/motor-base.min.js
+npm run servir           # http://localhost:4173/
 npm test                 # el núcleo, en Node
 npm run test:navegador   # los ejemplos, en Chromium
 npm run tipos            # chequea los tipos (JSDoc)

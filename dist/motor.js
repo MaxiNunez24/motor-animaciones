@@ -111,6 +111,7 @@ function compilar(definicion, opciones = {}) {
   }
   const capitulos = [];
   const subtitulos = [];
+  const marcas = [];
   let fin = 0;
   let finSubtitulos = 0;
   let finUltimoSubtitulo = 0;
@@ -128,6 +129,9 @@ function compilar(definicion, opciones = {}) {
       finSubtitulos = Math.max(finSubtitulos, inicio + dur);
       finUltimoSubtitulo = inicio + dur;
       return;
+    } else if ("marca" in item) {
+      finItem = inicio + (item.dur ?? 0);
+      marcas.push({ tipo: String(item.marca), t: inicio, hasta: finItem, datos: item.datos ?? null });
     } else if ("espera" in item) {
       finItem = item.espera === "subtitulo" ? Math.max(inicio, finUltimoSubtitulo) : inicio + item.espera;
     } else if ("pieza" in item) {
@@ -160,7 +164,7 @@ function compilar(definicion, opciones = {}) {
       });
       finItem = inicio + Math.max(ids2.length - 1, 0) * escalonar + dur;
     } else {
-      throw new Error(`No entiendo ${donde}: tiene que ser una animaci\xF3n (pieza), un capitulo, un subtitulo o una espera.`);
+      throw new Error(`No entiendo ${donde}: tiene que ser una animaci\xF3n (pieza), un capitulo, un subtitulo, una marca o una espera.`);
     }
     previo = { inicio, fin: finItem };
     fin = Math.max(fin, finItem);
@@ -182,6 +186,7 @@ function compilar(definicion, opciones = {}) {
     }
   }
   capitulos.sort((a, b) => a.t - b.t);
+  marcas.sort((a, b) => a.t - b.t);
   const duracion = def.duracion ?? Math.max(fin, finSubtitulos) + (def.pausaFinal ?? 0);
   const ids = ordenarPadresPrimero(piezas);
   return {
@@ -197,6 +202,8 @@ function compilar(definicion, opciones = {}) {
     tipos: Object.fromEntries(ids.map((id) => [id, piezas[id].tipo])),
     capitulos,
     subtitulos,
+    /** Las marcas, en orden: { tipo, t, hasta, datos }. */
+    marcas,
     /** Cómo está todo en el instante t. */
     estado(t) {
       const tt = limitar(Number(t) || 0, 0, duracion);
@@ -283,6 +290,8 @@ var Reloj = class {
    *     velocidad?: number,
    *     alCambiar?: (t: number) => void,
    *     alCambiarEstado?: (corriendo: boolean) => void,
+   *     paradas?: number[],
+   *     alParar?: (t: number) => void,
    *     ahora?: () => number,
    *     pedirCuadro?: (f: () => void) => any,
    *     cancelarCuadro?: (id: any) => void,
@@ -296,6 +305,9 @@ var Reloj = class {
     this.alCambiar = opciones.alCambiar ?? (() => {
     });
     this.alCambiarEstado = opciones.alCambiarEstado ?? (() => {
+    });
+    this.paradas = [...opciones.paradas ?? []].sort((a, b) => a - b);
+    this.alParar = opciones.alParar ?? (() => {
     });
     this.ahora = opciones.ahora ?? (() => performance.now());
     this.pedirCuadro = opciones.pedirCuadro ?? ((f) => requestAnimationFrame(f));
@@ -333,11 +345,17 @@ var Reloj = class {
   cambiarVelocidad(v) {
     this.velocidad = v;
   }
+  /** Cambia dónde se frena solo. */
+  fijarParadas(paradas) {
+    this.paradas = [...paradas].sort((a, b) => a - b);
+  }
   destruir() {
     this.pausar();
     this.alCambiar = () => {
     };
     this.alCambiarEstado = () => {
+    };
+    this.alParar = () => {
     };
   }
   _cuadro() {
@@ -345,6 +363,13 @@ var Reloj = class {
     const paso = Math.min((ahora - this._ultimo) / 1e3, PASO_MAXIMO) * this.velocidad;
     this._ultimo = ahora;
     let t = this.t + paso;
+    const parada = this.paradas.find((p) => p > this.t && p <= Math.min(t, this.duracion));
+    if (parada !== void 0) {
+      this._fijar(parada);
+      this.pausar();
+      this.alParar(parada);
+      return;
+    }
     if (t >= this.duracion) {
       if (this.loop && this.duracion > 0) {
         t %= this.duracion;
@@ -1038,7 +1063,8 @@ var MotorEscena = class extends Base {
     this._reloj = new Reloj({
       duracion: 0,
       alCambiar: (t) => this._pintar(t),
-      alCambiarEstado: (corriendo) => this._barra.corriendo(corriendo)
+      alCambiarEstado: (corriendo) => this._barra.corriendo(corriendo),
+      alParar: (t) => this._alParar(t)
     });
     this._barra = crearBarra(
       /** @type {HTMLElement} */
@@ -1130,11 +1156,23 @@ var MotorEscena = class extends Base {
     for (const f of this._limpiar) f();
     this._limpiar = [];
   }
-  attributeChangedCallback(nombre) {
+  attributeChangedCallback(nombre, viejo, nuevo) {
     if (!this.isConnected) return;
     if (nombre === "escena") this._buscarEscena();
     else if (nombre === "movimiento" || nombre === "tema") this._armar();
     else this._aplicarAtributos();
+  }
+  // ---------------- Para las capas de arriba ----------------
+  // Una capa que extiende el componente (la pedagógica) los redefine. Acá
+  // no hacen nada: el componente común no sabe de preguntas ni de pasos.
+  /** Cada vez que la escena se arma (o se rearma por la disposición). */
+  _alArmar(compilada) {
+  }
+  /** Cuando el reloj se frena solo en una de sus paradas. */
+  _alParar(t) {
+  }
+  /** Cada vez que se dibuja un instante. */
+  _alPintar(estado) {
   }
   // ---------------- Por dentro ----------------
   _escuchar(objetivo, evento, f) {
@@ -1201,6 +1239,7 @@ var MotorEscena = class extends Base {
     this._titulo.textContent = compilada.titulo || "Animaci\xF3n";
     this._descripcion.textContent = textoAlternativo(compilada);
     this._barra.configurar(compilada);
+    this._alArmar(compilada);
     const yaEstaba = this._yaArrancado;
     this._yaArrancado = true;
     this._reloj.irA(Math.min(this._reloj.t, compilada.duracion));
@@ -1218,6 +1257,7 @@ var MotorEscena = class extends Base {
     }
     this._barra.mostrar(estado);
     if (this._subtitulo.textContent !== estado.subtitulo) this._subtitulo.textContent = estado.subtitulo;
+    this._alPintar(estado);
   }
   // El error se muestra EN la escena y en la consola: quien está armando una
   // escena en una página suelta muchas veces no tiene la consola abierta.
@@ -1294,6 +1334,273 @@ function definirComponente(nombre = "motor-escena") {
   customElements.define(nombre, MotorEscena);
 }
 
+// src/pedagogico/leccion.js
+var ESTILOS2 = `
+.ma-pregunta {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    max-height: calc(100% - 24px);
+    overflow: auto;
+    box-sizing: border-box;
+    padding: 14px 16px 16px;
+    border: 2px solid var(--ma-acento);
+    border-radius: 12px;
+    background: var(--ma-superficie);
+    color: var(--ma-texto);
+    box-shadow: 0 8px 28px rgb(0 0 0 / 0.25);
+    font-size: clamp(15px, 2.3cqi, 22px);
+    line-height: 1.4;
+    cursor: auto;
+}
+.ma-pregunta[hidden] {
+    display: none;
+}
+.ma-pregunta .ma-encabezado {
+    font-weight: 800;
+    color: var(--ma-acento);
+    margin: 0 0 4px;
+}
+.ma-pregunta .ma-enunciado {
+    margin: 0 0 10px;
+    font-weight: 600;
+}
+.ma-pregunta .ma-opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.ma-pregunta button {
+    min-height: 44px;
+    padding: 6px 16px;
+    border-radius: 10px;
+    border: 2px solid var(--ma-borde);
+    background: var(--ma-fondo);
+    color: var(--ma-texto);
+    font: 600 1em/1.2 var(--ma-fuente);
+    cursor: pointer;
+}
+.ma-pregunta .ma-opciones button {
+    font-family: var(--ma-fuente-mono);
+}
+.ma-pregunta button:hover:not(:disabled) {
+    border-color: var(--ma-acento);
+}
+.ma-pregunta button:focus-visible {
+    outline: 3px solid var(--ma-acento);
+    outline-offset: 2px;
+}
+.ma-pregunta button.correcta {
+    border-color: var(--ma-exito);
+    background: color-mix(in srgb, var(--ma-exito) 18%, var(--ma-fondo));
+}
+.ma-pregunta button.elegida:not(.correcta) {
+    border-color: var(--ma-error);
+    background: color-mix(in srgb, var(--ma-error) 15%, var(--ma-fondo));
+}
+.ma-pregunta button:disabled {
+    cursor: default;
+}
+.ma-pregunta .ma-respuesta {
+    margin: 10px 0 0;
+}
+.ma-pregunta .ma-seguir {
+    margin-top: 10px;
+    background: var(--ma-acento);
+    border-color: var(--ma-acento);
+    color: var(--ma-fondo);
+}
+.ma-controles .corto {
+    display: none;
+}
+/* En un celular no entran todos los controles en dos renglones: el tiempo se
+   esconde (la barra lo dice igual a un lector de pantalla) y el bot\xF3n se acorta. */
+@container (max-width: 400px) {
+    .ma-controles .largo,
+    .ma-tiempo {
+        display: none;
+    }
+    .ma-controles .corto {
+        display: inline;
+    }
+}
+.ma-pregunta .ma-nota {
+    margin: 8px 0 0;
+    color: var(--ma-suave);
+    font-size: 0.9em;
+}
+`;
+var MotorLeccion = class extends MotorEscena {
+  static observedAttributes = [...MotorEscena.observedAttributes, "paso-a-paso", "video"];
+  constructor() {
+    super();
+    const estilo = document.createElement("style");
+    estilo.textContent = ESTILOS2;
+    this.shadowRoot.appendChild(estilo);
+    this._panel = document.createElement("div");
+    this._panel.className = "ma-pregunta";
+    this._panel.hidden = true;
+    this._panel.setAttribute("role", "group");
+    this._panel.setAttribute("aria-label", "Pregunta");
+    this._panel.addEventListener("click", (e) => e.stopPropagation());
+    this._panel.addEventListener("keydown", (e) => e.stopPropagation());
+    this._lienzo.appendChild(this._panel);
+    const barra = this.shadowRoot.querySelector(".ma-controles");
+    this._botonPasos = document.createElement("button");
+    this._botonPasos.type = "button";
+    this._botonPasos.innerHTML = '<span class="largo">Paso a paso</span><span class="corto" aria-hidden="true">Pasos</span>';
+    this._botonPasos.setAttribute("aria-label", "Paso a paso");
+    this._botonPasos.setAttribute("aria-pressed", "false");
+    this._botonPasos.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.toggleAttribute("paso-a-paso");
+    });
+    barra.insertBefore(this._botonPasos, barra.querySelector('[data-accion="velocidad"]'));
+    for (const [accion, nombre] of [["anterior", "Paso anterior"], ["siguiente", "Paso siguiente"]]) {
+      barra.querySelector(`[data-accion="${accion}"]`).setAttribute("aria-label", nombre);
+    }
+    this._marcas = [];
+    this._abierta = null;
+  }
+  attributeChangedCallback(nombre, viejo, nuevo) {
+    if (nombre === "paso-a-paso" || nombre === "video") {
+      this._botonPasos.setAttribute("aria-pressed", String(this.hasAttribute("paso-a-paso")));
+      if (this._compilada) this._alArmar(this._compilada);
+      return;
+    }
+    super.attributeChangedCallback(nombre, viejo, nuevo);
+  }
+  get pasoAPaso() {
+    return this.hasAttribute("paso-a-paso");
+  }
+  // ---------------- Ganchos de <motor-escena> ----------------
+  _alArmar(compilada) {
+    this._marcas = compilada.marcas;
+    const paradas = this.hasAttribute("video") ? [] : this._marcas.filter((m) => m.tipo === "pregunta" || m.tipo === "paso" && this.pasoAPaso).map((m) => m.t);
+    this._reloj.fijarParadas([...new Set(paradas)]);
+  }
+  _alParar(t) {
+    const pregunta = this._marcas.find((m) => m.tipo === "pregunta" && m.t === t);
+    if (pregunta) this._abrir(pregunta, true);
+  }
+  _alPintar(estado) {
+    if (this.hasAttribute("video")) {
+      const m = this._marcas.find((x) => x.tipo === "pregunta" && estado.t >= x.t && estado.t < x.hasta);
+      if (m && this._abierta !== m) this._abrir(m, false);
+      else if (!m && this._abierta) this._cerrar();
+    } else if (this._abierta && Math.abs(estado.t - this._abierta.t) > 1e-6) {
+      this._cerrar();
+    }
+  }
+  // En una lección, ⏮ ⏭ van de paso en paso (y de pregunta en pregunta).
+  capituloSiguiente() {
+    const proximo = this._puntos().find((t) => t > this.t + 1e-6);
+    this.pausar();
+    if (proximo === void 0) this.irA(this.duracion);
+    else this._llegarA(proximo);
+  }
+  capituloAnterior() {
+    const anteriores = this._puntos().filter((t) => t < this.t - 1e-6);
+    this.pausar();
+    this.irA(anteriores.length ? anteriores[anteriores.length - 1] : 0);
+  }
+  _tecla(e) {
+    if (this._abierta && [" ", "k", "."].includes(e.key)) {
+      e.preventDefault();
+      return;
+    }
+    super._tecla(e);
+  }
+  // ---------------- Por dentro ----------------
+  _puntos() {
+    const tipos = this.pasoAPaso ? ["paso", "pregunta"] : ["pregunta"];
+    const puntos = this._marcas.filter((m) => tipos.includes(m.tipo)).map((m) => m.t);
+    for (const c of this._compilada?.capitulos ?? []) puntos.push(c.t);
+    return [...new Set(puntos)].sort((a, b) => a - b);
+  }
+  _llegarA(t) {
+    this.irA(t);
+    const pregunta = this._marcas.find((m) => m.tipo === "pregunta" && m.t === t);
+    if (pregunta && !this.hasAttribute("video")) this._abrir(pregunta, true);
+  }
+  _abrir(marca, interactiva) {
+    const d = marca.datos ?? {};
+    this._abierta = marca;
+    const panel = this._panel;
+    panel.replaceChildren();
+    const parrafo = (clase, texto3) => {
+      const p = document.createElement("p");
+      p.className = clase;
+      p.textContent = texto3;
+      panel.appendChild(p);
+      return p;
+    };
+    parrafo("ma-encabezado", "\u{1F914} Pensalo antes de seguir");
+    parrafo("ma-enunciado", d.pregunta ?? "\xBFQu\xE9 cre\xE9s que pasa ahora?");
+    const opciones = document.createElement("div");
+    opciones.className = "ma-opciones";
+    panel.appendChild(opciones);
+    const botones = (d.opciones ?? []).map((texto3, i) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = texto3;
+      b.disabled = !interactiva;
+      b.addEventListener("click", () => this._contestar(marca, i, botones));
+      opciones.appendChild(b);
+      return b;
+    });
+    if (!interactiva) {
+      parrafo("ma-nota", "Paus\xE1 y pensalo: la respuesta viene enseguida.");
+    } else if (botones.length === 0) {
+      this._botonSeguir(marca, "Ya lo pens\xE9: ver qu\xE9 pasa");
+    }
+    panel.hidden = false;
+    panel.setAttribute("aria-live", "polite");
+    if (interactiva) (botones[0] ?? panel.querySelector("button"))?.focus();
+  }
+  _contestar(marca, elegida, botones) {
+    const d = marca.datos ?? {};
+    botones.forEach((b, i) => {
+      b.disabled = true;
+      if (i === d.correcta) b.classList.add("correcta");
+      if (i === elegida) b.classList.add("elegida");
+    });
+    const bien = d.correcta === void 0 || elegida === d.correcta;
+    const respuesta = document.createElement("p");
+    respuesta.className = "ma-respuesta";
+    respuesta.textContent = `${bien ? "\u2705 \xA1Bien!" : "\u274C No era esa."} ${d.explicacion ?? ""}`.trim();
+    this._panel.appendChild(respuesta);
+    this._botonSeguir(marca, "Seguir");
+    this.dispatchEvent(new CustomEvent("respuesta", {
+      detail: { pregunta: d.pregunta, elegida, correcta: d.correcta, bien },
+      bubbles: true
+    }));
+  }
+  _botonSeguir(marca, texto3) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ma-seguir";
+    b.textContent = texto3;
+    b.addEventListener("click", () => {
+      this._cerrar();
+      this.irA(marca.hasta);
+      this.reproducir();
+    });
+    this._panel.appendChild(b);
+    b.focus();
+  }
+  _cerrar() {
+    this._abierta = null;
+    this._panel.hidden = true;
+    this._panel.replaceChildren();
+  }
+};
+function definirLeccion(nombre = "motor-leccion") {
+  if (typeof customElements === "undefined" || customElements.get(nombre)) return;
+  customElements.define(nombre, MotorLeccion);
+}
+
 // src/nucleo/azar.js
 function azar(semilla = 1) {
   let a = typeof semilla === "string" ? hashTexto(semilla) : semilla >>> 0;
@@ -1311,7 +1618,7 @@ function azar(semilla = 1) {
     /** Un entero entre min y max, los dos incluidos. */
     entero: (min, max) => min + Math.floor(siguiente() * (max - min + 1)),
     /** Un elemento cualquiera de una lista. */
-    elegir: (lista) => lista[Math.floor(siguiente() * lista.length)]
+    elegir: (lista2) => lista2[Math.floor(siguiente() * lista2.length)]
   };
 }
 function hashTexto(texto3) {
@@ -1863,36 +2170,763 @@ var cilindro = definirPieza({
   tamano: (p) => ({ ancho: p.ancho, alto: p.alto })
 });
 
+// src/pedagogico/resaltar.js
+var PALABRAS = {
+  python: /* @__PURE__ */ new Set([
+    "and",
+    "as",
+    "assert",
+    "break",
+    "class",
+    "continue",
+    "def",
+    "del",
+    "elif",
+    "else",
+    "except",
+    "finally",
+    "for",
+    "from",
+    "if",
+    "import",
+    "in",
+    "is",
+    "lambda",
+    "not",
+    "or",
+    "pass",
+    "raise",
+    "return",
+    "try",
+    "while",
+    "with",
+    "yield"
+  ]),
+  js: /* @__PURE__ */ new Set([
+    "break",
+    "case",
+    "catch",
+    "class",
+    "const",
+    "continue",
+    "default",
+    "do",
+    "else",
+    "export",
+    "for",
+    "function",
+    "if",
+    "import",
+    "in",
+    "let",
+    "new",
+    "of",
+    "return",
+    "switch",
+    "this",
+    "throw",
+    "try",
+    "typeof",
+    "var",
+    "while"
+  ])
+};
+var PROPIAS = {
+  python: /* @__PURE__ */ new Set([
+    "print",
+    "input",
+    "len",
+    "range",
+    "int",
+    "str",
+    "float",
+    "list",
+    "dict",
+    "set",
+    "tuple",
+    "sum",
+    "max",
+    "min",
+    "sorted",
+    "enumerate",
+    "zip",
+    "abs",
+    "round",
+    "True",
+    "False",
+    "None"
+  ]),
+  js: /* @__PURE__ */ new Set(["console", "document", "window", "true", "false", "null", "undefined", "Math", "JSON"])
+};
+var COMENTARIO = { python: "#", js: "//" };
+var LETRA = /[A-Za-z_ÁÉÍÓÚáéíóúÑñÜü]/;
+var PALABRA = /[A-Za-z0-9_ÁÉÍÓÚáéíóúÑñÜü]/;
+function tokenizar(linea, lenguaje = "python") {
+  const palabras = PALABRAS[lenguaje] ?? PALABRAS.python;
+  const propias = PROPIAS[lenguaje] ?? PROPIAS.python;
+  const comentario = COMENTARIO[lenguaje] ?? "#";
+  const pedazos = [];
+  const agregar = (texto3, clase) => {
+    const ultimo = pedazos[pedazos.length - 1];
+    if (ultimo && ultimo.clase === clase && clase === "normal") ultimo.texto += texto3;
+    else pedazos.push({ texto: texto3, clase });
+  };
+  let i = 0;
+  while (i < linea.length) {
+    const c = linea[i];
+    if (linea.startsWith(comentario, i)) {
+      agregar(linea.slice(i), "comentario");
+      break;
+    }
+    const prefijo = lenguaje === "python" && /[fFrRbB]/.test(c) && /["']/.test(linea[i + 1] ?? "") ? 1 : 0;
+    const comilla = linea[i + prefijo];
+    if (comilla === '"' || comilla === "'" || lenguaje === "js" && comilla === "`") {
+      let j = i + prefijo + 1;
+      while (j < linea.length && linea[j] !== comilla) j += linea[j] === "\\" ? 2 : 1;
+      agregar(linea.slice(i, j + 1), "texto");
+      i = j + 1;
+      continue;
+    }
+    if (/[0-9]/.test(c) && !PALABRA.test(linea[i - 1] ?? " ")) {
+      const m = linea.slice(i).match(/^\d+(\.\d+)?/);
+      agregar(m[0], "numero");
+      i += m[0].length;
+      continue;
+    }
+    if (LETRA.test(c)) {
+      let j = i;
+      while (j < linea.length && PALABRA.test(linea[j])) j++;
+      const palabra = linea.slice(i, j);
+      const sigue = linea.slice(j).trimStart()[0];
+      const clase = palabras.has(palabra) ? "palabra" : propias.has(palabra) ? "propia" : sigue === "(" ? "funcion" : "normal";
+      agregar(palabra, clase);
+      i = j;
+      continue;
+    }
+    agregar(c, "normal");
+    i += 1;
+  }
+  return pedazos;
+}
+var COLORES_CODIGO = {
+  normal: "texto",
+  palabra: "acento",
+  texto: "exito",
+  numero: "acento2",
+  comentario: "suave",
+  propia: "alerta",
+  funcion: "texto"
+};
+
+// src/pedagogico/piezas/codigo.js
+var ANCHO_MONO = 0.6;
+var codigo = definirPieza({
+  nombre: "codigo",
+  predeterminados: {
+    codigo: "",
+    lenguaje: "python",
+    ancho: 700,
+    tamano: 26,
+    interlineado: 1.6,
+    // La línea que está por correr, contando desde 1.
+    linea: 1,
+    // De 0 a 1: cuánto se ve la marca de la línea (0: el programa terminó).
+    marca: 0,
+    colorMarca: "acento",
+    numeros: true,
+    // Arriba, como la pestaña de un editor: "programa.py".
+    titulo: "",
+    relleno: "superficie",
+    borde: "borde"
+  },
+  colores: ["colorMarca", "relleno", "borde"],
+  crear(grupo) {
+    return { grupo, clave: "", lineas: [] };
+  },
+  actualizar(partes, p) {
+    const medidas = medir(p);
+    const { arriba, izq, alto, altoLinea, xCodigo } = medidas;
+    const clave = `${p.lenguaje}|${p.tamano}|${p.ancho}|${p.titulo}|${p.numeros}|${p.codigo}`;
+    if (partes.clave !== clave) {
+      partes.grupo.replaceChildren();
+      partes.fondo = el("rect", {}, partes.grupo);
+      partes.pestana = el("text", { "font-size": p.tamano * 0.75, "dominant-baseline": "central" }, partes.grupo);
+      partes.barra = el("rect", {}, partes.grupo);
+      partes.borde = el("rect", {}, partes.grupo);
+      partes.lineas = medidas.lineas.map((linea, i) => {
+        const y2 = arriba + medidas.encabezado + (i + 0.5) * altoLinea + medidas.margen;
+        const numero = el("text", {
+          x: izq + 16 + 2 * p.tamano * ANCHO_MONO,
+          y: y2,
+          "text-anchor": "end",
+          "dominant-baseline": "central",
+          "font-size": p.tamano * 0.8,
+          fill: "var(--ma-suave)",
+          "font-family": "var(--ma-fuente-mono)",
+          visibility: p.numeros ? null : "hidden"
+        }, partes.grupo);
+        texto(numero, String(i + 1));
+        const texto3 = el("text", {
+          x: xCodigo,
+          y: y2,
+          "dominant-baseline": "central",
+          "font-size": p.tamano,
+          "font-family": "var(--ma-fuente-mono)",
+          style: "white-space: pre"
+        }, partes.grupo);
+        for (const pedazo of tokenizar(linea, p.lenguaje)) {
+          const tspan = el("tspan", {
+            fill: aCss(COLORES_CODIGO[pedazo.clase]),
+            "font-weight": pedazo.clase === "palabra" || pedazo.clase === "funcion" ? 700 : null
+          }, texto3);
+          texto(tspan, pedazo.texto);
+        }
+        return { numero, texto: texto3 };
+      });
+      partes.clave = clave;
+    }
+    poner(partes.fondo, {
+      x: izq,
+      y: arriba,
+      width: p.ancho,
+      height: alto,
+      rx: 14,
+      fill: aCss(p.relleno),
+      stroke: aCss(p.borde),
+      "stroke-width": 2
+    });
+    poner(partes.pestana, {
+      x: izq + 20,
+      y: arriba + medidas.encabezado / 2,
+      fill: "var(--ma-suave)",
+      "font-family": "var(--ma-fuente-mono)",
+      visibility: p.titulo ? null : "hidden"
+    });
+    texto(partes.pestana, p.titulo);
+    const n2 = medidas.lineas.length;
+    const y = arriba + medidas.encabezado + medidas.margen + (limitar(p.linea, 1, Math.max(n2, 1)) - 1) * altoLinea;
+    const marca = limitar(p.marca, 0, 1);
+    poner(partes.barra, {
+      x: izq + 2,
+      y,
+      width: p.ancho - 4,
+      height: altoLinea,
+      fill: `color-mix(in srgb, ${aCss(p.colorMarca)} 20%, transparent)`,
+      opacity: marca,
+      visibility: marca > 0 ? null : "hidden"
+    });
+    poner(partes.borde, {
+      x: izq + 2,
+      y,
+      width: 7,
+      height: altoLinea,
+      fill: aCss(p.colorMarca),
+      opacity: marca,
+      visibility: marca > 0 ? null : "hidden"
+    });
+  },
+  tamano(p) {
+    const m = medir(p);
+    return { ancho: p.ancho, alto: m.alto };
+  }
+});
+function medir(p) {
+  const lineas = String(p.codigo).replace(/\n$/, "").split("\n");
+  const altoLinea = p.tamano * p.interlineado;
+  const encabezado = p.titulo ? p.tamano * 1.6 : 0;
+  const margen = p.tamano * 0.5;
+  const alto = encabezado + 2 * margen + lineas.length * altoLinea;
+  const izq = -p.ancho / 2;
+  const xCodigo = izq + 16 + (p.numeros ? 2 * p.tamano * ANCHO_MONO + p.tamano * 0.9 : 8);
+  return { lineas, altoLinea, encabezado, margen, alto, arriba: -alto / 2, izq, xCodigo };
+}
+function caracteresPorLinea({ ancho, tamano, numeros = true }) {
+  const usado = 16 + (numeros ? 2 * tamano * ANCHO_MONO + tamano * 0.9 : 8) + 16;
+  return Math.floor((ancho - usado) / (tamano * ANCHO_MONO));
+}
+
+// src/pedagogico/piezas/variable.js
+var variable = definirPieza({
+  nombre: "variable",
+  predeterminados: {
+    nombre: "x",
+    // El valor como se escribe en el código: 0, 'Ana', [1, 2], True.
+    valor: "",
+    // Lo que dice type(): int, str... Vacío: no se muestra.
+    tipoDato: "",
+    ancho: 220,
+    alto: 80,
+    tamano: 30,
+    relleno: "superficie",
+    borde: "acento",
+    // De 0 a 1: se ilumina cuando cambia, para que el ojo vaya ahí.
+    destello: 0
+  },
+  colores: ["relleno", "borde"],
+  crear(grupo) {
+    return {
+      nombre: el("text", { "dominant-baseline": "central", "font-family": "var(--ma-fuente-mono)", "font-weight": 700 }, grupo),
+      tipo: el("text", { "text-anchor": "end", "dominant-baseline": "central", "font-family": "var(--ma-fuente-mono)" }, grupo),
+      caja: el("rect", {}, grupo),
+      destello: el("rect", { fill: "var(--ma-acento)" }, grupo),
+      valor: el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-family": "var(--ma-fuente-mono)" }, grupo)
+    };
+  },
+  actualizar(partes, p) {
+    const w = p.ancho;
+    const h = p.alto;
+    const etiqueta = p.tamano * 0.75;
+    poner(partes.nombre, { x: -w / 2 + 4, y: -h / 2 - etiqueta * 0.8, "font-size": etiqueta, fill: "var(--ma-texto)" });
+    texto(partes.nombre, p.nombre);
+    poner(partes.tipo, {
+      x: w / 2 - 4,
+      y: -h / 2 - etiqueta * 0.8,
+      "font-size": etiqueta * 0.85,
+      fill: "var(--ma-suave)",
+      visibility: p.tipoDato ? null : "hidden"
+    });
+    texto(partes.tipo, p.tipoDato);
+    poner(partes.caja, {
+      x: -w / 2,
+      y: -h / 2,
+      width: w,
+      height: h,
+      rx: 10,
+      fill: aCss(p.relleno),
+      stroke: aCss(p.borde),
+      "stroke-width": 3
+    });
+    poner(partes.destello, {
+      x: -w / 2,
+      y: -h / 2,
+      width: w,
+      height: h,
+      rx: 10,
+      opacity: p.destello * 0.3,
+      visibility: p.destello > 0 ? null : "hidden"
+    });
+    const largo2 = Array.from(String(p.valor)).length || 1;
+    const tamano = Math.min(p.tamano, (w - 24) / (largo2 * ANCHO_MONO));
+    poner(partes.valor, { "font-size": tamano, fill: "var(--ma-texto)" });
+    texto(partes.valor, String(p.valor));
+  },
+  tamano: (p) => ({ ancho: p.ancho, alto: p.alto })
+});
+
+// src/pedagogico/piezas/lista.js
+var lista = definirPieza({
+  nombre: "lista",
+  predeterminados: {
+    nombre: "",
+    // Los elementos como se escriben en el código: ['4', '8', '15'].
+    items: [],
+    celda: 90,
+    alto: 76,
+    tamano: 28,
+    // El índice del elemento señalado (-1: ninguno). Con decimales, la
+    // flechita va de un casillero al otro.
+    senalar: -1,
+    // Lo que se escribe debajo de la flechita, por ejemplo la variable del for.
+    puntero: "",
+    indices: true,
+    relleno: "superficie",
+    borde: "acento",
+    destello: 0
+  },
+  colores: ["relleno", "borde"],
+  crear(grupo) {
+    return {
+      grupo,
+      forma: -1,
+      nombre: el("text", { "dominant-baseline": "central", "font-family": "var(--ma-fuente-mono)", "font-weight": 700 }, grupo),
+      celdas: el("g", {}, grupo),
+      flecha: el("g", {}, grupo)
+    };
+  },
+  actualizar(partes, p) {
+    const n2 = p.items.length;
+    const w = Math.max(n2, 1) * p.celda;
+    const izq = -w / 2;
+    const h = p.alto;
+    const etiqueta = p.tamano * 0.75;
+    poner(partes.nombre, { x: izq + 4, y: -h / 2 - etiqueta * 0.8, "font-size": etiqueta, fill: "var(--ma-texto)" });
+    texto(partes.nombre, p.nombre);
+    if (partes.forma !== n2) {
+      partes.celdas.replaceChildren();
+      partes.filas = Array.from({ length: n2 }, () => ({
+        caja: el("rect", {}, partes.celdas),
+        valor: el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-family": "var(--ma-fuente-mono)" }, partes.celdas),
+        indice: el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-family": "var(--ma-fuente-mono)" }, partes.celdas)
+      }));
+      partes.vacia = el("rect", { "stroke-dasharray": "8 6", fill: "none" }, partes.celdas);
+      partes.forma = n2;
+    }
+    poner(partes.vacia, {
+      x: izq,
+      y: -h / 2,
+      width: w,
+      height: h,
+      rx: 8,
+      stroke: aCss(p.borde),
+      "stroke-width": 2,
+      visibility: n2 === 0 ? null : "hidden"
+    });
+    const senalada = Math.round(p.senalar);
+    partes.filas.forEach((fila, i) => {
+      const x = izq + i * p.celda;
+      const activa = i === senalada;
+      poner(fila.caja, {
+        x,
+        y: -h / 2,
+        width: p.celda,
+        height: h,
+        fill: activa ? `color-mix(in srgb, ${aCss(p.borde)} 22%, ${aCss(p.relleno)})` : aCss(p.relleno),
+        stroke: aCss(p.borde),
+        "stroke-width": 3
+      });
+      const texto3 = String(p.items[i]);
+      const tamano = Math.min(p.tamano, (p.celda - 12) / (Array.from(texto3).length * ANCHO_MONO));
+      poner(fila.valor, { x: x + p.celda / 2, y: 0, "font-size": tamano, fill: "var(--ma-texto)", "font-weight": activa ? 700 : 400 });
+      texto(fila.valor, texto3);
+      poner(fila.indice, {
+        x: x + p.celda / 2,
+        y: h / 2 + p.tamano * 0.55,
+        "font-size": p.tamano * 0.6,
+        fill: "var(--ma-suave)",
+        visibility: p.indices ? null : "hidden"
+      });
+      texto(fila.indice, String(i));
+    });
+    const visible = p.senalar >= 0 && n2 > 0;
+    const xf = izq + (Math.min(Math.max(p.senalar, 0), n2 - 1) + 0.5) * p.celda;
+    const yf = h / 2 + p.tamano * 1.1;
+    if (!partes.punta) {
+      partes.punta = el("path", {}, partes.flecha);
+      partes.etiqueta = el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-family": "var(--ma-fuente-mono)", "font-weight": 700 }, partes.flecha);
+    }
+    poner(partes.flecha, { transform: `translate(${Math.round(xf * 100) / 100} ${yf})`, visibility: visible ? null : "hidden" });
+    poner(partes.punta, { d: "M0 0 L-12 18 L12 18 Z", fill: aCss(p.borde) });
+    poner(partes.etiqueta, { y: 18 + p.tamano * 0.6, "font-size": p.tamano * 0.75, fill: aCss(p.borde), visibility: p.puntero ? null : "hidden" });
+    texto(partes.etiqueta, p.puntero);
+  },
+  tamano: (p) => ({ ancho: Math.max(p.items.length, 1) * p.celda, alto: p.alto })
+});
+
+// src/pedagogico/piezas/consola.js
+var consola = definirPieza({
+  nombre: "consola",
+  predeterminados: {
+    // Todo lo que se mostró hasta ahora. Se ven los últimos `renglones`.
+    salida: "",
+    ancho: 700,
+    renglones: 4,
+    tamano: 24,
+    titulo: "Salida",
+    relleno: "#0f141b",
+    color: "#e8ebf0"
+  },
+  colores: ["relleno", "color"],
+  crear(grupo) {
+    return {
+      fondo: el("rect", {}, grupo),
+      titulo: el("text", { "dominant-baseline": "central", "font-family": "var(--ma-fuente-mono)" }, grupo),
+      texto: el("text", { "font-family": "var(--ma-fuente-mono)", "dominant-baseline": "central", style: "white-space: pre" }, grupo),
+      lineas: []
+    };
+  },
+  actualizar(partes, p) {
+    const { alto, altoLinea, encabezado } = medir2(p);
+    const izq = -p.ancho / 2;
+    const arriba = -alto / 2;
+    poner(partes.fondo, { x: izq, y: arriba, width: p.ancho, height: alto, rx: 12, fill: aCss(p.relleno), stroke: "var(--ma-borde)", "stroke-width": 2 });
+    poner(partes.titulo, { x: izq + 18, y: arriba + encabezado / 2, "font-size": p.tamano * 0.7, fill: "#8b95a5" });
+    texto(partes.titulo, p.titulo);
+    const todas = String(p.salida).replace(/\n$/, "").split("\n");
+    const visibles = p.salida === "" ? [] : todas.slice(-p.renglones);
+    while (partes.lineas.length < p.renglones) partes.lineas.push(el("tspan", {}, partes.texto));
+    partes.lineas.forEach((tspan, i) => {
+      poner(tspan, { x: izq + 18, y: arriba + encabezado + (i + 0.5) * altoLinea + 6 });
+      texto(tspan, visibles[i] ?? "");
+    });
+    poner(partes.texto, { "font-size": p.tamano, fill: aCss(p.color) });
+  },
+  tamano(p) {
+    return { ancho: p.ancho, alto: medir2(p).alto };
+  }
+});
+function medir2(p) {
+  const altoLinea = p.tamano * 1.45;
+  const encabezado = p.tamano * 1.4;
+  return { altoLinea, encabezado, alto: encabezado + p.renglones * altoLinea + 12 };
+}
+
+// src/pedagogico/traza.js
+function desdeTraza(opciones) {
+  const {
+    traza,
+    lenguaje = "python",
+    titulo = "",
+    descripcion = "",
+    archivo = "",
+    ritmo = 1.4,
+    lectura = 13,
+    explicaciones = {},
+    preguntas = {},
+    punteros = {},
+    capitulos = {}
+  } = opciones;
+  const programa = String(opciones.codigo).replace(/\s+$/, "");
+  if (!Array.isArray(traza) || traza.length === 0) throw new Error("La traza tiene que ser una lista de pasos, y no puede estar vac\xEDa.");
+  const variables2 = [];
+  const vistas = /* @__PURE__ */ new Set();
+  let maxPares = 0;
+  let maxItems = 0;
+  for (const paso of traza) {
+    for (const [nombre, v] of Object.entries(paso.variables ?? {})) {
+      if (v.tipo === "dict") maxPares = Math.max(maxPares, v.pares?.length ?? 0);
+      if (v.items) maxItems = Math.max(maxItems, v.items.length);
+      if (vistas.has(nombre)) continue;
+      vistas.add(nombre);
+      variables2.push({ nombre, clase: v.tipo === "dict" ? "dict" : v.items ? "lista" : "valor" });
+    }
+  }
+  const conSalida = traza.some((p) => p.salida);
+  const conError = traza.some((p) => p.excepcion);
+  return function(disposicion) {
+    const angosta = disposicion.nombre === "angosta";
+    const W = angosta ? 640 : 1600;
+    const H = angosta ? 1140 : 900;
+    const arriba = titulo ? angosta ? 100 : 100 : 30;
+    const cod = angosta ? { x: 320, ancho: 610, tamano: 22 } : { x: 440, ancho: 820, tamano: 36 };
+    const necesario = Math.max(...programa.split("\n").map((l) => l.length));
+    cod.tamano = Math.min(cod.tamano, cod.tamano * caracteresPorLinea(cod) / necesario);
+    const piezaCodigo = codigo({
+      x: cod.x,
+      y: 0,
+      ancho: cod.ancho,
+      tamano: cod.tamano,
+      codigo: programa,
+      lenguaje,
+      titulo: archivo,
+      linea: traza[0].linea || 1,
+      marca: 0
+    });
+    const altoCodigo = piezaCodigo.tipo.tamano(piezaCodigo.props).alto;
+    piezaCodigo.props.y = arriba + altoCodigo / 2;
+    const piezas = {};
+    if (titulo) {
+      piezas.titulo = texto2({ x: W / 2, y: angosta ? 50 : 52, texto: titulo, tamano: angosta ? 32 : 40, peso: 800, anchoMax: W - 40 });
+    }
+    piezas.codigo = piezaCodigo;
+    const con = angosta ? { x: 320, ancho: 610, renglones: 3, tamano: 20 } : { x: 440, ancho: 820, renglones: 3, tamano: 30 };
+    const piezaConsola = consola({ ...con, opacidad: 0 });
+    const altoConsola = piezaConsola.tipo.tamano(piezaConsola.props).alto;
+    piezaConsola.props.y = angosta ? H - 20 - altoConsola / 2 : arriba + altoCodigo + 40 + altoConsola / 2;
+    if (conSalida) piezas.consola = piezaConsola;
+    if (conError) {
+      const yError = angosta ? piezaConsola.props.y - altoConsola / 2 - 70 : piezaConsola.props.y + altoConsola / 2 + 70;
+      piezas.error = caja({
+        x: con.x,
+        y: yError,
+        ancho: con.ancho,
+        alto: angosta ? 80 : 96,
+        texto: "",
+        tamano: angosta ? 24 : 34,
+        relleno: "superficie",
+        borde: "error",
+        color: "error",
+        opacidad: 0
+      });
+    }
+    const col = angosta ? { x: 320, ancho: 560, y: arriba + altoCodigo + 70 } : { x: 1250, ancho: 620, y: arriba + 50 };
+    let y = col.y;
+    const lugarVariable = {};
+    for (const v of variables2) {
+      const id = "var_" + v.nombre;
+      lugarVariable[v.nombre] = id;
+      if (v.clase === "lista") {
+        const celda = Math.min(angosta ? 84 : 120, col.ancho / Math.max(maxItems, 1));
+        const alto = angosta ? 68 : 96;
+        piezas[id] = lista({
+          x: col.x,
+          y: y + alto / 2,
+          nombre: v.nombre,
+          celda,
+          alto,
+          tamano: angosta ? 26 : 36,
+          puntero: Object.entries(punteros).find(([l]) => l === v.nombre)?.[1] ?? "",
+          opacidad: 0
+        });
+        y += alto + (angosta ? 115 : 160);
+      } else if (v.clase === "dict") {
+        const altoFila = angosta ? 44 : 60;
+        piezas[id] = tabla({
+          x: col.x,
+          y: y + (maxPares + 1) * altoFila / 2,
+          ancho: Math.min(col.ancho, 480),
+          columnas: [`${v.nombre}: clave`, "valor"],
+          filas: [],
+          altoFila,
+          tamano: angosta ? 24 : 32,
+          opacidad: 0
+        });
+        y += (maxPares + 1) * altoFila + 80;
+      } else {
+        const alto = angosta ? 68 : 96;
+        piezas[id] = variable({
+          x: col.x,
+          y: y + alto / 2,
+          nombre: v.nombre,
+          ancho: Math.min(col.ancho, angosta ? 320 : 420),
+          alto,
+          tamano: angosta ? 28 : 38,
+          opacidad: 0
+        });
+        y += alto + (angosta ? 72 : 100);
+      }
+    }
+    Object.assign(piezas, opciones.piezas?.(disposicion, { W, H, col, y }) ?? {});
+    if (!angosta) {
+      let minimo = Infinity;
+      let maximo = -Infinity;
+      for (const [id, pieza] of Object.entries(piezas)) {
+        if (id === "titulo") continue;
+        const alto = pieza.tipo.tamano?.(pieza.props).alto ?? pieza.props.tamano ?? 0;
+        minimo = Math.min(minimo, pieza.props.y - alto / 2 - 40);
+        maximo = Math.max(maximo, pieza.props.y + alto / 2 + 40);
+      }
+      const corrimiento = Math.max(0, (arriba + H) / 2 - (minimo + maximo) / 2);
+      for (const [id, pieza] of Object.entries(piezas)) if (id !== "titulo") pieza.props.y += corrimiento;
+    }
+    const linea = [{ pieza: "codigo", a: { marca: 1 }, dur: 0.4, en: 0.2 }];
+    const anterior = {};
+    const indiceSenalado = {};
+    let t = 0.7;
+    let salidaAnterior = "";
+    traza.forEach((paso, i) => {
+      if (capitulos[i]) linea.push({ capitulo: capitulos[i], en: t });
+      const vars = paso.variables ?? {};
+      for (const [nombre, v] of Object.entries(vars)) {
+        const id = lugarVariable[nombre];
+        const antes = anterior[nombre];
+        if (antes && antes.repr === v.repr) continue;
+        if (!antes) linea.push({ pieza: id, a: { opacidad: 1 }, dur: 0.4, en: t });
+        const clase = variables2.find((x) => x.nombre === nombre).clase;
+        if (clase === "lista") {
+          linea.push({ pieza: id, a: { items: v.items }, dur: 0, en: t });
+        } else if (clase === "dict") {
+          linea.push({ pieza: id, a: { filas: v.pares ?? [] }, dur: 0, en: t });
+        } else {
+          linea.push({ pieza: id, a: { valor: v.repr, tipoDato: v.tipo ?? "" }, dur: 0, en: t });
+        }
+        if (antes && clase !== "dict") {
+          linea.push({ pieza: id, a: { destello: 1 }, dur: 0.12, en: t, curva: "lineal" });
+          linea.push({ pieza: id, a: { destello: 0 }, dur: 0.8, en: t + 0.12, curva: "salir" });
+        }
+      }
+      for (const [nombreLista, nombreVar] of Object.entries(punteros)) {
+        const l = vars[nombreLista];
+        const v = vars[nombreVar];
+        if (!l?.items || !v || anterior[nombreVar]?.repr === v.repr) continue;
+        const desde = (indiceSenalado[nombreLista] ?? -1) + 1;
+        let k = l.items.indexOf(v.repr, desde);
+        if (k === -1) k = l.items.indexOf(v.repr);
+        if (k === -1) continue;
+        const primera = indiceSenalado[nombreLista] === void 0;
+        linea.push({ pieza: lugarVariable[nombreLista], a: { senalar: k }, dur: primera ? 0 : 0.4, en: t });
+        indiceSenalado[nombreLista] = k;
+      }
+      for (const nombre of Object.keys(anterior)) if (!(nombre in vars)) delete anterior[nombre];
+      Object.assign(anterior, vars);
+      if (conSalida && (paso.salida ?? "") !== salidaAnterior) {
+        if (!salidaAnterior) linea.push({ pieza: "consola", a: { opacidad: 1 }, dur: 0.3, en: t });
+        linea.push({ pieza: "consola", a: { salida: paso.salida ?? "" }, dur: 0, en: t });
+        salidaAnterior = paso.salida ?? "";
+      }
+      if (paso.excepcion) {
+        const { tipo, mensaje } = paso.excepcion;
+        linea.push({ pieza: "codigo", a: { colorMarca: "error" }, dur: 0.3, en: t });
+        linea.push({ pieza: "error", a: { texto: `\u{1F6A8} ${tipo}${mensaje ? `: ${mensaje}` : ""}` }, dur: 0, en: t });
+        linea.push({ pieza: "error", a: { opacidad: 1 }, dur: 0.4, en: t + 0.2 });
+      }
+      for (const extra of paso.animar ?? []) {
+        linea.push({ ...extra, en: t + (typeof extra.en === "number" ? extra.en : 0) });
+      }
+      if (paso.linea > 0) {
+        linea.push({ pieza: "codigo", a: { linea: paso.linea, marca: 1 }, dur: i === 0 ? 0 : 0.35, en: t + 0.45 });
+      } else if (!paso.excepcion) {
+        linea.push({ pieza: "codigo", a: { marca: 0 }, dur: 0.4, en: t + 0.45 });
+      }
+      let largo2 = Math.max(ritmo, 0.9);
+      const explicacion = explicaciones[i];
+      if (explicacion) {
+        const dur = Math.max(ritmo, duracionLectura(explicacion, lectura));
+        linea.push({ subtitulo: explicacion, en: t, dur });
+        largo2 = Math.max(largo2, dur + 0.3);
+      }
+      const pregunta = preguntas[i];
+      if (pregunta) {
+        const dur = pregunta.dur ?? 4;
+        linea.push({ marca: "pregunta", datos: pregunta, en: t + largo2, dur });
+        largo2 += dur;
+      }
+      t += largo2;
+      linea.push({ marca: "paso", datos: { indice: i }, en: t });
+      t += 0.1;
+    });
+    return {
+      titulo: titulo || "Un programa, paso a paso",
+      descripcion,
+      ancho: W,
+      alto: H,
+      lectura,
+      pausaFinal: 1.5,
+      piezas,
+      linea
+    };
+  };
+}
+
 // src/index.js
-var version = "0.1.0";
+var version = "0.3.0";
 definirComponente();
+definirLeccion();
 export {
+  COLORES_CODIGO,
   COMUNES,
   MotorEscena,
+  MotorLeccion,
   PANTALLA,
   Reloj,
   TEMAS,
   TOKENS,
+  aCoordenadasDe,
   aCss,
   azar,
   caja,
   camara,
   caminoFlecha,
+  caracteresPorLinea,
   celular,
   cilindro,
+  codigo,
   compilar,
+  consola,
   contador2 as contador,
   crearPintor,
   curva,
   curvas,
   definirComponente,
+  definirLeccion,
   definirPieza,
+  desdeTraza,
   duracionLectura,
   el,
   flecha,
   formatearNumero,
   interpolar,
   limitar,
+  lista,
   mezclarColores,
   partirLineas,
   poner,
@@ -1902,5 +2936,7 @@ export {
   revelar,
   tabla,
   texto2 as texto,
+  tokenizar,
+  variable,
   version
 };

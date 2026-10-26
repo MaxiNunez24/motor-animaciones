@@ -78,6 +78,7 @@ export class MotorEscena extends Base {
             duracion: 0,
             alCambiar: (t) => this._pintar(t),
             alCambiarEstado: (corriendo) => this._barra.corriendo(corriendo),
+            alParar: (t) => this._alParar(t),
         });
         this._barra = crearBarra(/** @type {HTMLElement} */ (sombra.querySelector('.ma-controles')), {
             alternar: () => this._alternarPorUsuario(),
@@ -183,12 +184,25 @@ export class MotorEscena extends Base {
         this._limpiar = [];
     }
 
-    attributeChangedCallback(nombre) {
+    attributeChangedCallback(nombre, viejo, nuevo) {
         if (!this.isConnected) return;
         if (nombre === 'escena') this._buscarEscena();
         else if (nombre === 'movimiento' || nombre === 'tema') this._armar();
         else this._aplicarAtributos();
     }
+
+    // ---------------- Para las capas de arriba ----------------
+    // Una capa que extiende el componente (la pedagógica) los redefine. Acá
+    // no hacen nada: el componente común no sabe de preguntas ni de pasos.
+
+    /** Cada vez que la escena se arma (o se rearma por la disposición). */
+    _alArmar(compilada) {}
+
+    /** Cuando el reloj se frena solo en una de sus paradas. */
+    _alParar(t) {}
+
+    /** Cada vez que se dibuja un instante. */
+    _alPintar(estado) {}
 
     // ---------------- Por dentro ----------------
 
@@ -267,6 +281,8 @@ export class MotorEscena extends Base {
         this._descripcion.textContent = textoAlternativo(compilada);
         this._barra.configurar(compilada);
 
+        this._alArmar(compilada);
+
         const yaEstaba = this._yaArrancado;
         this._yaArrancado = true;
         this._reloj.irA(Math.min(this._reloj.t, compilada.duracion));
@@ -285,6 +301,7 @@ export class MotorEscena extends Base {
         }
         this._barra.mostrar(estado);
         if (this._subtitulo.textContent !== estado.subtitulo) this._subtitulo.textContent = estado.subtitulo;
+        this._alPintar(estado);
     }
 
     // El error se muestra EN la escena y en la consola: quien está armando una

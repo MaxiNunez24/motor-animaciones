@@ -1,6 +1,6 @@
 // Un servidor de archivos mínimo para ver los ejemplos mientras se trabaja.
 //
-//     node herramientas/servir.js        → http://localhost:4173/ejemplos/
+//     node herramientas/servir.js        → http://localhost:4173/
 //
 // Sin dependencias a propósito: cualquiera que tenga Node lo puede correr, y
 // los tests de navegador lo usan para levantar las páginas.
@@ -22,8 +22,7 @@ const TIPOS = {
 
 createServer(async (pedido, respuesta) => {
     try {
-        let ruta = decodeURIComponent(new URL(pedido.url, 'http://x').pathname);
-        if (ruta === '/') ruta = '/ejemplos/';
+        const ruta = decodeURIComponent(new URL(pedido.url, 'http://x').pathname);
         // normalize + el chequeo de abajo: que nadie pida ../../ y salga del repo.
         let archivo = normalize(join(RAIZ, ruta));
         if (!archivo.startsWith(RAIZ)) throw Object.assign(new Error('afuera'), { code: 'ENOENT' });
@@ -40,5 +39,5 @@ createServer(async (pedido, respuesta) => {
         respuesta.end(error.code === 'ENOENT' ? 'No está.' : String(error));
     }
 }).listen(PUERTO, () => {
-    console.log(`Sirviendo en http://localhost:${PUERTO}/ejemplos/`);
+    console.log(`Sirviendo en http://localhost:${PUERTO}/`);
 });

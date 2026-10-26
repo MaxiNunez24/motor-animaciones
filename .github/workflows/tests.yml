@@ -1,0 +1,23 @@
+# Los tests corren solos en cada push: es un motor hecho para un curso de testing.
+name: Tests
+
+on:
+    push:
+    pull_request:
+
+jobs:
+    tests:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+            - run: npm ci
+            - run: npm test
+            - run: npm run tipos
+            - run: npx playwright install --with-deps chromium
+            # La captura de referencia se sacó en Windows: en Linux las letras se
+            # dibujan un poco distinto y daría siempre distinta. Ese test queda
+            # para correrlo en las compus del curso.
+            - run: npm run construir && npx playwright test --grep-invert "captura de referencia"

@@ -81,6 +81,7 @@ export function compilar(definicion, opciones = {}) {
     // ---- La línea: cuándo empieza y termina cada cosa ----
     const capitulos = [];
     const subtitulos = [];
+    const marcas = [];
     let fin = 0;
     let finSubtitulos = 0;
     let finUltimoSubtitulo = 0;
@@ -104,6 +105,13 @@ export function compilar(definicion, opciones = {}) {
             finSubtitulos = Math.max(finSubtitulos, inicio + dur);
             finUltimoSubtitulo = inicio + dur;
             return;
+        } else if ('marca' in item) {
+            // Una marca es un punto (o un tramo) con nombre y datos, que el
+            // núcleo no interpreta: lo usan las capas de arriba. La capa
+            // pedagógica, por ejemplo, marca dónde frenar a preguntar. Ocupa
+            // su `dur` en la línea, como una espera.
+            finItem = inicio + (item.dur ?? 0);
+            marcas.push({ tipo: String(item.marca), t: inicio, hasta: finItem, datos: item.datos ?? null });
         } else if ('espera' in item) {
             // espera: 'subtitulo' es "hasta que se termine de leer el último
             // subtítulo". Así lo que sigue no arranca mientras alguien todavía
@@ -140,7 +148,7 @@ export function compilar(definicion, opciones = {}) {
             });
             finItem = inicio + Math.max(ids.length - 1, 0) * escalonar + dur;
         } else {
-            throw new Error(`No entiendo ${donde}: tiene que ser una animación (pieza), un capitulo, un subtitulo o una espera.`);
+            throw new Error(`No entiendo ${donde}: tiene que ser una animación (pieza), un capitulo, un subtitulo, una marca o una espera.`);
         }
 
         previo = { inicio, fin: finItem };
@@ -170,6 +178,7 @@ export function compilar(definicion, opciones = {}) {
     }
 
     capitulos.sort((a, b) => a.t - b.t);
+    marcas.sort((a, b) => a.t - b.t);
     // Que ningún subtítulo quede cortado por el final.
     const duracion = def.duracion ?? Math.max(fin, finSubtitulos) + (def.pausaFinal ?? 0);
     const ids = ordenarPadresPrimero(piezas);
@@ -187,6 +196,8 @@ export function compilar(definicion, opciones = {}) {
         tipos: Object.fromEntries(ids.map((id) => [id, piezas[id].tipo])),
         capitulos,
         subtitulos,
+        /** Las marcas, en orden: { tipo, t, hasta, datos }. */
+        marcas,
         /** Cómo está todo en el instante t. */
         estado(t) {
             const tt = limitar(Number(t) || 0, 0, duracion);

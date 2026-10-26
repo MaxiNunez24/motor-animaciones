@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Conceptos, paso a paso · motor de animaciones</title>
+    <style>
+        :root {
+            font-family: system-ui, "Segoe UI", sans-serif;
+            color-scheme: light dark;
+        }
+        body {
+            margin: 0;
+            padding: 20px 16px 48px;
+            background: Canvas;
+            color: CanvasText;
+            line-height: 1.5;
+        }
+        main {
+            max-width: 1040px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: clamp(1.4rem, 4.5vw, 2rem);
+            margin: 0 0 0.3em;
+        }
+        h2 {
+            font-size: clamp(1.15rem, 3.6vw, 1.5rem);
+            margin: 2em 0 0.3em;
+        }
+        motor-leccion {
+            margin-top: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Conceptos, paso a paso</h1>
+        <p>
+            Cada animación muestra un programa mientras corre: la línea marcada es la que está por
+            ejecutarse, y a la derecha (o abajo, en el celular) están las variables. A veces frena y
+            te pregunta qué va a pasar: contestá antes de seguir.
+        </p>
+        <p>
+            Con <strong>Paso a paso</strong> frena en cada línea, y ⏮ ⏭ van de un paso al otro.
+        </p>
+
+        <h2>Un for que va sumando</h2>
+        <motor-leccion escena="bucle-for"></motor-leccion>
+
+        <h2>Un diccionario, y una clave que no está</h2>
+        <motor-leccion escena="diccionario"></motor-leccion>
+
+        <h2>Un evento: la función espera el clic</h2>
+        <motor-leccion escena="evento-clic"></motor-leccion>
+    </main>
+
+    <!-- El motor primero, después las trazas, después las lecciones. -->
+    <script src="../../dist/motor.min.js"></script>
+    <script src="bucle-for.traza.js"></script>
+    <script src="diccionario.traza.js"></script>
+    <script src="lecciones.js"></script>
+</body>
+</html>

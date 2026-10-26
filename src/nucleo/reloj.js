@@ -21,6 +21,8 @@ export class Reloj {
      *     velocidad?: number,
      *     alCambiar?: (t: number) => void,
      *     alCambiarEstado?: (corriendo: boolean) => void,
+     *     paradas?: number[],
+     *     alParar?: (t: number) => void,
      *     ahora?: () => number,
      *     pedirCuadro?: (f: () => void) => any,
      *     cancelarCuadro?: (id: any) => void,
@@ -33,6 +35,10 @@ export class Reloj {
         this.velocidad = opciones.velocidad ?? 1;
         this.alCambiar = opciones.alCambiar ?? (() => {});
         this.alCambiarEstado = opciones.alCambiarEstado ?? (() => {});
+        // Instantes donde reproducir se frena solo (el paso a paso, una
+        // pregunta). Ordenados de menor a mayor.
+        this.paradas = [...(opciones.paradas ?? [])].sort((a, b) => a - b);
+        this.alParar = opciones.alParar ?? (() => {});
         this.ahora = opciones.ahora ?? (() => performance.now());
         this.pedirCuadro = opciones.pedirCuadro ?? ((f) => requestAnimationFrame(f));
         this.cancelarCuadro = opciones.cancelarCuadro ?? ((id) => cancelAnimationFrame(id));
@@ -78,10 +84,16 @@ export class Reloj {
         this.velocidad = v;
     }
 
+    /** Cambia dónde se frena solo. */
+    fijarParadas(paradas) {
+        this.paradas = [...paradas].sort((a, b) => a - b);
+    }
+
     destruir() {
         this.pausar();
         this.alCambiar = () => {};
         this.alCambiarEstado = () => {};
+        this.alParar = () => {};
     }
 
     _cuadro() {
@@ -89,6 +101,16 @@ export class Reloj {
         const paso = Math.min((ahora - this._ultimo) / 1000, PASO_MAXIMO) * this.velocidad;
         this._ultimo = ahora;
         let t = this.t + paso;
+        // Una parada en el camino: se frena justo ahí, no un cuadro después.
+        // Que sea "mayor que t", y no "mayor o igual", es lo que deja seguir
+        // cuando se le da play estando parado en ella.
+        const parada = this.paradas.find((p) => p > this.t && p <= Math.min(t, this.duracion));
+        if (parada !== undefined) {
+            this._fijar(parada);
+            this.pausar();
+            this.alParar(parada);
+            return;
+        }
         if (t >= this.duracion) {
             if (this.loop && this.duracion > 0) {
                 t %= this.duracion;
