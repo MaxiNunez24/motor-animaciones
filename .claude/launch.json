@@ -1,0 +1,11 @@
+{
+    "version": "0.0.1",
+    "configurations": [
+        {
+            "name": "ejemplos",
+            "runtimeExecutable": "node",
+            "runtimeArgs": ["herramientas/servir.js"],
+            "port": 4173
+        }
+    ]
+}

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pantalla · motor de animaciones</title>
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+        }
+    </style>
+</head>
+<body>
+    <!-- Así se ve en una pantalla grande: toda la ventana, en loop, sin
+         controles. Es el modo que va a usar la Expo. -->
+    <motor-escena escena="pedido" pantalla loop autoplay sin-controles></motor-escena>
+
+    <script src="../dist/motor.min.js"></script>
+    <script src="escenas/pedido.js"></script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Escena de prueba · motor de animaciones</title>
+    <style>
+        /* La página de alrededor es a propósito sencilla: lo que se prueba es
+           que la escena se adapte a ella, no al revés. */
+        :root {
+            color-scheme: light dark;
+            font-family: system-ui, "Segoe UI", sans-serif;
+        }
+        body {
+            margin: 0;
+            padding: 24px 16px 48px;
+            background: #ebe8e1;
+            color: #1c2230;
+        }
+        html[data-theme="dark"] body {
+            background: #0b0e13;
+            color: #e8ebf0;
+        }
+        main {
+            max-width: 1040px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: clamp(1.4rem, 4vw, 2rem);
+            margin: 0 0 0.3em;
+        }
+        p {
+            line-height: 1.5;
+        }
+        .temas {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 0 0 16px;
+        }
+        .temas button {
+            font: inherit;
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid currentColor;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Escena de prueba</h1>
+        <p>
+            Un pedido sale del celular, viaja a la cocina y queda anotado. Probá los controles: pausar,
+            arrastrar la barra, saltar de capítulo (← →), ir cuadro por cuadro (, .) y cambiar la velocidad.
+        </p>
+        <div class="temas" role="group" aria-label="Tema de la página">
+            <button type="button" data-tema="light">Página clara</button>
+            <button type="button" data-tema="dark">Página oscura</button>
+            <button type="button" data-tema="">Como el sistema</button>
+        </div>
+
+        <motor-escena escena="pedido" autoplay></motor-escena>
+    </main>
+
+    <!-- Script clásico: anda incluso abriendo este archivo con doble clic. -->
+    <script src="../dist/motor.min.js"></script>
+    <script src="escenas/pedido.js"></script>
+    <script>
+        // Imita al botón de tema de un sitio (Starlight usa data-theme): la
+        // escena tiene que seguirlo sola.
+        for (const boton of document.querySelectorAll('[data-tema]')) {
+            boton.addEventListener('click', () => {
+                const tema = boton.dataset.tema;
+                if (tema) document.documentElement.dataset.theme = tema;
+                else delete document.documentElement.dataset.theme;
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+node_modules/
+
+# Lo que dejan los tests de navegador. Las capturas de referencia SÍ se suben
+# (están en tests/navegador/*-snapshots/): son parte del test.
+test-results/
+playwright-report/
+
+# Cuadros sueltos y videos que se generan para revisar: se rehacen cuando se
+# quiere, no tienen por qué vivir en el repo.
+salida/
+
+# dist/ NO va acá a propósito: el curso instala el motor desde Git, y pnpm no
+# corre scripts de build de las dependencias. Si dist/ no estuviera subido, el
+# curso recibiría el fuente sin compilar.

@@ -1,0 +1,31 @@
+{
+    "name": "motor-animaciones",
+    "version": "0.1.0",
+    "description": "Motor de animaciones web deterministas: escenas declarativas, controles, y una capa para explicar conceptos.",
+    "type": "module",
+    "license": "MIT",
+    "author": "Maximiliano Núñez",
+    "main": "./dist/motor.js",
+    "module": "./dist/motor.js",
+    "exports": {
+        ".": "./dist/motor.js",
+        "./nucleo": "./src/nucleo/index.js",
+        "./motor.min.js": "./dist/motor.min.js"
+    },
+    "files": [
+        "dist",
+        "src"
+    ],
+    "scripts": {
+        "construir": "node herramientas/construir.js",
+        "servir": "node herramientas/servir.js",
+        "test": "node --test \"tests/nucleo/*.test.js\"",
+        "test:navegador": "node herramientas/construir.js && playwright test",
+        "tipos": "tsc -p jsconfig.json"
+    },
+    "devDependencies": {
+        "@playwright/test": "1.62.0",
+        "esbuild": "0.28.2",
+        "typescript": "5.9.3"
+    }
+}

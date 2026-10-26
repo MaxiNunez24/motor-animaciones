@@ -1,0 +1,14 @@
+root = true
+
+# Cuatro espacios en todo: es la convención del curso, y así el código que leen
+# los alumnos acá se ve igual que el que escriben en Python.
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+trim_trailing_whitespace = false
