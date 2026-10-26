@@ -13,6 +13,9 @@ export default defineConfig({
         // pruebe otra cosa: que el resultado no dependa de la compu que corre.
         colorScheme: 'light',
         reducedMotion: 'no-preference',
+        // WebGL por software: así el globo 3D se dibuja igual en cualquier
+        // compu, tenga o no placa de video (y en GitHub Actions, que no tiene).
+        launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
     },
     // Las capturas de referencia: un 0,5 % de pixeles distintos se tolera,
     // porque el suavizado de las letras cambia un poco entre versiones.

@@ -1,6 +1,8 @@
 {
     "compilerOptions": {
         "checkJs": true,
+        "maxNodeModuleJsDepth": 0,
+        "skipLibCheck": true,
         "allowJs": true,
         "noEmit": true,
         "strict": false,

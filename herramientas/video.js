@@ -57,7 +57,8 @@ mkdirSync(dirname(salida), { recursive: true });
 const ffmpeg = buscarFfmpeg();
 
 // ---------------- La página ----------------
-const navegador = await chromium.launch();
+// WebGL por software, para que las piezas 3D se graben igual en cualquier compu.
+const navegador = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const pagina = await navegador.newPage({ viewport: { width: Number(op.ancho), height: Number(op.alto) } });
 const errores = [];
 pagina.on('pageerror', (e) => errores.push(e.message));

@@ -3046,7 +3046,7 @@ function trazarConPyodide(pyodide, codigo2, opciones = {}) {
 }
 
 // src/index.js
-var version = "0.4.0";
+var version = "0.5.0";
 definirComponente();
 definirLeccion();
 export {

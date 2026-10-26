@@ -3,6 +3,7 @@
 //   dist/motor.js       módulo ES, para importar desde un proyecto (el curso)
 //   dist/motor.min.js   script clásico con el global `Motor`, para HTML plano
 //   dist/motor-base.min.js   lo mismo sin la capa pedagógica, más liviano
+//   dist/motor-3d.min.js     las piezas 3D (con Three.js adentro), aparte
 //
 // El segundo existe porque los alumnos abren su página con doble clic: con
 // file:// los <script type="module"> no cargan, y un script clásico sí.
@@ -34,7 +35,13 @@ await build({
     ...comun, entryPoints: ['src/base.js'], format: 'iife', globalName: 'Motor', minify: true, outfile: 'dist/motor-base.min.js',
 });
 
-for (const archivo of ['dist/motor.js', 'dist/motor.min.js', 'dist/motor-base.min.js']) {
+// El 3D, aparte: lleva Three.js adentro, y solo lo carga la página que lo usa.
+await build({ ...comun, entryPoints: ['src/3d/index.js'], format: 'esm', minify: true, outfile: 'dist/motor-3d.js' });
+await build({
+    ...comun, entryPoints: ['src/3d/index.js'], format: 'iife', globalName: 'Motor3D', minify: true, outfile: 'dist/motor-3d.min.js',
+});
+
+for (const archivo of ['dist/motor.js', 'dist/motor.min.js', 'dist/motor-base.min.js', 'dist/motor-3d.min.js']) {
     const kb = (n) => `${(n / 1024).toFixed(1)} KB`;
     const comprimido = gzipSync(readFileSync(archivo)).length;
     console.log(`${archivo.padEnd(24)} ${kb(statSync(archivo).size).padStart(9)}   (${kb(comprimido)} con gzip)`);

@@ -182,6 +182,25 @@
         </p>
         <p><a class="tarjeta" href="ejemplos/tu-programa/"><strong>Probalo con tu programa →</strong><span>Python en el navegador, sin instalar nada.</span></a></p>
 
+        <h2>También en 3D</h2>
+        <p>
+            Un globo terráqueo en 3D (con Three.js) que se anima igual que cualquier otra pieza: con la misma
+            línea de tiempo, en vivo, paso a paso y en video. Va en un archivo aparte, así que solo lo carga
+            la página que lo usa. El primer ejemplo explica <strong>El Niño</strong>: por qué pasa, qué cambia
+            en la Argentina, y qué esperar en 2026.
+        </p>
+        <video controls preload="none" poster="medios/el-nino-portada.jpg">
+            <source src="medios/el-nino.mp4" type="video/mp4">
+            <track kind="subtitles" src="medios/el-nino.vtt" srclang="es" label="Español">
+            Tu navegador no muestra videos: <a href="medios/el-nino.mp4">bajalo acá</a>.
+        </video>
+        <p class="nota">
+            Datos a octubre de 2026: NOAA (diagnóstico del 8/10) y el informe del SMN sobre El Niño (1/10), que
+            espera más lluvias en gran parte del país, del Litoral a la Patagonia norte. El globo y el corte son
+            esquemas, no mediciones.
+        </p>
+        <p><a class="tarjeta" href="ejemplos/el-nino/"><strong>Verla con controles y la pregunta →</strong><span>Pausala, andá paso a paso, y contestá antes de ver qué pasa.</span></a></p>
+
         <h2>Y se graba sola, con voz</h2>
         <p>
             Cualquier escena se graba a MP4 en 1080p, cuadro por cuadro, aunque la compu sea lenta. La voz
@@ -203,6 +222,7 @@
         <div class="tarjetas">
             <a class="tarjeta" href="ejemplos/conceptos/"><strong>Conceptos, paso a paso</strong><span>Un for, un diccionario y un evento, con preguntas.</span></a>
             <a class="tarjeta" href="ejemplos/tu-programa/"><strong>Animá tu programa</strong><span>Escribís Python y la animación se arma sola.</span></a>
+            <a class="tarjeta" href="ejemplos/el-nino/"><strong>El Niño, explicado</strong><span>Globo 3D, corte del océano, y qué esperar en 2026.</span></a>
             <a class="tarjeta" href="ejemplos/expo/"><strong>El Sistema de Gestión de Alumnos</strong><span>La Expo, con controles. En el celular, la cámara se acerca a cada parte.</span></a>
             <a class="tarjeta" href="ejemplos/expo/pantalla.html"><strong>La Expo en pantalla grande</strong><span>Toda la ventana, en loop, sin controles.</span></a>
             <a class="tarjeta" href="ejemplos/prueba.html"><strong>Escena de prueba</strong><span>Todos los controles: capítulos, velocidad, cuadro por cuadro.</span></a>
@@ -211,7 +231,7 @@
         <h2>Usarlo</h2>
         <p>En cualquier página, con un solo archivo:</p>
         <pre><code>&lt;motor-escena escena="hola" autoplay&gt;&lt;/motor-escena&gt;
-&lt;script src="https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.4.0/dist/motor.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.5.0/dist/motor.min.js"&gt;&lt;/script&gt;
 &lt;script&gt;
     const { caja, flecha } = Motor;
     Motor.registrar('hola', {
@@ -229,7 +249,7 @@
     });
 &lt;/script&gt;</code></pre>
         <p>Desde un proyecto (Astro, Vite…):</p>
-        <pre><code>pnpm add github:MaxiNunez24/motor-animaciones#v0.4.0</code></pre>
+        <pre><code>pnpm add github:MaxiNunez24/motor-animaciones#v0.5.0</code></pre>
         <p>
             Todo lo demás está en <a href="https://github.com/MaxiNunez24/motor-animaciones#readme">el README</a>,
             y cómo sumarlo a una plataforma con Astro y Starlight, en

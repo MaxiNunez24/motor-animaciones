@@ -37,12 +37,12 @@ Sin dependencias. 24 KB con gzip con todo (14 KB sin la capa pedagógica, en `mo
 
 `motor.min.js` es un script clásico a propósito: anda abriendo el `.html` con doble clic
 (`file://`), donde los módulos no cargan. Con internet también se puede usar desde jsDelivr:
-`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.4.0/dist/motor.min.js`.
+`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.5.0/dist/motor.min.js`.
 
 ## Desde otro proyecto (Astro, Vite…)
 
 ```bash
-pnpm add github:MaxiNunez24/motor-animaciones#v0.4.0
+pnpm add github:MaxiNunez24/motor-animaciones#v0.5.0
 ```
 
 ```js
@@ -135,6 +135,28 @@ Pyodide que le pasás) y devuelve la traza. Con `desdeTraza({ ...traza, explicar
 
 El trazador es uno solo, `src/pedagogico/trazador.py`: lo usan la consola
 (`herramientas/trazar.py`) y el navegador (se copia a `trazador-py.js` al construir).
+
+## 3D
+
+`dist/motor-3d.min.js` (aparte, con Three.js adentro: 136 KB con gzip) trae `Motor3D.definirGlobo()`:
+un globo terráqueo que es una pieza más. Se define qué capas, regiones y vientos tiene, y cada uno
+pasa a ser una propiedad que se anima de 0 a 1:
+
+```js
+const globo = Motor3D.definirGlobo({
+    mapa: Motor.datos.mapa,                       // continentes (Natural Earth, dominio público)
+    capas: { calido: { color: '#f97316', manchas: [{ lon: -120, lat: 0, ancho: 80, alto: 16 }] } },
+    regiones: { argentina: { color: '#facc15', anillos: Motor.datos.mapa.argentina } },
+    vientos: { alisios: { lat: [-5, 5], lon: [-90, -170], cantidad: 4 } },
+});
+// en la escena: globo({ x: 800, y: 450, tamano: 700, lon: -120 })
+// en la línea:  { pieza: 'g', a: { lon: -63, lat: -30, zoom: 1.7, calido: 1 } }
+```
+
+No tiene reloj propio: dibuja un cuadro cada vez que el motor le pasa otras propiedades, así que es
+determinista y se graba a video como todo lo demás. Si el navegador no tiene WebGL, muestra un aviso
+y el resto de la escena sigue andando. Ejemplo: [El Niño, explicado](ejemplos/el-nino/), que además
+tiene una pieza propia (el corte del océano) hecha con `definirPieza`.
 
 ## Video
 
