@@ -3,7 +3,7 @@
 Animaciones web **deterministas**: el estado en el instante *t* depende solo de *t*. Por eso la
 misma escena se ve igual en vivo, paso a paso y grabada a video, y se puede probar con tests.
 
-Sin dependencias. 20 KB con gzip con todo (14 KB sin la capa pedagógica, en `motor-base.min.js`).
+Sin dependencias. 24 KB con gzip con todo (14 KB sin la capa pedagógica, en `motor-base.min.js`).
 
 **Ejemplos en vivo:** <https://maxinunez24.github.io/motor-animaciones/>
 
@@ -37,12 +37,12 @@ Sin dependencias. 20 KB con gzip con todo (14 KB sin la capa pedagógica, en `mo
 
 `motor.min.js` es un script clásico a propósito: anda abriendo el `.html` con doble clic
 (`file://`), donde los módulos no cargan. Con internet también se puede usar desde jsDelivr:
-`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.3.0/dist/motor.min.js`.
+`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.4.0/dist/motor.min.js`.
 
 ## Desde otro proyecto (Astro, Vite…)
 
 ```bash
-pnpm add github:MaxiNunez24/motor-animaciones#v0.3.0
+pnpm add github:MaxiNunez24/motor-animaciones#v0.4.0
 ```
 
 ```js
@@ -124,6 +124,39 @@ Está encima del motor, y el motor no sabe que existe (vive en `src/pedagogico/`
 
 Las marcas y las paradas que usa son del núcleo, y sirven para cualquier cosa:
 `{ marca: 'tipo', datos, dur }` en la línea queda en `escena.marcas`, y el reloj acepta `paradas`.
+
+### Que se arme sola, con el programa de un alumno
+
+`Motor.trazarConPyodide(pyodide, codigo, { entradas })` corre un programa en el navegador (con un
+Pyodide que le pasás) y devuelve la traza. Con `desdeTraza({ ...traza, explicar: true, punteros:
+'auto' })` la lección se explica sola, en castellano: «El for toma el primer elemento: n vale 4»,
+«total pasa de 4 a 12», «La condición no se cumple: la saltea». Probalo en
+[Animá tu programa](https://maxinunez24.github.io/motor-animaciones/ejemplos/tu-programa/).
+
+El trazador es uno solo, `src/pedagogico/trazador.py`: lo usan la consola
+(`herramientas/trazar.py`) y el navegador (se copia a `trazador-py.js` al construir).
+
+## Video
+
+```bash
+npm run video -- --url ejemplos/expo/pantalla.html --salida salida/expo.mp4
+npm run video -- --url ejemplos/conceptos/ --escena 0 --narrar --salida salida/for.mp4
+npm run video -- --url ejemplos/expo/pantalla.html --ancho 1080 --alto 1920   # vertical
+```
+
+Graba cuadro por cuadro (no la pantalla: pone la escena en cada instante y le saca una foto), así
+que sale perfecto aunque la compu sea lenta. Deja al lado del `.mp4` los subtítulos en `.srt` y un
+`.descripcion.txt` con los capítulos en el formato de YouTube. Una lección se graba en modo video:
+las preguntas no frenan, se leen y quedan como cartel, y el paso siguiente dice la respuesta.
+
+- `--narrar` lee cada subtítulo con [Piper](https://github.com/OHF-Voice/piper1-gpl), una voz que
+  corre en la compu, sin internet: `pip install piper-tts` y la voz
+  [`es_AR-daniela-high`](https://huggingface.co/rhasspy/piper-voices/tree/main/es/es_AR/daniela/high)
+  en `%LOCALAPPDATA%\motor-animaciones\voces\` (o pasala con `--voz`). Los datos de esa voz son
+  CC BY-SA 4.0 (OpenSLR 61): la descripción que genera ya incluye el crédito.
+- `--subtitulos srt|quemados|ambos|no` (srt, aparte, es lo que conviene en YouTube).
+- `--desde` y `--hasta` para grabar un pedazo; `--fps`, `--tema`, `--calidad` (crf de x264).
+- Usa el ffmpeg de `ffmpeg-static` (viene con `npm install`), o el de la variable `FFMPEG`.
 
 ## Trabajar en el motor
 

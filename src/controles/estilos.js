@@ -130,6 +130,19 @@ ${CSS_TEMA}
     border-radius: 1px;
     background: var(--ma-suave);
 }
+/* Una pregunta: un "?" chiquito arriba de la barra. Dice "acá te van a
+   preguntar algo" sin adelantar qué, y sirve para volver a esa parte. */
+.ma-marcas span.pregunta {
+    top: -1px;
+    width: 15px;
+    height: 15px;
+    margin-left: -7.5px;
+    border-radius: 50%;
+    background: var(--ma-acento);
+    color: var(--ma-fondo);
+    font: 800 11px/15px var(--ma-fuente);
+    text-align: center;
+}
 .ma-tiempo {
     font: 500 14px/1 var(--ma-fuente);
     font-variant-numeric: tabular-nums;

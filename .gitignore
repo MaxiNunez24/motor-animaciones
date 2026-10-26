@@ -12,3 +12,9 @@ salida/
 # dist/ NO va acá a propósito: el curso instala el motor desde Git, y pnpm no
 # corre scripts de build de las dependencias. Si dist/ no estuviera subido, el
 # curso recibiría el fuente sin compilar.
+
+# Lo que deja Python al importar el trazador.
+__pycache__/
+
+# El cache de la voz que deja herramientas/video.js al lado de cada video.
+.voz/

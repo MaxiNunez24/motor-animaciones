@@ -9,3 +9,5 @@ export { consola } from './piezas/consola.js';
 export { tokenizar, COLORES_CODIGO } from './resaltar.js';
 export { desdeTraza } from './traza.js';
 export { MotorLeccion, definirLeccion } from './leccion.js';
+export { trazarConPyodide, TRAZADOR_PY } from './trazador.js';
+export { explicarPaso, detectarPunteros } from './explicar.js';

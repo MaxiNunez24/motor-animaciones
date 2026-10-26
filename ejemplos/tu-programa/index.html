@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Animá tu programa · motor de animaciones</title>
+    <style>
+        :root {
+            font-family: system-ui, "Segoe UI", sans-serif;
+            color-scheme: light dark;
+        }
+        body {
+            margin: 0;
+            padding: 20px 16px 48px;
+            background: Canvas;
+            color: CanvasText;
+            line-height: 1.5;
+        }
+        main {
+            max-width: 1040px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: clamp(1.4rem, 4.5vw, 2rem);
+            margin: 0 0 0.3em;
+        }
+        label {
+            display: block;
+            font-weight: 700;
+            margin: 1em 0 0.3em;
+        }
+        textarea {
+            box-sizing: border-box;
+            width: 100%;
+            font: 16px/1.5 ui-monospace, Consolas, monospace;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid GrayText;
+            background: Field;
+            color: FieldText;
+            tab-size: 4;
+        }
+        .ayuda {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin: 0.2em 0 0;
+        }
+        button {
+            margin: 1em 0;
+            font: 600 1rem system-ui, sans-serif;
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: 0;
+            background: #1f5fd1;
+            color: #fff;
+            cursor: pointer;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+        #estado {
+            min-height: 1.5em;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Animá tu programa</h1>
+        <p>
+            Escribí un programa de Python y tocá <strong>Animar</strong>: se corre acá mismo, en el
+            navegador, y se arma una animación que lo muestra paso a paso, con las variables y lo que
+            va mostrando.
+        </p>
+
+        <label for="codigo">Tu programa</label>
+        <textarea id="codigo" rows="9" spellcheck="false">nombres = ["Ana", "Beto", "Cami"]
+saludos = []
+for nombre in nombres:
+    saludos.append("Hola, " + nombre)
+print(len(saludos), "saludos")
+</textarea>
+
+        <label for="entradas">Lo que se escribe en cada <code>input()</code></label>
+        <textarea id="entradas" rows="2" spellcheck="false" placeholder="Una respuesta por renglón"></textarea>
+        <p class="ayuda">Si tu programa usa input(), poné acá las respuestas, una por renglón, en orden.</p>
+
+        <button type="button" id="animar">Animar</button>
+        <p id="estado" aria-live="polite"></p>
+
+        <motor-leccion id="leccion" hidden></motor-leccion>
+    </main>
+
+    <script src="../../dist/motor.min.js"></script>
+    <script>
+        // La misma versión de Pyodide que usa la plataforma del curso.
+        const PYODIDE = 'https://cdn.jsdelivr.net/pyodide/v0.29.4/full/';
+        const boton = document.getElementById('animar');
+        const estado = document.getElementById('estado');
+        const leccion = document.getElementById('leccion');
+        let cargando = null;
+
+        // Pyodide pesa: se carga recién la primera vez que alguien toca Animar.
+        function python() {
+            cargando ??= new Promise((ok, mal) => {
+                const s = document.createElement('script');
+                s.src = PYODIDE + 'pyodide.js';
+                s.onload = () => loadPyodide({ indexURL: PYODIDE }).then(ok, mal);
+                s.onerror = () => mal(new Error('No se pudo cargar Python: ¿hay internet?'));
+                document.head.appendChild(s);
+            });
+            return cargando;
+        }
+
+        boton.addEventListener('click', async () => {
+            boton.disabled = true;
+            estado.textContent = cargando ? 'Corriendo tu programa…' : 'Cargando Python (la primera vez tarda unos segundos)…';
+            try {
+                const pyodide = await python();
+                const entradas = document.getElementById('entradas').value.split('\n').filter((r) => r !== '');
+                const traza = Motor.trazarConPyodide(pyodide, document.getElementById('codigo').value, { entradas });
+                leccion.hidden = false;
+                leccion.escena = Motor.desdeTraza({
+                    ...traza,
+                    titulo: 'Tu programa, paso a paso',
+                    archivo: 'programa.py',
+                    // Sin explicaciones escritas a mano: se explica sola.
+                    explicar: true,
+                    punteros: 'auto',
+                });
+                leccion.irA(0);
+                leccion.reproducir();
+                const pasos = traza.traza.length;
+                const ultimo = traza.traza[pasos - 1];
+                estado.textContent = ultimo.excepcion
+                    ? `Tu programa dio ${pasos} pasos y se cortó con ${ultimo.excepcion.tipo}.`
+                    : `Tu programa dio ${pasos} pasos.`;
+                leccion.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (error) {
+                estado.textContent = `⚠️ ${error.message}`;
+            } finally {
+                boton.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

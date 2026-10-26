@@ -8,7 +8,7 @@
 // file:// los <script type="module"> no cargan, y un script clásico sí.
 
 import { build } from 'esbuild';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 
 const comun = {
@@ -18,6 +18,15 @@ const comun = {
     legalComments: 'none',
     logLevel: 'warning',
 };
+
+// El trazador de Python vive en un .py (lo usa también la consola); para el
+// navegador se copia, tal cual, como texto dentro de un módulo.
+const trazador = readFileSync('src/pedagogico/trazador.py', 'utf-8');
+writeFileSync(
+    'src/pedagogico/trazador-py.js',
+    '// Generado por herramientas/construir.js a partir de trazador.py: no lo edites a mano.\n' +
+    `export const TRAZADOR_PY = ${JSON.stringify(trazador)};\n`,
+);
 
 await build({ ...comun, format: 'esm', outfile: 'dist/motor.js' });
 await build({ ...comun, format: 'iife', globalName: 'Motor', minify: true, outfile: 'dist/motor.min.js' });

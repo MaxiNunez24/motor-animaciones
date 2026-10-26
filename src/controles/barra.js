@@ -87,14 +87,21 @@ export function crearBarra(contenedor, acciones) {
     }
 
     return {
-        /** Cuando cambia la escena (o su disposición). */
-        configurar(escena) {
+        /**
+         * Cuando cambia la escena (o su disposición).
+         * @param {any} escena
+         * @param {{ t: number, clase: string, texto?: string }[]} [extras] otras marcas sobre la barra,
+         *     que ponen las capas de arriba (las preguntas de una lección).
+         */
+        configurar(escena, extras = []) {
             duracion = escena.duracion;
             capitulos = escena.capitulos;
             rango.max = String(duracion);
+            const donde = (t) => `left: ${((t / duracion) * 100).toFixed(2)}%`;
             marcas.innerHTML = capitulos
                 .filter((c) => c.t > 0)
-                .map((c) => `<span style="left: ${((c.t / duracion) * 100).toFixed(2)}%"></span>`)
+                .map((c) => `<span style="${donde(c.t)}"></span>`)
+                .concat(extras.map((m) => `<span class="${m.clase}" style="${donde(m.t)}">${m.texto ?? ''}</span>`))
                 .join('');
             ultimoCapitulo = null;
         },

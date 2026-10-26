@@ -21,7 +21,7 @@ La ruta lleva el `base` adelante, como los demás scripts de `public/`: sin él,
 1. Instalarlo, fijado a una versión (un tag del repo):
 
    ```bash
-   pnpm add github:MaxiNunez24/motor-animaciones#v0.3.0
+   pnpm add github:MaxiNunez24/motor-animaciones#v0.4.0
    ```
 
    `dist/` está subido al repo, así que no hace falta compilar nada al instalar (pnpm no corre
@@ -93,9 +93,39 @@ La ruta lleva el `base` adelante, como los demás scripts de `public/`: sin él,
    <Animacion escena="bucle-for" leccion />
    ```
 
-## Lo que viene: trazas con el programa del alumno
+## Animar el programa que escribe el alumno
 
-La plataforma ya corre Python en el navegador (Pyodide) y ya usa `sys.settrace` para medir la
-eficiencia. El trazador de `herramientas/trazar.py` es Python común: la idea de la fase 5 es
-correrlo en ese mismo worker, sobre el código que escribe el alumno, y pasarle la traza a
-`desdeTraza()`. Así la animación de "cómo corre tu programa" se arma sola.
+La plataforma ya corre Python en un worker (`src/scripts/pyodide-worker.ts`). El trazador del motor
+es Python común, así que corre ahí mismo:
+
+1. En el worker, una vez, cargar el trazador (el texto viene del motor, `TRAZADOR_PY`) y exponer
+   un mensaje nuevo:
+
+   ```ts
+   // pyodide-worker.ts
+   import { TRAZADOR_PY } from 'motor-animaciones';
+   // ...cuando llega { tipo: 'trazar', codigo, entradas }:
+   pyodide.runPython(TRAZADOR_PY);
+   const trazar = pyodide.globals.get('_motor_trazar');
+   const json = trazar(codigo, 400, entradas);
+   trazar.destroy();
+   postMessage({ tipo: 'traza', json });
+   ```
+
+   Corre en el worker y no en la página por la misma razón que el resto: un `while True` no
+   congela la pestaña (y además el trazador corta solo a los 400 pasos).
+
+2. En `EjercicioPython`, un botón «Ver cómo corre» que le pide la traza al worker y la muestra:
+
+   ```ts
+   import { desdeTraza } from 'motor-animaciones';
+   const traza = JSON.parse(json);
+   leccion.escena = desdeTraza({ ...traza, explicar: true, punteros: 'auto', archivo: 'tu_codigo.py' });
+   ```
+
+Así cualquier ejercicio tiene su animación, sin escribir nada a mano. Lo que no se puede deducir
+(las preguntas, una explicación mejor) se agrega por número de paso, como en
+`ejemplos/conceptos/lecciones.js`.
+
+Por ahora el trazador muestra las variables del programa principal: lo que pasa adentro de una
+función (con su pila de llamadas) es lo próximo para agregar.

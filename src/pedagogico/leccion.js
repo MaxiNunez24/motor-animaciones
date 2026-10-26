@@ -33,6 +33,15 @@ const ESTILOS = `
     line-height: 1.4;
     cursor: auto;
 }
+/* En pantalla completa (una pantalla grande, un video) se lee desde lejos. */
+:host([pantalla]) .ma-pregunta,
+:host(:fullscreen) .ma-pregunta {
+    font-size: clamp(18px, 2.2cqi, 40px);
+    padding: 0.7em 1em 0.9em;
+    left: 4%;
+    right: 4%;
+    bottom: 4%;
+}
 .ma-pregunta[hidden] {
     display: none;
 }
@@ -174,6 +183,12 @@ export class MotorLeccion extends MotorEscena {
                 .filter((m) => m.tipo === 'pregunta' || (m.tipo === 'paso' && this.pasoAPaso))
                 .map((m) => m.t);
         this._reloj.fijarParadas([...new Set(paradas)]);
+    }
+
+    _marcasDeLaBarra(compilada) {
+        return compilada.marcas
+            .filter((m) => m.tipo === 'pregunta')
+            .map((m) => ({ t: m.t, clase: 'pregunta', texto: '?' }));
     }
 
     _alParar(t) {

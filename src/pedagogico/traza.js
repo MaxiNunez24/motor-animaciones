@@ -4,6 +4,7 @@ import { codigo, caracteresPorLinea } from './piezas/codigo.js';
 import { variable } from './piezas/variable.js';
 import { lista } from './piezas/lista.js';
 import { consola } from './piezas/consola.js';
+import { explicarPaso, detectarPunteros } from './explicar.js';
 
 // Una escena armada sola a partir de la TRAZA de un programa: la lista de
 // pasos que dio, con la línea que estaba por correr y cuánto valía cada
@@ -41,7 +42,8 @@ import { consola } from './piezas/consola.js';
  *     lectura?: number,
  *     explicaciones?: Record<number, string>,
  *     preguntas?: Record<number, { pregunta: string, opciones?: string[], correcta?: number, explicacion?: string, dur?: number }>,
- *     punteros?: Record<string, string>,
+ *     punteros?: Record<string, string> | 'auto',
+ *     explicar?: boolean,
  *     capitulos?: Record<number, string>,
  *     piezas?: (d: any, lugar: any) => Record<string, any>,
  * }} opciones
@@ -49,13 +51,16 @@ import { consola } from './piezas/consola.js';
  *     Una pregunta frena ANTES de mostrar lo que hace la línea marcada.
  *     `punteros` dice qué variable recorre qué lista: { numeros: 'n' } pone la
  *     flechita de `numeros` en el elemento que vale lo mismo que `n`.
+ *     Con 'auto', se deduce de la traza.
+ *     `explicar`: los pasos sin explicación escrita se explican solos.
  *     `piezas` agrega piezas propias (un botón, una página) para los `animar`.
  */
 export function desdeTraza(opciones) {
     const {
         traza, lenguaje = 'python', titulo = '', descripcion = '', archivo = '',
-        ritmo = 1.4, lectura = 13, explicaciones = {}, preguntas = {}, punteros = {}, capitulos = {},
+        ritmo = 1.4, lectura = 13, explicaciones = {}, preguntas = {}, capitulos = {}, explicar = false,
     } = opciones;
+    const punteros = opciones.punteros === 'auto' ? detectarPunteros(opciones.traza ?? []) : opciones.punteros ?? {};
     const programa = String(opciones.codigo).replace(/\s+$/, '');
     if (!Array.isArray(traza) || traza.length === 0) throw new Error('La traza tiene que ser una lista de pasos, y no puede estar vacía.');
 
@@ -179,6 +184,8 @@ export function desdeTraza(opciones) {
         const indiceSenalado = {};
         let t = 0.7;
         let salidaAnterior = '';
+        let respuesta = '';
+        const lineasDelPrograma = programa.split('\n');
         traza.forEach((paso, i) => {
             if (capitulos[i]) linea.push({ capitulo: capitulos[i], en: t });
             const vars = paso.variables ?? {};
@@ -241,7 +248,11 @@ export function desdeTraza(opciones) {
             }
 
             let largo = Math.max(ritmo, 0.9);
-            const explicacion = explicaciones[i];
+            const propia = explicaciones[i] ?? (explicar ? explicarPaso(traza, i, lineasDelPrograma) : undefined);
+            // Después de una pregunta, el paso que muestra lo que pasó también
+            // dice la respuesta: en un video nadie pudo tocar un botón.
+            const explicacion = [respuesta, propia].filter(Boolean).join(' ');
+            respuesta = '';
             if (explicacion) {
                 const dur = Math.max(ritmo, duracionLectura(explicacion, lectura));
                 linea.push({ subtitulo: explicacion, en: t, dur });
@@ -249,9 +260,16 @@ export function desdeTraza(opciones) {
             }
             const pregunta = preguntas[i];
             if (pregunta) {
-                const dur = pregunta.dur ?? 4;
+                // La pregunta también va como subtítulo: así la lee la voz del
+                // video. Dura, al menos, lo que se tarda en leerla y pensar un poco.
+                const enunciado = `${pregunta.pregunta} Pausá y pensalo.`;
+                const dur = Math.max(pregunta.dur ?? 4, duracionLectura(enunciado, lectura) + 1.5);
                 linea.push({ marca: 'pregunta', datos: pregunta, en: t + largo, dur });
+                linea.push({ subtitulo: enunciado, en: t + largo, dur });
                 largo += dur;
+                if (pregunta.opciones && pregunta.correcta !== undefined) {
+                    respuesta = `Respuesta: ${pregunta.opciones[pregunta.correcta]}. ${pregunta.explicacion ?? ''}`.trim();
+                }
             }
             t += largo;
             // El fin de cada paso: ahí se frena el paso a paso. El paso que

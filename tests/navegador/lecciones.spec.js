@@ -102,7 +102,7 @@ test('en modo video no frena: la pregunta es un cartel durante su tramo', async 
         return { t: q.t, hasta: q.hasta };
     });
     await l.evaluate((m, t) => m.irA(t + 0.5), t);
-    await expect(l.getByText('Pausá y pensalo')).toBeVisible();
+    await expect(l.locator('.ma-pregunta').getByText('Pausá y pensalo')).toBeVisible();
     await expect(l.getByRole('button', { name: '27' })).toBeDisabled();
     await l.evaluate((m, t) => m.irA(t + 0.1), hasta);
     await expect(l.getByText('Pensalo antes de seguir')).toBeHidden();
@@ -118,4 +118,40 @@ test('en un celular de 360px entra todo, sin correrse de costado', async ({ page
     const sobra = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     expect(sobra).toBe(0);
     expect(await leccion(page).evaluate((m) => m.compilada.disposicion)).toBe('angosta');
+});
+
+test('las preguntas se marcan con un "?" sobre la barra', async ({ page }) => {
+    await abrir(page);
+    const l = leccion(page, 2);
+    const { marcas, preguntas } = await l.evaluate((m) => ({
+        marcas: m.shadowRoot.querySelectorAll('.ma-marcas .pregunta').length,
+        preguntas: m.compilada.marcas.filter((x) => x.tipo === 'pregunta').length,
+    }));
+    expect(marcas).toBe(preguntas);
+    expect(marcas).toBe(2);
+});
+
+test('"Animá tu programa": corre Python en el navegador y arma la lección sola', async ({ page }) => {
+    // Pyodide se baja de jsDelivr: sin internet, este test no tiene cómo correr.
+    const hayRed = await page.request.head('https://cdn.jsdelivr.net/pyodide/v0.29.4/full/pyodide.js').then((r) => r.ok(), () => false);
+    test.skip(!hayRed, 'sin internet no se puede bajar Pyodide');
+    test.setTimeout(120000);
+
+    await page.goto('/ejemplos/tu-programa/');
+    await page.fill('#codigo', 'x = int(input("Número: "))\nfor i in range(x):\n    print(i)\n');
+    await page.fill('#entradas', '3');
+    await page.click('#animar');
+    await page.waitForFunction(() => document.getElementById('leccion').compilada, null, { timeout: 90000 });
+    await expect(page.locator('#estado')).toContainText('pasos');
+    const { salida, explicaciones } = await page.evaluate(() => {
+        const m = document.getElementById('leccion');
+        m.pausar();
+        m.irA(m.duracion);
+        return {
+            salida: m.compilada.estado(m.duracion).piezas.consola.salida,
+            explicaciones: m.compilada.subtitulos.map((s) => s.texto),
+        };
+    });
+    expect(salida).toBe('Número: 3\n0\n1\n2\n');
+    expect(explicaciones).toContain('El for toma el primer elemento: i vale 0.');
 });

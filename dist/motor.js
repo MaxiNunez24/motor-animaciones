@@ -708,12 +708,18 @@ function crearBarra(contenedor, acciones) {
     });
   }
   return {
-    /** Cuando cambia la escena (o su disposición). */
-    configurar(escena) {
+    /**
+     * Cuando cambia la escena (o su disposición).
+     * @param {any} escena
+     * @param {{ t: number, clase: string, texto?: string }[]} [extras] otras marcas sobre la barra,
+     *     que ponen las capas de arriba (las preguntas de una lección).
+     */
+    configurar(escena, extras = []) {
       duracion = escena.duracion;
       capitulos = escena.capitulos;
       rango.max = String(duracion);
-      marcas.innerHTML = capitulos.filter((c) => c.t > 0).map((c) => `<span style="left: ${(c.t / duracion * 100).toFixed(2)}%"></span>`).join("");
+      const donde = (t) => `left: ${(t / duracion * 100).toFixed(2)}%`;
+      marcas.innerHTML = capitulos.filter((c) => c.t > 0).map((c) => `<span style="${donde(c.t)}"></span>`).concat(extras.map((m) => `<span class="${m.clase}" style="${donde(m.t)}">${m.texto ?? ""}</span>`)).join("");
       ultimoCapitulo = null;
     },
     /** En cada cuadro. Solo toca lo que cambió. */
@@ -921,6 +927,19 @@ ${CSS_TEMA}
     height: 7px;
     border-radius: 1px;
     background: var(--ma-suave);
+}
+/* Una pregunta: un "?" chiquito arriba de la barra. Dice "ac\xE1 te van a
+   preguntar algo" sin adelantar qu\xE9, y sirve para volver a esa parte. */
+.ma-marcas span.pregunta {
+    top: -1px;
+    width: 15px;
+    height: 15px;
+    margin-left: -7.5px;
+    border-radius: 50%;
+    background: var(--ma-acento);
+    color: var(--ma-fondo);
+    font: 800 11px/15px var(--ma-fuente);
+    text-align: center;
 }
 .ma-tiempo {
     font: 500 14px/1 var(--ma-fuente);
@@ -1174,6 +1193,13 @@ var MotorEscena = class extends Base {
   /** Cada vez que se dibuja un instante. */
   _alPintar(estado) {
   }
+  /**
+   * Marcas propias para la barra de tiempo, además de las de los capítulos.
+   * @returns {{ t: number, clase: string, texto?: string }[]}
+   */
+  _marcasDeLaBarra(compilada) {
+    return [];
+  }
   // ---------------- Por dentro ----------------
   _escuchar(objetivo, evento, f) {
     objetivo.addEventListener(evento, f);
@@ -1238,7 +1264,7 @@ var MotorEscena = class extends Base {
     this._reloj.duracion = compilada.duracion;
     this._titulo.textContent = compilada.titulo || "Animaci\xF3n";
     this._descripcion.textContent = textoAlternativo(compilada);
-    this._barra.configurar(compilada);
+    this._barra.configurar(compilada, this._marcasDeLaBarra(compilada));
     this._alArmar(compilada);
     const yaEstaba = this._yaArrancado;
     this._yaArrancado = true;
@@ -1353,6 +1379,15 @@ var ESTILOS2 = `
     font-size: clamp(15px, 2.3cqi, 22px);
     line-height: 1.4;
     cursor: auto;
+}
+/* En pantalla completa (una pantalla grande, un video) se lee desde lejos. */
+:host([pantalla]) .ma-pregunta,
+:host(:fullscreen) .ma-pregunta {
+    font-size: clamp(18px, 2.2cqi, 40px);
+    padding: 0.7em 1em 0.9em;
+    left: 4%;
+    right: 4%;
+    bottom: 4%;
 }
 .ma-pregunta[hidden] {
     display: none;
@@ -1479,6 +1514,9 @@ var MotorLeccion = class extends MotorEscena {
     this._marcas = compilada.marcas;
     const paradas = this.hasAttribute("video") ? [] : this._marcas.filter((m) => m.tipo === "pregunta" || m.tipo === "paso" && this.pasoAPaso).map((m) => m.t);
     this._reloj.fijarParadas([...new Set(paradas)]);
+  }
+  _marcasDeLaBarra(compilada) {
+    return compilada.marcas.filter((m) => m.tipo === "pregunta").map((m) => ({ t: m.t, clase: "pregunta", texto: "?" }));
   }
   _alParar(t) {
     const pregunta = this._marcas.find((m) => m.tipo === "pregunta" && m.t === t);
@@ -2660,6 +2698,101 @@ function medir2(p) {
   return { altoLinea, encabezado, alto: encabezado + p.renglones * altoLinea + 12 };
 }
 
+// src/pedagogico/explicar.js
+var LIMITE = 28;
+function corto(repr, limite = LIMITE) {
+  return repr.length > limite ? `${repr.slice(0, limite - 1)}\u2026` : repr;
+}
+function crear(nombre, v) {
+  if (v.items) {
+    const cuantos = v.items.length;
+    const que = v.tipo === "tuple" ? "una tupla" : "una lista";
+    return cuantos === 0 ? `${nombre} es ${que} vac\xEDa.` : `${nombre} es ${que} con ${cuantos} ${cuantos === 1 ? "elemento" : "elementos"}.`;
+  }
+  if (v.tipo === "dict") {
+    const cuantos = v.pares?.length ?? 0;
+    return cuantos === 0 ? `${nombre} es un diccionario vac\xEDo.` : `${nombre} es un diccionario con ${cuantos} ${cuantos === 1 ? "clave" : "claves"}.`;
+  }
+  return `${nombre} vale ${corto(v.repr)}.`;
+}
+function cambiar(nombre, antes, ahora) {
+  if (ahora.items && antes.items) {
+    if (ahora.items.length === antes.items.length + 1) return `Se agreg\xF3 ${corto(ahora.items.at(-1))} a ${nombre}.`;
+    if (ahora.items.length === antes.items.length - 1) return `${nombre} ahora tiene un elemento menos.`;
+    return `${nombre} cambi\xF3: ahora es ${corto(ahora.repr)}.`;
+  }
+  if (ahora.tipo === "dict" && antes.tipo === "dict") {
+    const nuevas = (ahora.pares ?? []).filter(([k]) => !(antes.pares ?? []).some(([k2]) => k2 === k));
+    if (nuevas.length === 1) return `Se agreg\xF3 la clave ${corto(nuevas[0][0])} a ${nombre}.`;
+    return `${nombre} cambi\xF3.`;
+  }
+  return `${nombre} pasa de ${corto(antes.repr)} a ${corto(ahora.repr)}.`;
+}
+function explicarPaso(traza, i, lineas) {
+  const paso = traza[i];
+  if (i === 0) return "Arranca el programa, por la primera l\xEDnea.";
+  const antes = traza[i - 1];
+  const frases = [];
+  if (paso.excepcion) {
+    const { tipo, mensaje } = paso.excepcion;
+    return `Se corta con un error en la l\xEDnea ${paso.linea}: ${tipo}${mensaje ? ` (${mensaje})` : ""}.`;
+  }
+  const varsAntes = antes.variables ?? {};
+  const delFor = (lineas[antes.linea - 1] ?? "").trim().match(/^for\s+([A-Za-z_]\w*)\s+in\b/)?.[1];
+  for (const [nombre, v] of Object.entries(paso.variables ?? {})) {
+    const previa = varsAntes[nombre];
+    if (nombre === delFor && previa?.repr !== v.repr) {
+      frases.push(previa ? `Otra vuelta del for: ${nombre} vale ${corto(v.repr)}.` : `El for toma el primer elemento: ${nombre} vale ${corto(v.repr)}.`);
+    } else if (!previa) {
+      frases.push(crear(nombre, v));
+    } else if (previa.repr !== v.repr) {
+      frases.push(cambiar(nombre, previa, v));
+    }
+  }
+  const nueva = (paso.salida ?? "").slice((antes.salida ?? "").length).replace(/\n$/, "");
+  if (nueva) frases.push(`Se muestra: ${corto(nueva.split("\n").at(-1), 60)}`);
+  if (frases.length === 0) {
+    const texto3 = (lineas[antes.linea - 1] ?? "").trim();
+    if (/^(for|while)\b/.test(texto3) && paso.linea === antes.linea + 1) return "Entra al bucle.";
+    if (/^for\b/.test(texto3)) return "No quedan elementos: termina el for.";
+    if (/^while\b/.test(texto3)) return "La condici\xF3n del while ya no se cumple: sale del bucle.";
+    if (/^(if|elif)\b/.test(texto3)) return paso.linea === antes.linea + 1 ? "La condici\xF3n se cumple: entra." : "La condici\xF3n no se cumple: la saltea.";
+    if (/^else\b/.test(texto3)) return "Entra por el else.";
+    const vuelve = (lineas[paso.linea - 1] ?? "").trim();
+    if (paso.linea > 0 && paso.linea < antes.linea && /^(for|while)\b/.test(vuelve)) return "Vuelve al principio del bucle.";
+  }
+  if (paso.linea === 0) frases.push("Termin\xF3 el programa.");
+  return frases.slice(0, 2).join(" ") || `Sigue en la l\xEDnea ${paso.linea}.`;
+}
+function detectarPunteros(traza) {
+  const encontrados = {};
+  const nombres = new Set(traza.flatMap((p) => Object.keys(p.variables ?? {})));
+  for (const lista2 of nombres) {
+    for (const variable2 of nombres) {
+      if (variable2 === lista2 || Object.values(encontrados).includes(variable2)) continue;
+      let indice = -1;
+      let anterior = null;
+      let aciertos = 0;
+      let falla = false;
+      for (const paso of traza) {
+        const l = paso.variables?.[lista2];
+        const v = paso.variables?.[variable2];
+        if (!l?.items || !v || v.repr === anterior) continue;
+        anterior = v.repr;
+        const k = l.items.indexOf(v.repr, indice + 1);
+        if (k === -1) {
+          falla = true;
+          break;
+        }
+        indice = k;
+        aciertos += 1;
+      }
+      if (!falla && aciertos >= 2 && !encontrados[lista2]) encontrados[lista2] = variable2;
+    }
+  }
+  return encontrados;
+}
+
 // src/pedagogico/traza.js
 function desdeTraza(opciones) {
   const {
@@ -2672,9 +2805,10 @@ function desdeTraza(opciones) {
     lectura = 13,
     explicaciones = {},
     preguntas = {},
-    punteros = {},
-    capitulos = {}
+    capitulos = {},
+    explicar = false
   } = opciones;
+  const punteros = opciones.punteros === "auto" ? detectarPunteros(opciones.traza ?? []) : opciones.punteros ?? {};
   const programa = String(opciones.codigo).replace(/\s+$/, "");
   if (!Array.isArray(traza) || traza.length === 0) throw new Error("La traza tiene que ser una lista de pasos, y no puede estar vac\xEDa.");
   const variables2 = [];
@@ -2803,6 +2937,8 @@ function desdeTraza(opciones) {
     const indiceSenalado = {};
     let t = 0.7;
     let salidaAnterior = "";
+    let respuesta = "";
+    const lineasDelPrograma = programa.split("\n");
     traza.forEach((paso, i) => {
       if (capitulos[i]) linea.push({ capitulo: capitulos[i], en: t });
       const vars = paso.variables ?? {};
@@ -2858,7 +2994,9 @@ function desdeTraza(opciones) {
         linea.push({ pieza: "codigo", a: { marca: 0 }, dur: 0.4, en: t + 0.45 });
       }
       let largo2 = Math.max(ritmo, 0.9);
-      const explicacion = explicaciones[i];
+      const propia = explicaciones[i] ?? (explicar ? explicarPaso(traza, i, lineasDelPrograma) : void 0);
+      const explicacion = [respuesta, propia].filter(Boolean).join(" ");
+      respuesta = "";
       if (explicacion) {
         const dur = Math.max(ritmo, duracionLectura(explicacion, lectura));
         linea.push({ subtitulo: explicacion, en: t, dur });
@@ -2866,9 +3004,14 @@ function desdeTraza(opciones) {
       }
       const pregunta = preguntas[i];
       if (pregunta) {
-        const dur = pregunta.dur ?? 4;
+        const enunciado = `${pregunta.pregunta} Paus\xE1 y pensalo.`;
+        const dur = Math.max(pregunta.dur ?? 4, duracionLectura(enunciado, lectura) + 1.5);
         linea.push({ marca: "pregunta", datos: pregunta, en: t + largo2, dur });
+        linea.push({ subtitulo: enunciado, en: t + largo2, dur });
         largo2 += dur;
+        if (pregunta.opciones && pregunta.correcta !== void 0) {
+          respuesta = `Respuesta: ${pregunta.opciones[pregunta.correcta]}. ${pregunta.explicacion ?? ""}`.trim();
+        }
       }
       t += largo2;
       linea.push({ marca: "paso", datos: { indice: i }, en: t });
@@ -2887,8 +3030,23 @@ function desdeTraza(opciones) {
   };
 }
 
+// src/pedagogico/trazador-py.js
+var TRAZADOR_PY = '# -*- coding: utf-8 -*-\n# El trazador: corre un programa de Python y anota cada paso que da.\n#\n# Este archivo es el \xDANICO lugar donde est\xE1. Lo usan:\n#   - herramientas/trazar.py, desde la consola;\n#   - el navegador, con Pyodide: herramientas/construir.js lo copia, tal cual,\n#     a src/pedagogico/trazador-py.js (un test verifica que sean iguales).\n#\n# Cada paso es la l\xEDnea que est\xE1 por correr, con las variables como est\xE1n en\n# ese momento y todo lo que se mostr\xF3 hasta ah\xED. Usa sys.settrace, igual que\n# la medici\xF3n de pasos de la plataforma del curso.\n\nimport io\nimport json\nimport sys\nimport types\nimport builtins\nfrom contextlib import redirect_stdout\n\n_ARCHIVO = "<programa>"\n\n\nclass _Tope(Exception):\n    pass\n\n\nclass _SinEntrada(Exception):\n    pass\n\n\ndef _describir(valor):\n    """Un valor como lo necesita la escena: su tipo, c\xF3mo se escribe y, si es\n    una colecci\xF3n, sus elementos ya escritos."""\n    d = {"tipo": type(valor).__name__, "repr": repr(valor)}\n    if isinstance(valor, (list, tuple)):\n        d["items"] = [repr(x) for x in valor]\n    elif isinstance(valor, dict):\n        d["pares"] = [[repr(k), repr(v)] for k, v in valor.items()]\n    return d\n\n\ndef _variables(espacio):\n    """Las variables del programa, sin lo que pone Python por su cuenta."""\n    return {\n        nombre: _describir(valor)\n        for nombre, valor in espacio.items()\n        if not nombre.startswith("__")\n        and not isinstance(valor, (types.ModuleType, types.FunctionType, types.BuiltinFunctionType, type))\n    }\n\n\ndef _motor_trazar(codigo, max_pasos=400, entradas=()):\n    """Devuelve la traza como texto JSON: {"codigo", "lenguaje", "traza"}.\n\n    `entradas` son las respuestas para input(), en orden: un programa que\n    pregunta algo no puede quedarse esperando a que alguien escriba.\n    """\n    pasos = []\n    salida = io.StringIO()\n    espacio = {"__name__": "__main__"}\n    pendientes = list(entradas)\n\n    def entrada(mensaje=""):\n        # Como en la consola: se ve la pregunta y lo que "escribi\xF3" el usuario.\n        salida.write(str(mensaje))\n        if not pendientes:\n            raise _SinEntrada()\n        valor = str(pendientes.pop(0))\n        salida.write(valor + "\\n")\n        return valor\n\n    def local(frame, evento, arg):\n        if evento == "line":\n            if len(pasos) >= max_pasos:\n                raise _Tope()\n            # Por ahora solo el nivel del programa: las variables de adentro de\n            # una funci\xF3n van a necesitar mostrar la pila de llamadas.\n            pasos.append({\n                "linea": frame.f_lineno,\n                "variables": _variables(frame.f_locals),\n                "salida": salida.getvalue(),\n            })\n        return local\n\n    def global_(frame, evento, arg):\n        if frame.f_code.co_filename == _ARCHIVO and frame.f_code.co_name == "<module>":\n            return local\n        return None\n\n    def cortar(tipo, mensaje):\n        ultimo = pasos[-1]["linea"] if pasos else 0\n        pasos.append({\n            "linea": ultimo,\n            "variables": _variables(espacio),\n            "salida": salida.getvalue(),\n            "excepcion": {"tipo": tipo, "mensaje": mensaje},\n        })\n\n    try:\n        compilado = compile(codigo, _ARCHIVO, "exec")\n    except SyntaxError as e:\n        return json.dumps({"codigo": codigo, "lenguaje": "python", "traza": [{\n            "linea": e.lineno or 1, "variables": {}, "salida": "",\n            "excepcion": {"tipo": "SyntaxError", "mensaje": e.msg},\n        }]}, ensure_ascii=False)\n\n    input_original = builtins.input\n    builtins.input = entrada\n    try:\n        with redirect_stdout(salida):\n            sys.settrace(global_)\n            try:\n                exec(compilado, espacio)\n            finally:\n                sys.settrace(None)\n        pasos.append({"linea": 0, "variables": _variables(espacio), "salida": salida.getvalue()})\n    except _Tope:\n        cortar("Corte", f"m\xE1s de {max_pasos} pasos: \xBFun bucle que no termina?")\n    except _SinEntrada:\n        cortar("Falta una entrada", "el programa pidi\xF3 un input() m\xE1s de los que se cargaron")\n    except Exception as e:\n        cortar(type(e).__name__, repr(e.args[0]) if isinstance(e, KeyError) and e.args else str(e))\n    finally:\n        builtins.input = input_original\n    return json.dumps({"codigo": codigo, "lenguaje": "python", "traza": pasos}, ensure_ascii=False)\n';
+
+// src/pedagogico/trazador.js
+function trazarConPyodide(pyodide, codigo2, opciones = {}) {
+  const { maxPasos = 400, entradas = [] } = opciones;
+  pyodide.runPython(TRAZADOR_PY);
+  const trazar = pyodide.globals.get("_motor_trazar");
+  try {
+    return JSON.parse(trazar(codigo2, maxPasos, entradas));
+  } finally {
+    trazar.destroy?.();
+  }
+}
+
 // src/index.js
-var version = "0.3.0";
+var version = "0.4.0";
 definirComponente();
 definirLeccion();
 export {
@@ -2900,6 +3058,7 @@ export {
   Reloj,
   TEMAS,
   TOKENS,
+  TRAZADOR_PY,
   aCoordenadasDe,
   aCss,
   azar,
@@ -2920,8 +3079,10 @@ export {
   definirLeccion,
   definirPieza,
   desdeTraza,
+  detectarPunteros,
   duracionLectura,
   el,
+  explicarPaso,
   flecha,
   formatearNumero,
   interpolar,
@@ -2937,6 +3098,7 @@ export {
   tabla,
   texto2 as texto,
   tokenizar,
+  trazarConPyodide,
   variable,
   version
 };

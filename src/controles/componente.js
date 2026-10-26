@@ -204,6 +204,14 @@ export class MotorEscena extends Base {
     /** Cada vez que se dibuja un instante. */
     _alPintar(estado) {}
 
+    /**
+     * Marcas propias para la barra de tiempo, además de las de los capítulos.
+     * @returns {{ t: number, clase: string, texto?: string }[]}
+     */
+    _marcasDeLaBarra(compilada) {
+        return [];
+    }
+
     // ---------------- Por dentro ----------------
 
     _escuchar(objetivo, evento, f) {
@@ -279,7 +287,7 @@ export class MotorEscena extends Base {
 
         this._titulo.textContent = compilada.titulo || 'Animación';
         this._descripcion.textContent = textoAlternativo(compilada);
-        this._barra.configurar(compilada);
+        this._barra.configurar(compilada, this._marcasDeLaBarra(compilada));
 
         this._alArmar(compilada);
 

@@ -4,62 +4,248 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Motor de animaciones</title>
+    <meta name="description" content="Animaciones web deterministas, en castellano: escenas, lecciones que preguntan, programas de Python animados solos, y videos con voz grabados sin intervención.">
     <style>
         :root {
-            font-family: system-ui, "Segoe UI", sans-serif;
-            color-scheme: light dark;
+            --fondo: #f6f4ef;
+            --superficie: #ffffff;
+            --texto: #1c2230;
+            --suave: #5a6372;
+            --borde: #d7dbe2;
+            --acento: #1f5fd1;
+            font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+            color-scheme: light;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --fondo: #0d1117;
+                --superficie: #161c25;
+                --texto: #e8ebf0;
+                --suave: #9ba5b3;
+                --borde: #2a3340;
+                --acento: #73a9ff;
+                color-scheme: dark;
+            }
+        }
+        * {
+            box-sizing: border-box;
         }
         body {
             margin: 0;
-            padding: 24px 16px 48px;
-            background: Canvas;
-            color: CanvasText;
-            line-height: 1.55;
+            background: var(--fondo);
+            color: var(--texto);
+            line-height: 1.6;
         }
         main {
-            max-width: 980px;
+            max-width: 1040px;
             margin: 0 auto;
+            padding: 32px 16px 56px;
         }
         h1 {
-            font-size: clamp(1.5rem, 5vw, 2.2rem);
-            margin: 0 0 0.2em;
+            font-size: clamp(1.9rem, 6vw, 3rem);
+            line-height: 1.1;
+            margin: 0 0 0.3em;
+            letter-spacing: -0.02em;
         }
-        ul {
-            padding-left: 1.2em;
+        h2 {
+            font-size: clamp(1.35rem, 4vw, 1.9rem);
+            line-height: 1.2;
+            margin: 2.4em 0 0.4em;
         }
-        code {
-            font-family: ui-monospace, Consolas, monospace;
+        .bajada {
+            font-size: clamp(1.05rem, 2.6vw, 1.25rem);
+            color: var(--suave);
+            max-width: 46em;
+            margin: 0 0 1.4em;
         }
-        motor-escena {
-            margin: 1.2em 0;
+        a {
+            color: var(--acento);
+        }
+        code,
+        pre {
+            font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        }
+        pre {
+            background: var(--superficie);
+            border: 1px solid var(--borde);
+            border-radius: 10px;
+            padding: 14px 16px;
+            overflow-x: auto;
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+        .virtudes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin: 1.6em 0 0;
+            padding: 0;
+            list-style: none;
+        }
+        .virtudes li,
+        .tarjeta {
+            background: var(--superficie);
+            border: 1px solid var(--borde);
+            border-radius: 12px;
+            padding: 14px 16px;
+        }
+        .virtudes strong {
+            display: block;
+            font-size: 1.05rem;
+        }
+        .virtudes span {
+            color: var(--suave);
+            font-size: 0.95rem;
+        }
+        motor-escena,
+        motor-leccion {
+            margin: 1em 0;
+        }
+        video {
+            display: block;
+            width: 100%;
+            border-radius: 12px;
+            background: #000;
+        }
+        .tarjetas {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 12px;
+        }
+        .tarjeta {
+            display: block;
+            text-decoration: none;
+            color: inherit;
+        }
+        .tarjeta:hover,
+        .tarjeta:focus-visible {
+            border-color: var(--acento);
+        }
+        .tarjeta strong {
+            display: block;
+            color: var(--acento);
+            font-size: 1.05rem;
+        }
+        .tarjeta span {
+            color: var(--suave);
+            font-size: 0.95rem;
+        }
+        .nota {
+            color: var(--suave);
+            font-size: 0.95rem;
+        }
+        footer {
+            margin-top: 3em;
+            padding-top: 1.2em;
+            border-top: 1px solid var(--borde);
+            color: var(--suave);
+            font-size: 0.92rem;
         }
     </style>
 </head>
 <body>
     <main>
         <h1>Motor de animaciones</h1>
-        <p>
-            Animaciones web deterministas: lo que se ve en cada instante depende solo del instante.
-            Por eso la misma escena se ve igual en vivo, paso a paso y grabada a video. Sin dependencias,
-            en castellano, y con una capa para explicar conceptos de programación.
+        <p class="bajada">
+            Animaciones web en castellano, hechas para enseñar: escenas que se pueden pausar y recorrer,
+            lecciones que te preguntan antes de mostrarte la respuesta, programas de Python que se
+            animan solos, y videos con voz que se graban sin que nadie toque nada.
         </p>
 
         <motor-escena escena="pedido" loop autoplay></motor-escena>
 
-        <h2>Ejemplos</h2>
-        <ul>
-            <li><a href="ejemplos/conceptos/">Conceptos, paso a paso</a>: un for, un diccionario y un evento, con preguntas.</li>
-            <li><a href="ejemplos/expo/">El Sistema de Gestión de Alumnos</a> (Expo CFP 401, 2026), y <a href="ejemplos/expo/pantalla.html">en pantalla grande</a>.</li>
-            <li><a href="ejemplos/prueba.html">Escena de prueba</a>, con todos los controles.</li>
+        <ul class="virtudes">
+            <li><strong>Determinista</strong><span>Lo que se ve en cada instante depende solo del instante: se ve igual en vivo, paso a paso y en video.</span></li>
+            <li><strong>Para enseñar</strong><span>Frena y pregunta «¿qué creés que pasa ahora?». Se aprende prediciendo, no mirando.</span></li>
+            <li><strong>Liviano y sin dependencias</strong><span>Un solo archivo de 24 KB. Anda en una página de alumno, abierta con doble clic.</span></li>
+            <li><strong>Accesible</strong><span>Teclado, lector de pantalla, subtítulos, movimiento reducido, modo oscuro, y en un celular de 360 px.</span></li>
         </ul>
 
-        <h2>Usarlo en una página</h2>
-        <p>Un solo archivo, que anda incluso abriendo la página con doble clic:</p>
-        <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.3.0/dist/motor.min.js"&gt;&lt;/script&gt;</code></pre>
-        <p>Cómo se escribe una escena: <a href="https://github.com/MaxiNunez24/motor-animaciones#readme">el README</a>.</p>
+        <h2>Lecciones que preguntan</h2>
+        <p>
+            El código corre, la línea marcada es la que está por ejecutarse, y las variables cambian a la
+            vista. Antes de mostrar lo importante, la lección <strong>frena y pregunta</strong>: los
+            <strong>?</strong> sobre la barra marcan dónde. Con <em>Paso a paso</em> va de a una línea.
+        </p>
+        <motor-leccion escena="bucle-for"></motor-leccion>
+        <p class="nota">
+            Hay más en <a href="ejemplos/conceptos/">Conceptos, paso a paso</a>: un diccionario con su
+            <code>KeyError</code>, y un evento de JavaScript que espera el clic.
+        </p>
+
+        <h2>Animá tu programa</h2>
+        <p>
+            Escribís un programa de Python, se corre en el navegador (con Pyodide) y la animación se arma
+            sola, con explicaciones en castellano: «El for toma el primer elemento: n vale 4», «total pasa
+            de 4 a 12», «La condición no se cumple: la saltea». Anda con <code>input()</code>, y corta los
+            bucles que no terminan.
+        </p>
+        <p><a class="tarjeta" href="ejemplos/tu-programa/"><strong>Probalo con tu programa →</strong><span>Python en el navegador, sin instalar nada.</span></a></p>
+
+        <h2>Y se graba sola, con voz</h2>
+        <p>
+            Cualquier escena se graba a MP4 en 1080p, cuadro por cuadro, aunque la compu sea lenta. La voz
+            es argentina y corre en la compu, sin internet. Los subtítulos van aparte, para prenderlos o
+            apagarlos (acá abajo, con el botón del reproductor), y los capítulos salen listos para YouTube.
+        </p>
+        <video controls preload="none" poster="medios/expo-portada.jpg">
+            <source src="medios/expo.mp4" type="video/mp4">
+            <track kind="subtitles" src="medios/expo.vtt" srclang="es" label="Español">
+            Tu navegador no muestra videos: <a href="medios/expo.mp4">bajalo acá</a>.
+        </video>
+        <p class="nota">
+            «El Sistema de Gestión de Alumnos: cómo se va a ver», para la Expo del CFP 401 de Ensenada.
+            Grabado con <code>npm run video -- --url ejemplos/expo/pantalla.html --narrar</code>. Voz:
+            Piper, es_AR-daniela (datos de OpenSLR 61, CC BY-SA 4.0).
+        </p>
+
+        <h2>Ejemplos</h2>
+        <div class="tarjetas">
+            <a class="tarjeta" href="ejemplos/conceptos/"><strong>Conceptos, paso a paso</strong><span>Un for, un diccionario y un evento, con preguntas.</span></a>
+            <a class="tarjeta" href="ejemplos/tu-programa/"><strong>Animá tu programa</strong><span>Escribís Python y la animación se arma sola.</span></a>
+            <a class="tarjeta" href="ejemplos/expo/"><strong>El Sistema de Gestión de Alumnos</strong><span>La Expo, con controles. En el celular, la cámara se acerca a cada parte.</span></a>
+            <a class="tarjeta" href="ejemplos/expo/pantalla.html"><strong>La Expo en pantalla grande</strong><span>Toda la ventana, en loop, sin controles.</span></a>
+            <a class="tarjeta" href="ejemplos/prueba.html"><strong>Escena de prueba</strong><span>Todos los controles: capítulos, velocidad, cuadro por cuadro.</span></a>
+        </div>
+
+        <h2>Usarlo</h2>
+        <p>En cualquier página, con un solo archivo:</p>
+        <pre><code>&lt;motor-escena escena="hola" autoplay&gt;&lt;/motor-escena&gt;
+&lt;script src="https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.4.0/dist/motor.min.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+    const { caja, flecha } = Motor;
+    Motor.registrar('hola', {
+        ancho: 1600, alto: 900,
+        piezas: {
+            a: caja({ x: 400, y: 450, texto: 'Hoy', opacidad: 0 }),
+            b: caja({ x: 1200, y: 450, texto: 'Mañana', opacidad: 0 }),
+            f: flecha({ desde: 'a', hasta: 'b', progreso: 0 }),
+        },
+        linea: [
+            { pieza: 'a', a: { opacidad: 1 } },
+            { pieza: 'f', a: { progreso: 1 }, dur: 1 },
+            { pieza: 'b', a: { opacidad: 1 } },
+        ],
+    });
+&lt;/script&gt;</code></pre>
+        <p>Desde un proyecto (Astro, Vite…):</p>
+        <pre><code>pnpm add github:MaxiNunez24/motor-animaciones#v0.4.0</code></pre>
+        <p>
+            Todo lo demás está en <a href="https://github.com/MaxiNunez24/motor-animaciones#readme">el README</a>,
+            y cómo sumarlo a una plataforma con Astro y Starlight, en
+            <a href="https://github.com/MaxiNunez24/motor-animaciones/blob/main/docs/usar-en-el-curso.md">esta guía</a>.
+        </p>
+
+        <footer>
+            Hecho para el curso Pensamiento Computacional y Testing de Aplicaciones del CFP 401 de Ensenada.
+            Código abierto, con licencia MIT: <a href="https://github.com/MaxiNunez24/motor-animaciones">github.com/MaxiNunez24/motor-animaciones</a>.
+        </footer>
     </main>
 
     <script src="dist/motor.min.js"></script>
     <script src="ejemplos/escenas/pedido.js"></script>
+    <script src="ejemplos/conceptos/bucle-for.traza.js"></script>
+    <script src="ejemplos/conceptos/diccionario.traza.js"></script>
+    <script src="ejemplos/conceptos/lecciones.js"></script>
 </body>
 </html>

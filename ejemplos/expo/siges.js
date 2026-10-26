@@ -288,7 +288,7 @@
             { pieza: 'cierre1', a: { opacidad: 1, escala: 1 }, dur: 0.7, curva: 'salir', en: '<0.4' },
             aparecer('cierre2', { en: '<0.6' }),
             aparecer('firma', { en: '<0.3' }),
-            { espera: 5 },
+            { espera: 6.5 },
 
             // Todo se apaga, y el loop vuelve a empezar de una pantalla vacía.
             {
