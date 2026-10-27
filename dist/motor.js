@@ -477,21 +477,21 @@ function caminoFlecha(a, b, curvatura = 0, separacion = 0) {
   };
   return { p0: bordeHacia(a, c, separacion), c, p1: bordeHacia(b, c, separacion) };
 }
-function bordeHacia(r2, hacia, separacion) {
-  const dx = hacia.x - r2.x;
-  const dy = hacia.y - r2.y;
+function bordeHacia(r3, hacia, separacion) {
+  const dx = hacia.x - r3.x;
+  const dy = hacia.y - r3.y;
   const d = Math.hypot(dx, dy);
-  if (d === 0) return { x: r2.x, y: r2.y };
+  if (d === 0) return { x: r3.x, y: r3.y };
   const ux = dx / d;
   const uy = dy / d;
-  const mx = (r2.ancho ?? 0) / 2;
-  const my = (r2.alto ?? 0) / 2;
+  const mx = (r3.ancho ?? 0) / 2;
+  const my = (r3.alto ?? 0) / 2;
   const hastaBorde = Math.min(
     ux === 0 ? Infinity : mx / Math.abs(ux),
     uy === 0 ? Infinity : my / Math.abs(uy)
   );
   const t = (Number.isFinite(hastaBorde) ? hastaBorde : 0) + separacion;
-  return { x: r2.x + ux * t, y: r2.y + uy * t };
+  return { x: r3.x + ux * t, y: r3.y + uy * t };
 }
 function puntoCurva({ p0, c, p1 }, u) {
   const v = 1 - u;
@@ -1924,9 +1924,9 @@ function extremo(cual, ctx) {
   }
   return { x: cual.x, y: cual.y };
 }
-function adentro(r2, contenedor, ctx) {
-  const { x, y, escala } = aCoordenadasDe(r2, contenedor, ctx.estado, ctx.tipos);
-  return { x, y, ancho: (r2.ancho ?? 0) / escala, alto: (r2.alto ?? 0) / escala };
+function adentro(r3, contenedor, ctx) {
+  const { x, y, escala } = aCoordenadasDe(r3, contenedor, ctx.estado, ctx.tipos);
+  return { x, y, ancho: (r3.ancho ?? 0) / escala, alto: (r3.alto ?? 0) / escala };
 }
 function n(v) {
   return Math.round(v * 100) / 100;
@@ -2220,6 +2220,206 @@ var cilindro = definirPieza({
   },
   tamano: (p) => ({ ancho: p.ancho, alto: p.alto })
 });
+
+// src/piezas/grafo.js
+var grafo = definirPieza({
+  nombre: "grafo",
+  predeterminados: {
+    // Ids, o { id, texto, x, y, icono }. x e y son relativas al centro del grafo.
+    nodos: [],
+    // [de, a] o [de, a, etiqueta], o { de, a, etiqueta }.
+    aristas: [],
+    dirigido: true,
+    // El radio del círculo en el que se reparten los nodos sin posición.
+    radio: 230,
+    radioNodo: 38,
+    tamano: 28,
+    tamanoEtiqueta: 20,
+    // Cuántas aristas se ven, en orden: 2.5 es dos y la tercera dibujándose.
+    visibles: Infinity,
+    // Cuántos nodos se ven, en orden.
+    nodosVisibles: Infinity,
+    // Ids de nodos y "de→a" de aristas para destacar.
+    resaltar: [],
+    // Ids de nodos y "de→a" de aristas para apagar (lo que no importa ahora).
+    apagar: [],
+    relleno: "superficie",
+    borde: "acento",
+    color: "texto",
+    colorArista: "suave",
+    colorResaltado: "acento2",
+    grosor: 3.5
+  },
+  colores: ["relleno", "borde", "color", "colorArista", "colorResaltado"],
+  validar(p) {
+    const ids = new Set(normalizarNodos(p).map((n2) => n2.id));
+    for (const a of normalizarAristas(p.aristas)) {
+      for (const extremo2 of [a.de, a.a]) {
+        if (!ids.has(extremo2)) throw new Error(`La arista ${a.de}\u2192${a.a} usa "${extremo2}", que no es ning\xFAn nodo del grafo.`);
+      }
+    }
+  },
+  crear(grupo) {
+    return { aristas: el("g", { fill: "none", "stroke-linecap": "round" }, grupo), nodos: el("g", {}, grupo) };
+  },
+  actualizar(partes, p) {
+    const nodos = normalizarNodos(p);
+    const aristas = normalizarAristas(p.aristas);
+    const donde = Object.fromEntries(nodos.map((n2) => [n2.id, n2]));
+    const resaltar = new Set(p.resaltar);
+    const apagar = new Set(p.apagar);
+    reusar(partes.aristas, aristas.length, (g) => {
+      el("path", {}, g);
+      el("path", {}, g);
+      el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-weight": 600, "paint-order": "stroke", stroke: "var(--ma-fondo)", "stroke-width": 5 }, g);
+    });
+    aristas.forEach((a, i) => {
+      const g = (
+        /** @type {Element} */
+        partes.aristas.childNodes[i]
+      );
+      const [linea, punta, etiqueta] = (
+        /** @type {Element[]} */
+        [...g.childNodes]
+      );
+      const avance = limitar(p.visibles - i, 0, 1);
+      const clave = `${a.de}\u2192${a.a}`;
+      const color = resaltar.has(clave) ? p.colorResaltado : p.colorArista;
+      const grosor = resaltar.has(clave) ? p.grosor * 1.5 : p.grosor;
+      poner(g, { opacity: apagar.has(clave) ? 0.25 : 1, visibility: avance > 0 ? null : "hidden" });
+      let d;
+      let tip;
+      let ang;
+      let medio;
+      if (a.de === a.a) {
+        const n2 = donde[a.de];
+        const hacia = Math.atan2(n2.y, n2.x) || -Math.PI / 2;
+        const R = p.radioNodo * 0.62;
+        const cx = n2.x + Math.cos(hacia) * (p.radioNodo + R * 0.55);
+        const cy = n2.y + Math.sin(hacia) * (p.radioNodo + R * 0.55);
+        const inicio = hacia + Math.PI * 0.75;
+        const fin = inicio + Math.PI * 1.5 * avance;
+        const x0 = cx + Math.cos(inicio) * R;
+        const y0 = cy + Math.sin(inicio) * R;
+        const x1 = cx + Math.cos(fin) * R;
+        const y1 = cy + Math.sin(fin) * R;
+        d = `M${r2(x0)} ${r2(y0)}A${r2(R)} ${r2(R)} 0 ${fin - inicio > Math.PI ? 1 : 0} 1 ${r2(x1)} ${r2(y1)}`;
+        tip = { x: x1, y: y1 };
+        ang = fin + Math.PI / 2;
+        medio = { x: cx + Math.cos(hacia) * (R + p.tamanoEtiqueta * 0.8), y: cy + Math.sin(hacia) * (R + p.tamanoEtiqueta * 0.8) };
+      } else {
+        const de = donde[a.de];
+        const ha = donde[a.a];
+        const vuelta = aristas.some((b) => b.de === a.a && b.a === a.de);
+        const curva2 = caminoFlecha(
+          { x: de.x, y: de.y, ancho: 0, alto: 0 },
+          { x: ha.x, y: ha.y, ancho: 0, alto: 0 },
+          vuelta ? 0.18 : 0,
+          0
+        );
+        const largo2 = Math.hypot(ha.x - de.x, ha.y - de.y) || 1;
+        const u0 = Math.min(0.45, (p.radioNodo + 4) / largo2);
+        const u1 = 1 - Math.min(0.45, (p.radioNodo + 6) / largo2);
+        const uFin = u0 + (u1 - u0) * avance;
+        const pasos = 16;
+        d = "";
+        for (let k = 0; k <= pasos; k++) {
+          const q = puntoCurva(curva2, u0 + (uFin - u0) * k / pasos);
+          d += `${k === 0 ? "M" : "L"}${r2(q.x)} ${r2(q.y)}`;
+        }
+        tip = puntoCurva(curva2, uFin);
+        ang = anguloCurva(curva2, uFin);
+        const m = puntoCurva(curva2, 0.5);
+        const am = anguloCurva(curva2, 0.5);
+        medio = { x: m.x + Math.sin(am) * p.tamanoEtiqueta * 0.9, y: m.y - Math.cos(am) * p.tamanoEtiqueta * 0.9 };
+      }
+      poner(linea, { d, stroke: aCss(color), "stroke-width": grosor });
+      const L = grosor * 3.4;
+      const W = grosor * 2.2;
+      const bx = tip.x - Math.cos(ang) * L;
+      const by = tip.y - Math.sin(ang) * L;
+      poner(punta, {
+        d: `M${r2(tip.x)} ${r2(tip.y)}L${r2(bx - Math.sin(ang) * W)} ${r2(by + Math.cos(ang) * W)}L${r2(bx + Math.sin(ang) * W)} ${r2(by - Math.cos(ang) * W)}Z`,
+        fill: aCss(color),
+        visibility: p.dirigido && avance > 0.3 ? null : "hidden"
+      });
+      poner(etiqueta, {
+        x: medio.x,
+        y: medio.y,
+        "font-size": p.tamanoEtiqueta,
+        fill: aCss(color),
+        visibility: a.etiqueta && avance > 0.6 ? null : "hidden"
+      });
+      texto(etiqueta, a.etiqueta);
+    });
+    reusar(partes.nodos, nodos.length, (g) => {
+      el("circle", { fill: "none", "stroke-width": 6 }, g);
+      el("circle", {}, g);
+      el("text", { "text-anchor": "middle", "dominant-baseline": "central" }, g);
+      el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-weight": 600 }, g);
+    });
+    nodos.forEach((n2, i) => {
+      const g = (
+        /** @type {Element} */
+        partes.nodos.childNodes[i]
+      );
+      const [anillo, circulo, icono2, rotulo] = (
+        /** @type {Element[]} */
+        [...g.childNodes]
+      );
+      const visible = limitar(p.nodosVisibles - i, 0, 1);
+      const destacado = resaltar.has(n2.id);
+      poner(g, { opacity: visible * (apagar.has(n2.id) ? 0.3 : 1), visibility: visible > 0 ? null : "hidden" });
+      poner(anillo, { cx: n2.x, cy: n2.y, r: p.radioNodo + 9, stroke: aCss(p.colorResaltado), visibility: destacado ? null : "hidden" });
+      poner(circulo, {
+        cx: n2.x,
+        cy: n2.y,
+        r: p.radioNodo,
+        fill: aCss(p.relleno),
+        stroke: aCss(destacado ? p.colorResaltado : p.borde),
+        "stroke-width": 3.5
+      });
+      poner(icono2, { x: n2.x, y: n2.y, "font-size": p.radioNodo * 1.05, visibility: n2.icono ? null : "hidden" });
+      texto(icono2, n2.icono ?? "");
+      poner(rotulo, {
+        x: n2.x,
+        y: n2.icono ? n2.y + p.radioNodo + p.tamano * 0.75 : n2.y,
+        "font-size": n2.icono ? p.tamano * 0.8 : p.tamano,
+        fill: aCss(p.color)
+      });
+      texto(rotulo, n2.texto);
+    });
+  },
+  tamano(p) {
+    const nodos = normalizarNodos(p);
+    const xs = nodos.map((n2) => Math.abs(n2.x));
+    const ys = nodos.map((n2) => Math.abs(n2.y));
+    return { ancho: 2 * (Math.max(0, ...xs) + p.radioNodo), alto: 2 * (Math.max(0, ...ys) + p.radioNodo) };
+  }
+});
+function normalizarNodos(p) {
+  const lista2 = p.nodos.map((n2) => typeof n2 === "object" ? { ...n2, id: String(n2.id) } : { id: String(n2) });
+  return lista2.map((n2, i) => {
+    const ang = -Math.PI / 2 + 2 * Math.PI * i / Math.max(lista2.length, 1);
+    return {
+      id: n2.id,
+      texto: n2.texto ?? n2.id,
+      icono: n2.icono,
+      x: n2.x ?? (lista2.length > 1 ? Math.cos(ang) * p.radio : 0),
+      y: n2.y ?? (lista2.length > 1 ? Math.sin(ang) * p.radio : 0)
+    };
+  });
+}
+function normalizarAristas(aristas) {
+  return aristas.map((a) => Array.isArray(a) ? { de: String(a[0]), a: String(a[1]), etiqueta: a[2] ?? "" } : { de: String(a.de), a: String(a.a), etiqueta: a.etiqueta ?? "" });
+}
+function reusar(grupo, cuantos, armar) {
+  while (grupo.childNodes.length > cuantos) grupo.lastChild.remove();
+  while (grupo.childNodes.length < cuantos) armar(el("g", {}, grupo));
+}
+function r2(v) {
+  return Math.round(v * 100) / 100;
+}
 
 // src/pedagogico/resaltar.js
 var PALABRAS = {
@@ -3417,7 +3617,7 @@ function ejecutarConsulta(sql, t) {
   const seleccion = columnasTexto.trim() === "*" ? [...t.columnas] : columnasTexto.split(",").map((c) => t.columnas[indice(c.trim())]);
   const condicion = dondeTexto ? condicionDesde(dondeTexto, indice) : null;
   const recorrido = t.filas.map((fila) => ({ fila, cumple: condicion ? condicion(fila) : true }));
-  let resultado = recorrido.filter((r2) => r2.cumple).map((r2) => r2.fila);
+  let resultado = recorrido.filter((r3) => r3.cumple).map((r3) => r3.fila);
   const filtradas = resultado;
   const conColumnas = resultado.map((f) => seleccion.map((c) => f[indice(c)]));
   let ordenadas = conColumnas;
@@ -3471,7 +3671,7 @@ function desdeConsulta(opciones) {
   const { tabla: t, titulo = "", descripcion = "", archivo = "consulta.sql", ritmo = 0.9, lectura = 13, preguntas = {} } = opciones;
   const sql = String(opciones.sql).trim().replace(/\s+(FROM|WHERE|ORDER BY|LIMIT)\s+/gi, (_, p) => `
 ${p.toUpperCase()} `).replace(/^select\s+/i, "SELECT ");
-  const r2 = ejecutarConsulta(sql, t);
+  const r3 = ejecutarConsulta(sql, t);
   const lineas = sql.split("\n");
   const lineaDe = (palabra) => lineas.findIndex((l) => l.toUpperCase().startsWith(palabra)) + 1;
   return function(disposicion) {
@@ -3543,16 +3743,16 @@ ${p.toUpperCase()} `).replace(/^select\s+/i, "SELECT ");
     marcar(lineaDe("FROM"));
     linea.push({ pieza: ["rotuloOrigen", "origen"], a: { opacidad: 1 }, dur: 0.5, en: tiempo });
     decir(`Primero FROM: la consulta toma la tabla ${t.nombre}, con sus ${n2} filas.`);
-    if (r2.donde) {
+    if (r3.donde) {
       const respuesta = preguntar("donde");
-      linea.push({ capitulo: `WHERE ${r2.donde}`, en: tiempo });
+      linea.push({ capitulo: `WHERE ${r3.donde}`, en: tiempo });
       marcar(lineaDe("WHERE"));
       linea.push({ pieza: "origen", a: { columnas: [...t.columnas, "\xBFcumple?"], filas: t.filas.map((f) => [...f.map(celda), ""]) }, dur: 0, en: tiempo });
       linea.push({ pieza: ["rotuloDestino", "destino"], a: { opacidad: 1 }, dur: 0.5, en: tiempo });
-      decir(`${respuesta}Despu\xE9s WHERE ${r2.donde}: revisa fila por fila, y se queda solo con las que cumplen.`, 0);
+      decir(`${respuesta}Despu\xE9s WHERE ${r3.donde}: revisa fila por fila, y se queda solo con las que cumplen.`, 0);
       const marcas = t.filas.map((f) => [...f.map(celda), ""]);
       const elegidas = [];
-      r2.recorrido.forEach(({ fila, cumple }, i) => {
+      r3.recorrido.forEach(({ fila, cumple }, i) => {
         marcas[i] = [...fila.map(celda), cumple ? "\u2713 s\xED" : "\u2717 no"];
         linea.push({ pieza: "origen", a: { resaltarFila: i, filas: marcas.map((x) => [...x]) }, dur: 0, en: tiempo });
         if (cumple) {
@@ -3563,32 +3763,32 @@ ${p.toUpperCase()} `).replace(/^select\s+/i, "SELECT ");
         tiempo += ritmo;
       });
       linea.push({ pieza: "origen", a: { resaltarFila: -1 }, dur: 0, en: tiempo });
-      decir(`Cumplen ${r2.filtradas.length} de ${n2}.`);
+      decir(`Cumplen ${r3.filtradas.length} de ${n2}.`);
     } else {
       linea.push({ pieza: ["rotuloDestino", "destino"], a: { opacidad: 1 }, dur: 0.5, en: tiempo });
       linea.push({ pieza: "destino", a: { filas: t.filas.map((f) => f.map(celda)), filasVisibles: n2 }, dur: 0.8, en: tiempo });
       tiempo += 1;
     }
     const respuestaSeleccion = preguntar("seleccion");
-    linea.push({ capitulo: `SELECT ${r2.seleccion.join(", ")}`, en: tiempo });
+    linea.push({ capitulo: `SELECT ${r3.seleccion.join(", ")}`, en: tiempo });
     marcar(lineaDe("SELECT"));
-    linea.push({ pieza: "destino", a: { columnas: r2.seleccion, filas: r2.conColumnas.map((f) => f.map(celda)), filasVisibles: r2.conColumnas.length }, dur: 0, en: tiempo + 0.5 });
-    decir(`${respuestaSeleccion}Reci\xE9n ahora SELECT: de cada fila quedan solo las columnas pedidas, ${r2.seleccion.join(" y ")}.`);
-    if (r2.orden) {
+    linea.push({ pieza: "destino", a: { columnas: r3.seleccion, filas: r3.conColumnas.map((f) => f.map(celda)), filasVisibles: r3.conColumnas.length }, dur: 0, en: tiempo + 0.5 });
+    decir(`${respuestaSeleccion}Reci\xE9n ahora SELECT: de cada fila quedan solo las columnas pedidas, ${r3.seleccion.join(" y ")}.`);
+    if (r3.orden) {
       const respuestaOrden = preguntar("orden");
-      linea.push({ capitulo: `ORDER BY ${r2.orden.columna}`, en: tiempo });
+      linea.push({ capitulo: `ORDER BY ${r3.orden.columna}`, en: tiempo });
       marcar(lineaDe("ORDER BY"));
-      linea.push({ pieza: "destino", a: { filas: r2.ordenadas.map((f) => f.map(celda)) }, dur: 0, en: tiempo + 0.6 });
-      decir(`${respuestaOrden}ORDER BY ${r2.orden.columna}${r2.orden.descendente ? " DESC" : ""}: ordena el resultado ${r2.orden.descendente ? "de mayor a menor" : "de menor a mayor"}.`);
+      linea.push({ pieza: "destino", a: { filas: r3.ordenadas.map((f) => f.map(celda)) }, dur: 0, en: tiempo + 0.6 });
+      decir(`${respuestaOrden}ORDER BY ${r3.orden.columna}${r3.orden.descendente ? " DESC" : ""}: ordena el resultado ${r3.orden.descendente ? "de mayor a menor" : "de menor a mayor"}.`);
     }
-    if (r2.limite !== null) {
-      linea.push({ capitulo: `LIMIT ${r2.limite}`, en: tiempo });
+    if (r3.limite !== null) {
+      linea.push({ capitulo: `LIMIT ${r3.limite}`, en: tiempo });
       marcar(lineaDe("LIMIT"));
-      linea.push({ pieza: "destino", a: { filas: r2.resultado.map((f) => f.map(celda)), filasVisibles: r2.resultado.length }, dur: 0, en: tiempo + 0.6 });
-      decir(`Y LIMIT ${r2.limite}: se queda con las primeras ${r2.limite}.`);
+      linea.push({ pieza: "destino", a: { filas: r3.resultado.map((f) => f.map(celda)), filasVisibles: r3.resultado.length }, dur: 0, en: tiempo + 0.6 });
+      decir(`Y LIMIT ${r3.limite}: se queda con las primeras ${r3.limite}.`);
     }
     linea.push({ pieza: "codigo", a: { marca: 0 }, dur: 0.4, en: tiempo });
-    decir(`Listo: el resultado tiene ${r2.resultado.length} ${r2.resultado.length === 1 ? "fila" : "filas"}.`);
+    decir(`Listo: el resultado tiene ${r3.resultado.length} ${r3.resultado.length === 1 ? "fila" : "filas"}.`);
     return {
       titulo: titulo || "Una consulta, paso a paso",
       descripcion: descripcion || `La consulta ${sql.replace(/\n/g, " ")} sobre la tabla ${t.nombre}, en el orden en que la ejecuta la base.`,
@@ -3752,7 +3952,7 @@ function desdeTests(opciones) {
 }
 
 // src/index.js
-var version = "0.6.0";
+var version = "0.7.0";
 definirComponente();
 definirLeccion();
 export {
@@ -3794,6 +3994,7 @@ export {
   explicarPaso,
   flecha,
   formatearNumero,
+  grafo,
   interpolar,
   limitar,
   lista,

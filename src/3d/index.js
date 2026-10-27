@@ -4,3 +4,4 @@
 // todo el motor junto: solo lo carga la página que lo usa.
 export { definirGlobo } from './globo.js';
 export { aPixel, posicionEnEsfera, haciaElEste, giroParaMirar } from './esfera.js';
+export { superficie } from './superficie.js';

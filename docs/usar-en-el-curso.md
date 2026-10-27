@@ -21,7 +21,7 @@ La ruta lleva el `base` adelante, como los demás scripts de `public/`: sin él,
 1. Instalarlo, fijado a una versión (un tag del repo):
 
    ```bash
-   pnpm add github:MaxiNunez24/motor-animaciones#v0.6.0
+   pnpm add github:MaxiNunez24/motor-animaciones#v0.7.0
    ```
 
    `dist/` está subido al repo, así que no hace falta compilar nada al instalar (pnpm no corre
@@ -161,3 +161,20 @@ registrar('consulta', desdeConsulta({
     sql: 'SELECT nombre FROM alumnos WHERE presentes >= 8',
 }));
 ```
+
+## Otras materias: matemática y redes
+
+Las capas de matemática y de redes van aparte del motor, para que una página de programación no las
+cargue. Desde un proyecto se importan por su nombre:
+
+```js
+import { registrar } from 'motor-animaciones';
+import { desdeDerivada, plano, grafica } from 'motor-animaciones/mate';
+import { desdeIntercambio, desdeSubred } from 'motor-animaciones/redes';
+
+registrar('subred', desdeSubred({ direccion: '192.168.10.77/26' }));
+```
+
+Y en una página suelta, con `motor-mate.min.js` o `motor-redes.min.js` después de `motor.min.js`
+(globales `MotorMate` y `MotorRedes`). Ejemplos: `ejemplos/matematica/`, `ejemplos/matematica-3d/`
+y `ejemplos/redes/`.

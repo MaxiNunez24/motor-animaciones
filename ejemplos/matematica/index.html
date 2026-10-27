@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Matemática, paso a paso · motor de animaciones</title>
+    <style>
+        :root {
+            font-family: system-ui, "Segoe UI", sans-serif;
+            color-scheme: light dark;
+        }
+        body {
+            margin: 0;
+            padding: 20px 16px 48px;
+            background: Canvas;
+            color: CanvasText;
+            line-height: 1.5;
+        }
+        main {
+            max-width: 1040px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: clamp(1.4rem, 4.5vw, 2rem);
+            margin: 0 0 0.3em;
+        }
+        h2 {
+            font-size: clamp(1.15rem, 3.6vw, 1.5rem);
+            margin: 2em 0 0.3em;
+        }
+        motor-leccion {
+            margin-top: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Matemática, paso a paso</h1>
+        <p>
+            Cada lección se arma sola a partir de los datos: una función y un punto, unos datos para ajustar, dos
+            números para el máximo común divisor. Las cuentas las hace el motor; la animación muestra qué significan.
+            También hay <a href="../matematica-3d/">superficies en 3D</a>.
+        </p>
+
+        <h2>La derivada</h2>
+        <motor-leccion escena="mate-derivada"></motor-leccion>
+
+        <h2>Descenso del gradiente</h2>
+        <motor-leccion escena="mate-descenso"></motor-leccion>
+        <p>La misma función y el mismo punto de partida, con una tasa de aprendizaje más grande:</p>
+        <motor-leccion escena="mate-descenso-zigzag"></motor-leccion>
+
+        <h2>Regresión lineal</h2>
+        <motor-leccion escena="mate-regresion"></motor-leccion>
+
+        <h2>Máximo común divisor</h2>
+        <motor-leccion escena="mate-euclides"></motor-leccion>
+
+        <h2>Aritmética modular</h2>
+        <motor-leccion escena="mate-modulo"></motor-leccion>
+
+        <h2>Relaciones</h2>
+        <motor-leccion escena="mate-relacion"></motor-leccion>
+        <motor-leccion escena="mate-equivalencia"></motor-leccion>
+
+        <h2>Números complejos</h2>
+        <motor-leccion escena="mate-raices"></motor-leccion>
+    </main>
+
+    <script src="../../dist/motor.min.js"></script>
+    <script src="../../dist/motor-mate.min.js"></script>
+    <script src="lecciones.js"></script>
+</body>
+</html>

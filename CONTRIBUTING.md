@@ -23,7 +23,7 @@ npm run servir            # http://localhost:4173/
 
 | Comando | Qué hace |
 |---|---|
-| `npm run construir` | Arma `dist/` (el motor, la versión base y la 3D) |
+| `npm run construir` | Arma `dist/` (el motor, la versión base, la 3D, matemática y redes) |
 | `npm run servir` | Sirve el repo en http://localhost:4173/ para ver los ejemplos |
 | `npm test` | Los tests en Node: el núcleo, las piezas, el trazador, el SQL |
 | `npm run test:navegador` | Construye y corre los tests en Chromium (Playwright) |
@@ -42,7 +42,8 @@ Son las que hacen que el motor sea lo que es. Un cambio que rompe alguna no entr
    "cuando termine esto, hacé aquello". Si una escena se ve distinta al volver al mismo instante,
    hay un error.
 2. **Capas separadas.** `src/nucleo/` no toca la página: se tiene que poder usar desde Node. La
-   capa pedagógica (`src/pedagogico/`) está encima y el núcleo no sabe que existe. El 3D va aparte.
+   capa pedagógica (`src/pedagogico/`) está encima y el núcleo no sabe que existe. El 3D, matemática
+   (`src/mate/`) y redes (`src/redes/`) van aparte, cada una en su archivo de `dist/`.
 3. **Sin dependencias en el navegador.** El motor no carga librerías. La única excepción es el 3D,
    que va en su propio archivo con Three.js adentro.
 4. **Accesible.** Todo se maneja con teclado, tiene texto alternativo, respeta

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MatemÃ¡tica en 3D Â· motor de animaciones</title>
+    <style>
+        :root {
+            font-family: system-ui, "Segoe UI", sans-serif;
+            color-scheme: light dark;
+        }
+        body {
+            margin: 0;
+            padding: 20px 16px 48px;
+            background: Canvas;
+            color: CanvasText;
+            line-height: 1.5;
+        }
+        main {
+            max-width: 1040px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: clamp(1.4rem, 4.5vw, 2rem);
+            margin: 0 0 0.3em;
+        }
+        h2 {
+            font-size: clamp(1.15rem, 3.6vw, 1.5rem);
+            margin: 2em 0 0.3em;
+        }
+        motor-leccion {
+            margin-top: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Matemática en 3D</h1>
+        <p>
+            La gráfica de una función de dos variables es una superficie. Se puede girar, cortar con un plano,
+            tocar con su plano tangente o recorrer con un camino. Cada escena es un dibujo en 3D que se arma
+            cuadro por cuadro, igual que las demás: se pausa, se adelanta y se graba a video.
+            Hay más en <a href="../matematica/">matemática en 2D</a>.
+        </p>
+
+        <h2>Cortes y curvas de nivel</h2>
+        <motor-leccion escena="sup-curvas"></motor-leccion>
+
+        <h2>El plano tangente</h2>
+        <motor-leccion escena="sup-tangente"></motor-leccion>
+
+        <h2>Un límite que no existe</h2>
+        <motor-leccion escena="sup-limite"></motor-leccion>
+
+        <h2>Descenso del gradiente</h2>
+        <motor-leccion escena="sup-descenso"></motor-leccion>
+    </main>
+
+    <script src="../../dist/motor.min.js"></script>
+    <script src="../../dist/motor-3d.min.js"></script>
+    <script src="../../dist/motor-mate.min.js"></script>
+    <script src="escenas.js"></script>
+</body>
+</html>

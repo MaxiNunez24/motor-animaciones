@@ -3,7 +3,7 @@
 Animaciones web **deterministas**: el estado en el instante *t* depende solo de *t*. Por eso la
 misma escena se ve igual en vivo, paso a paso y grabada a video, y se puede probar con tests.
 
-Sin dependencias. 33 KB con gzip con todo (15 KB sin la capa pedagógica, en `motor-base.min.js`).
+Sin dependencias. 34 KB con gzip con todo (16 KB sin la capa pedagógica, en `motor-base.min.js`).
 
 **Ejemplos en vivo:** <https://maxinunez24.github.io/motor-animaciones/>
 
@@ -37,12 +37,12 @@ Sin dependencias. 33 KB con gzip con todo (15 KB sin la capa pedagógica, en `mo
 
 `motor.min.js` es un script clásico a propósito: anda abriendo el `.html` con doble clic
 (`file://`), donde los módulos no cargan. Con internet también se puede usar desde jsDelivr:
-`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.6.0/dist/motor.min.js`.
+`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.7.0/dist/motor.min.js`.
 
 ## Desde otro proyecto (Astro, Vite…)
 
 ```bash
-pnpm add github:MaxiNunez24/motor-animaciones#v0.6.0
+pnpm add github:MaxiNunez24/motor-animaciones#v0.7.0
 ```
 
 ```js
@@ -55,7 +55,7 @@ la plataforma del curso, con un componente de Astro listo: [docs/usar-en-el-curs
 ## La escena
 
 - **piezas**: `caja`, `texto`, `flecha`, `tabla`, `celular`, `cilindro` (una base de datos),
-  `contador` (un número que se anima) y `camara`. Todas tienen `x`, `y` (el centro), `escala`,
+  `contador` (un número que se anima), `grafo` (nodos y aristas: un dígrafo, una red) y `camara`. Todas tienen `x`, `y` (el centro), `escala`,
   `rotacion`, `opacidad` y `dentro` (para dibujarse dentro de otra, como un botón en el celular).
   Las nuevas se hacen con `definirPieza` (ver `src/piezas/definir.js`).
 - **camara**: lo que va `dentro: 'camara'` se ve a través de ella. Se mueve animando `mirarX`,
@@ -167,10 +167,74 @@ navegador). Ejemplo en [Tests, paso a paso](ejemplos/tests/).
 mientras se tipea. Trae plantillas, explica los errores al lado del código, guarda el borrador y
 exporta una página lista para abrir o publicar.
 
+## Matemática
+
+`dist/motor-mate.min.js` (aparte, 20 KB con gzip; global `MotorMate`, junto con `motor.min.js`) trae
+un **plano cartesiano** y lo que va encima. Cada cosa es una pieza que dice `plano: 'p'` y se ubica
+con coordenadas de la matemática (`mx`, `my`), así que se anima por su cuenta: el punto camina sobre
+la curva, la recta gira hasta ser tangente, y si el plano hace zoom todo lo sigue.
+
+```js
+const { plano, grafica, punto, recta } = MotorMate;
+piezas: {
+    p: plano({ x: 800, y: 450, xmin: -1, xmax: 4, ymin: -1, ymax: 9 }),
+    f: grafica({ plano: 'p', f: (x) => x * x, trazo: 0 }),
+    P: punto({ plano: 'p', mx: 1, my: 1, etiqueta: 'P', guias: true }),
+    t: recta({ plano: 'p', mx: 1, my: 1, pendiente: 2, progreso: 0 }),
+},
+linea: [{ pieza: 'f', a: { trazo: 1 }, dur: 2 }, { pieza: 't', a: { progreso: 1 } }],
+```
+
+Piezas: `plano`, `grafica` (una función, unos datos o una curva paramétrica), `punto`, `vector`,
+`recta`, `segmento`, `curvasNivel` (de una función de dos variables) y `campo` (su gradiente, o
+cualquier campo de vectores). Y escenas que se arman solas a partir de los datos, con preguntas:
+
+| | |
+|---|---|
+| `desdeDerivada({ f, x0 })` | la secante que se vuelve tangente cuando h tiende a 0 |
+| `desdeDescenso({ f, inicio, tasa })` | el descenso del gradiente sobre las curvas de nivel; avisa si rebota o diverge |
+| `desdeRegresion({ datos, predecir })` | mínimos cuadrados: la recta gira hasta minimizar los residuos; R², y avisa al extrapolar |
+| `desdeEuclides({ a, b })` | el mcd, con la tabla de divisiones y el rectángulo que se llena de cuadrados |
+| `desdeRelacion({ conjunto, pares })` | dígrafo, matriz, y qué propiedades cumple, con el contraejemplo |
+| `desdeModulo({ n, cuentas })` | aritmética modular como un reloj de n horas |
+
+Las cuentas (`derivada`, `gradiente`, `descensoGradiente`, `regresionLineal`, `curvaDeNivel`,
+`euclides`, `propiedadesRelacion`...) se exportan también, y tienen tests contra resultados conocidos.
+Ejemplos: [matemática](ejemplos/matematica/) y [en 3D](ejemplos/matematica-3d/).
+
+## Redes
+
+`dist/motor-redes.min.js` (aparte, 17 KB con gzip; global `MotorRedes`) trae un **diagrama de
+secuencia** (cada extremo es una línea vertical, el tiempo corre para abajo y cada mensaje es una
+flecha inclinada), una **dirección IP** en sus 32 bits y la **ventana** de un protocolo. Las escenas:
+
+| | |
+|---|---|
+| `desdeIntercambio({ extremos, mensajes })` | cualquier intercambio contado mensaje por mensaje: el saludo de TCP, HTTP, DNS, SMTP |
+| `desdeVentana({ protocolo, paquetes, ventana, perdidos })` | stop-and-wait, Go-Back-N o Selective Repeat, con pérdidas de paquetes o de ACK |
+| `desdeCongestion({ rondas, umbral, eventos })` | la ventana de congestión de TCP (Reno o Tahoe), con timeouts y ACK duplicados |
+| `desdeSubred({ direccion: '192.168.10.77/26' })` | la máscara, la red (AND bit a bit), el broadcast y los hosts |
+
+Los protocolos de ventana se **simulan** (`simularArq`): con los mismos datos, siempre los mismos
+mensajes en los mismos instantes. Las subredes (`analizarIp`, `dividirEnSubredes`) se prueban contra
+el módulo `ipaddress` de Python. Ejemplos: [redes](ejemplos/redes/).
+
 ## 3D
 
-`dist/motor-3d.min.js` (aparte, con Three.js adentro: 136 KB con gzip) trae `Motor3D.definirGlobo()`:
-un globo terráqueo que es una pieza más. Se define qué capas, regiones y vientos tiene, y cada uno
+`dist/motor-3d.min.js` (aparte, con Three.js adentro: 145 KB con gzip) trae `Motor3D.superficie` (la
+gráfica de z = f(x, y)) y `Motor3D.definirGlobo()`.
+
+**La superficie** se gira animando `azimut` y `elevacion`, se corta con un plano horizontal (`corte`,
+`verCorte`: queda la curva de nivel, y su sombra en el piso), muestra las curvas de nivel abajo
+(`niveles`, `verNiveles`), un punto y su plano tangente (`px`, `py`, `verPunto`, `verTangente`) y
+caminos sobre ella (`caminos`, `recorrido`): un límite por distintos caminos, el descenso del gradiente.
+
+```js
+superficie({ x: 800, y: 450, f: (x, y) => x * x + y * y, rango: { xmin: -2, xmax: 2, ymin: -2, ymax: 2 }, corte: 1 })
+// en la línea: { pieza: 's', a: { verCorte: 1 } }, { pieza: 's', a: { corte: 6, azimut: 40 }, dur: 5 }
+```
+
+**El globo** es un globo terráqueo que es una pieza más. Se define qué capas, regiones y vientos tiene, y cada uno
 pasa a ser una propiedad que se anima de 0 a 1:
 
 ```js
@@ -225,7 +289,7 @@ y cómo mandar un cambio.
 
 ```bash
 npm install
-npm run construir        # dist/: el motor, la versión base y la 3D
+npm run construir        # dist/: el motor, la versión base, la 3D, matemática y redes
 npm run servir           # http://localhost:4173/
 npm test                 # el núcleo, en Node
 npm run test:navegador   # los ejemplos, en Chromium
