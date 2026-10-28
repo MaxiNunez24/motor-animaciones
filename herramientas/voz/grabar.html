@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Grabar mi voz</title>
+    <!--
+        Para grabar las frases con las que se entrena tu propia voz.
+
+            node herramientas/servir.js
+            http://localhost:4173/herramientas/voz/grabar.html   (en Chrome o Edge)
+
+        Todo queda en tu compu: el audio no se manda a ningún lado. Cada frase
+        se guarda en la carpeta que elijas (afuera del repo: es tu voz) como
+        wavs/<id>.wav, mono, 22050 Hz, y la lista va en metadata.csv con el
+        formato que usa Piper para entrenar (id|texto). Se puede cortar y
+        seguir otro día: al volver a elegir la carpeta, saltea lo ya grabado.
+    -->
+    <style>
+        :root {
+            --fondo: #f6f4ef;
+            --superficie: #ffffff;
+            --texto: #1c2230;
+            --suave: #5a6372;
+            --borde: #d7dbe2;
+            --acento: #1f5fd1;
+            --rojo: #c62f2f;
+            --verde: #1d7a46;
+            --alerta: #a35a00;
+            font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+            color-scheme: light;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --fondo: #0d1117;
+                --superficie: #161c25;
+                --texto: #e8ebf0;
+                --suave: #9ba5b3;
+                --borde: #2a3340;
+                --acento: #73a9ff;
+                --rojo: #ff7a7a;
+                --verde: #5fd394;
+                --alerta: #ffb44d;
+                color-scheme: dark;
+            }
+        }
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            background: var(--fondo);
+            color: var(--texto);
+            line-height: 1.5;
+        }
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 24px 16px 48px;
+        }
+        h1 {
+            font-size: clamp(1.5rem, 4vw, 2rem);
+            margin: 0 0 0.2em;
+        }
+        .suave {
+            color: var(--suave);
+        }
+        button {
+            min-height: 44px;
+            padding: 8px 16px;
+            border-radius: 10px;
+            border: 2px solid var(--borde);
+            background: var(--superficie);
+            color: var(--texto);
+            font: 600 1rem/1.2 inherit;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        button:hover:not(:disabled) {
+            border-color: var(--acento);
+        }
+        button:focus-visible {
+            outline: 3px solid var(--acento);
+            outline-offset: 2px;
+        }
+        button:disabled {
+            opacity: 0.45;
+            cursor: default;
+        }
+        button.principal {
+            background: var(--acento);
+            border-color: var(--acento);
+            color: var(--fondo);
+        }
+        button.grabando {
+            background: var(--rojo);
+            border-color: var(--rojo);
+            color: var(--fondo);
+        }
+        kbd {
+            font: 0.8em ui-monospace, Consolas, monospace;
+            padding: 1px 5px;
+            border: 1px solid var(--borde);
+            border-radius: 4px;
+            margin-left: 4px;
+            opacity: 0.8;
+        }
+        .tarjeta {
+            background: var(--superficie);
+            border: 1px solid var(--borde);
+            border-radius: 14px;
+            padding: 20px;
+            margin: 16px 0;
+        }
+        #frase {
+            font-size: clamp(1.4rem, 4.2vw, 2.3rem);
+            line-height: 1.35;
+            font-weight: 600;
+            min-height: 4.2em;
+            margin: 6px 0 16px;
+            text-wrap: balance;
+        }
+        .fila {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        .medidor {
+            height: 12px;
+            border-radius: 6px;
+            background: var(--borde);
+            overflow: hidden;
+            margin: 14px 0 6px;
+        }
+        .medidor div {
+            height: 100%;
+            width: 0;
+            background: var(--verde);
+            transition: width 60ms linear;
+        }
+        canvas {
+            width: 100%;
+            height: 90px;
+            display: block;
+            border-radius: 8px;
+            background: var(--fondo);
+            margin-top: 10px;
+        }
+        .progreso {
+            height: 8px;
+            border-radius: 4px;
+            background: var(--borde);
+            overflow: hidden;
+        }
+        .progreso div {
+            height: 100%;
+            background: var(--acento);
+            width: 0;
+        }
+        #aviso.mal {
+            color: var(--rojo);
+            font-weight: 600;
+        }
+        #aviso.ojo {
+            color: var(--alerta);
+            font-weight: 600;
+        }
+        #aviso.bien {
+            color: var(--verde);
+        }
+        details {
+            margin-top: 12px;
+        }
+        summary {
+            cursor: pointer;
+            font-weight: 600;
+        }
+        li {
+            margin: 4px 0;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Grabar mi voz</h1>
+        <p class="suave">
+            Las frases con las que se entrena tu voz para narrar los videos. Todo queda en tu compu: elegí una carpeta
+            <strong>afuera del repo</strong> (por ejemplo, <code>Documentos/mi-voz</code>), y cada frase se guarda ahí.
+        </p>
+
+        <div class="tarjeta" id="inicio">
+            <div class="fila">
+                <button class="principal" id="carpeta">Elegir la carpeta y empezar</button>
+                <span class="suave" id="estadoInicio"></span>
+            </div>
+            <details>
+                <summary>Cómo grabar bien</summary>
+                <ul>
+                    <li>Siempre en el mismo lugar, con el mismo micrófono y a la misma distancia (un puño, de costado a la boca).</li>
+                    <li>Un lugar sin eco: un cuarto con cortinas, un placard abierto con ropa, o tapado con una frazada. Sin ventilador ni heladera cerca.</li>
+                    <li>Leé la frase antes en silencio, y después decila como si la explicaras en clase: natural, sin actuar.</li>
+                    <li>Si te trabás, no la corrijas en el medio: apretá <kbd>Espacio</kbd> de nuevo y grabala otra vez.</li>
+                    <li>Mejor varias tandas de 15 o 20 minutos que una larga: la voz cansada suena distinta. Tomá agua.</li>
+                    <li>Las palabras como «for» o «print» decilas como las decís en clase.</li>
+                </ul>
+            </details>
+        </div>
+
+        <div class="tarjeta" id="grabador" hidden>
+            <div class="fila suave" style="justify-content: space-between">
+                <span id="cuenta"></span>
+                <span id="minutos"></span>
+            </div>
+            <div class="progreso"><div id="barra"></div></div>
+            <p id="frase" aria-live="polite"></p>
+            <div class="fila">
+                <button class="principal" id="grabar">Grabar<kbd>Espacio</kbd></button>
+                <button id="escuchar" disabled>Escuchar<kbd>E</kbd></button>
+                <button id="guardar" disabled>Guardar y seguir<kbd>Enter</kbd></button>
+                <button id="saltar">Saltear<kbd>S</kbd></button>
+                <button id="anterior">Anterior<kbd>←</kbd></button>
+            </div>
+            <div class="medidor" aria-hidden="true"><div id="nivel"></div></div>
+            <p id="aviso" role="status"></p>
+            <canvas id="onda" width="1600" height="180" aria-hidden="true"></canvas>
+        </div>
+    </main>
+
+    <script type="module">
+        const FRECUENCIA = 22050;
+        const $ = (id) => document.getElementById(id);
+
+        // ---------------- Las frases ----------------
+        const corpus = (await (await fetch('corpus.txt')).text())
+            .split('\n').filter(Boolean).map((l) => {
+                const i = l.indexOf('|');
+                return { id: l.slice(0, i), texto: l.slice(i + 1) };
+            });
+        const textoDe = new Map(corpus.map((f) => [f.id, f.texto]));
+
+        let carpeta = null;
+        let wavs = null;
+        const hechas = new Map(); // id → segundos
+        let actual = 0;
+        let toma = null; // { muestras: Float32Array (22050 Hz) }
+
+        if (!('showDirectoryPicker' in window)) {
+            $('estadoInicio').textContent = 'Este navegador no deja guardar en una carpeta: abrí la página en Chrome o Edge.';
+            $('carpeta').disabled = true;
+        } else {
+            $('estadoInicio').textContent = `${corpus.length} frases.`;
+        }
+
+        $('carpeta').addEventListener('click', async () => {
+            carpeta = await showDirectoryPicker({ id: 'mi-voz', mode: 'readwrite', startIn: 'documents' });
+            wavs = await carpeta.getDirectoryHandle('wavs', { create: true });
+            // Lo ya grabado (de otra tanda) no se vuelve a pedir.
+            for await (const [nombre, archivo] of wavs.entries()) {
+                if (!nombre.endsWith('.wav')) continue;
+                const datos = await (await archivo.getFile()).arrayBuffer();
+                hechas.set(nombre.slice(0, -4), (datos.byteLength - 44) / 2 / FRECUENCIA);
+            }
+            await prenderMicrofono();
+            $('inicio').hidden = true;
+            $('grabador').hidden = false;
+            irA(proximaSinGrabar(0));
+        });
+
+        const proximaSinGrabar = (desde) => {
+            for (let k = 0; k < corpus.length; k++) {
+                const i = (desde + k) % corpus.length;
+                if (!hechas.has(corpus[i].id)) return i;
+            }
+            return desde;
+        };
+
+        function irA(i) {
+            actual = Math.max(0, Math.min(i, corpus.length - 1));
+            toma = null;
+            const f = corpus[actual];
+            $('frase').textContent = f.texto;
+            const segundos = [...hechas.values()].reduce((a, b) => a + b, 0);
+            $('cuenta').textContent = `Frase ${actual + 1} de ${corpus.length} · grabadas: ${hechas.size}${hechas.has(f.id) ? ' · esta ya está grabada (grabarla de nuevo la reemplaza)' : ''}`;
+            $('minutos').textContent = `${Math.floor(segundos / 60)} min ${Math.round(segundos % 60)} s de audio`;
+            $('barra').style.width = `${(100 * hechas.size) / corpus.length}%`;
+            $('escuchar').disabled = $('guardar').disabled = true;
+            avisar('', '');
+            dibujar(null);
+        }
+
+        // ---------------- El micrófono ----------------
+        // Sin cancelación de eco, sin reducción de ruido y sin ganancia
+        // automática: todo eso cambia la voz, y el modelo aprendería esos cambios.
+        let contexto = null;
+        let grabando = false;
+        let partes = [];
+
+        async function prenderMicrofono() {
+            const flujo = await navigator.mediaDevices.getUserMedia({
+                audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+            });
+            contexto = new AudioContext();
+            const procesador = `registerProcessor('captura', class extends AudioWorkletProcessor {
+                process([entrada]) { if (entrada[0]) this.port.postMessage(entrada[0].slice(0)); return true; }
+            });`;
+            await contexto.audioWorklet.addModule(URL.createObjectURL(new Blob([procesador], { type: 'text/javascript' })));
+            const nodo = new AudioWorkletNode(contexto, 'captura');
+            nodo.port.onmessage = ({ data }) => {
+                let pico = 0;
+                for (const v of data) pico = Math.max(pico, Math.abs(v));
+                $('nivel').style.width = `${Math.min(100, pico * 100)}%`;
+                $('nivel').style.background = pico > 0.97 ? 'var(--rojo)' : 'var(--verde)';
+                if (grabando) partes.push(data);
+            };
+            contexto.createMediaStreamSource(flujo).connect(nodo);
+        }
+
+        async function alternarGrabacion() {
+            if (!contexto) return;
+            if (!grabando) {
+                await contexto.resume();
+                partes = [];
+                grabando = true;
+                $('grabar').classList.add('grabando');
+                $('grabar').firstChild.textContent = 'Parar';
+                avisar('Grabando… decí la frase y apretá Espacio al terminar.', '');
+                return;
+            }
+            grabando = false;
+            $('grabar').classList.remove('grabando');
+            $('grabar').firstChild.textContent = 'Grabar de nuevo';
+            const crudo = unir(partes);
+            toma = { muestras: await preparar(crudo, contexto.sampleRate) };
+            revisar(toma.muestras);
+            dibujar(toma.muestras);
+            $('escuchar').disabled = $('guardar').disabled = toma.muestras.length === 0;
+            escuchar();
+        }
+
+        const unir = (lista) => {
+            const total = new Float32Array(lista.reduce((n, p) => n + p.length, 0));
+            let o = 0;
+            for (const p of lista) { total.set(p, o); o += p.length; }
+            return total;
+        };
+
+        // Se recortan los silencios del principio y del final (dejando un
+        // poquito, que el entrenamiento necesita), y se pasa a 22050 Hz.
+        async function preparar(muestras, frecuencia) {
+            const ventana = Math.round(frecuencia * 0.01);
+            const energias = [];
+            for (let i = 0; i < muestras.length; i += ventana) {
+                let s = 0;
+                for (let j = i; j < Math.min(i + ventana, muestras.length); j++) s += muestras[j] ** 2;
+                energias.push(Math.sqrt(s / ventana));
+            }
+            const maxima = Math.max(...energias, 1e-9);
+            const umbral = Math.max(0.008, maxima * 0.06);
+            const primera = energias.findIndex((e) => e > umbral);
+            if (primera < 0) return new Float32Array(0);
+            const ultima = energias.length - 1 - [...energias].reverse().findIndex((e) => e > umbral);
+            const desde = Math.max(0, (primera - 15) * ventana);
+            const hasta = Math.min(muestras.length, (ultima + 25) * ventana);
+            const recorte = muestras.subarray(desde, hasta);
+            const largo = Math.ceil((recorte.length * FRECUENCIA) / frecuencia);
+            const offline = new OfflineAudioContext(1, largo, FRECUENCIA);
+            const buffer = offline.createBuffer(1, recorte.length, frecuencia);
+            buffer.copyToChannel(recorte, 0);
+            const fuente = offline.createBufferSource();
+            fuente.buffer = buffer;
+            fuente.connect(offline.destination);
+            fuente.start();
+            return (await offline.startRendering()).getChannelData(0);
+        }
+
+        function revisar(m) {
+            let pico = 0;
+            for (const v of m) pico = Math.max(pico, Math.abs(v));
+            const segundos = m.length / FRECUENCIA;
+            if (m.length === 0) return avisar('No se escuchó nada. ¿Está bien elegido el micrófono?', 'mal');
+            if (pico > 0.98) return avisar('Saturó (se pasó del máximo): alejate un poco del micrófono o bajale el volumen, y grabala de nuevo.', 'mal');
+            if (pico < 0.12) return avisar('Quedó muy bajo: acercate un poco o subile el volumen al micrófono.', 'ojo');
+            const esperado = textoDe.get(corpus[actual].id).length / 14;
+            if (segundos < esperado * 0.45) return avisar(`Dura ${segundos.toFixed(1)} s: parece cortada. Escuchala antes de guardar.`, 'ojo');
+            avisar(`Bien: ${segundos.toFixed(1)} s. Enter para guardar, Espacio para grabarla de nuevo.`, 'bien');
+        }
+
+        function escuchar() {
+            if (!toma || !toma.muestras.length) return;
+            const buffer = contexto.createBuffer(1, toma.muestras.length, FRECUENCIA);
+            buffer.copyToChannel(toma.muestras, 0);
+            const fuente = contexto.createBufferSource();
+            fuente.buffer = buffer;
+            fuente.connect(contexto.destination);
+            fuente.start();
+        }
+
+        // ---------------- Guardar ----------------
+        async function guardar() {
+            if (!toma || !toma.muestras.length) return;
+            const f = corpus[actual];
+            const archivo = await wavs.getFileHandle(`${f.id}.wav`, { create: true });
+            const w = await archivo.createWritable();
+            await w.write(aWav(toma.muestras));
+            await w.close();
+            hechas.set(f.id, toma.muestras.length / FRECUENCIA);
+            await escribirLista();
+            $('grabar').firstChild.textContent = 'Grabar';
+            irA(proximaSinGrabar(actual + 1));
+        }
+
+        // metadata.csv se rehace entero cada vez: así nunca queda una línea
+        // de una frase que se borró o se grabó de nuevo.
+        async function escribirLista() {
+            const lineas = [...hechas.keys()].filter((id) => textoDe.has(id)).sort().map((id) => `${id}|${textoDe.get(id)}`);
+            const archivo = await carpeta.getFileHandle('metadata.csv', { create: true });
+            const w = await archivo.createWritable();
+            await w.write(lineas.join('\n') + '\n');
+            await w.close();
+        }
+
+        function aWav(muestras) {
+            const datos = new DataView(new ArrayBuffer(44 + muestras.length * 2));
+            const texto = (o, s) => [...s].forEach((c, i) => datos.setUint8(o + i, c.charCodeAt(0)));
+            texto(0, 'RIFF'); datos.setUint32(4, 36 + muestras.length * 2, true); texto(8, 'WAVE');
+            texto(12, 'fmt '); datos.setUint32(16, 16, true); datos.setUint16(20, 1, true); datos.setUint16(22, 1, true);
+            datos.setUint32(24, FRECUENCIA, true); datos.setUint32(28, FRECUENCIA * 2, true); datos.setUint16(32, 2, true); datos.setUint16(34, 16, true);
+            texto(36, 'data'); datos.setUint32(40, muestras.length * 2, true);
+            muestras.forEach((v, i) => datos.setInt16(44 + i * 2, Math.max(-1, Math.min(1, v)) * 0x7fff, true));
+            return datos.buffer;
+        }
+
+        // ---------------- Lo que se ve ----------------
+        function avisar(texto, clase) {
+            $('aviso').textContent = texto;
+            $('aviso').className = clase;
+        }
+
+        function dibujar(m) {
+            const lienzo = $('onda');
+            const g = lienzo.getContext('2d');
+            g.clearRect(0, 0, lienzo.width, lienzo.height);
+            if (!m || !m.length) return;
+            g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--acento');
+            const paso = Math.ceil(m.length / lienzo.width);
+            for (let x = 0; x < lienzo.width; x++) {
+                let pico = 0;
+                for (let j = x * paso; j < Math.min((x + 1) * paso, m.length); j++) pico = Math.max(pico, Math.abs(m[j]));
+                const h = pico * lienzo.height;
+                g.fillRect(x, (lienzo.height - h) / 2, 1, Math.max(1, h));
+            }
+        }
+
+        // ---------------- Botones y teclas ----------------
+        $('grabar').addEventListener('click', alternarGrabacion);
+        $('escuchar').addEventListener('click', escuchar);
+        $('guardar').addEventListener('click', guardar);
+        $('saltar').addEventListener('click', () => irA(proximaSinGrabar(actual + 1)));
+        $('anterior').addEventListener('click', () => irA(actual - 1));
+        document.addEventListener('keydown', (e) => {
+            if ($('grabador').hidden || e.repeat || e.target.closest('button') && e.key === 'Enter') return;
+            const acciones = { ' ': alternarGrabacion, Enter: guardar, e: escuchar, s: () => irA(proximaSinGrabar(actual + 1)), ArrowLeft: () => irA(actual - 1) };
+            const accion = acciones[e.key] ?? acciones[e.key.toLowerCase()];
+            if (!accion || (grabando && e.key !== ' ')) return;
+            e.preventDefault();
+            accion();
+        });
+        // Con el foco en un botón, el Espacio también lo "apretaría" al
+        // soltarse: acá el Espacio es siempre grabar y parar.
+        document.addEventListener('keyup', (e) => {
+            if (e.key === ' ' && e.target.closest('button')) e.preventDefault();
+        });
+    </script>
+</body>
+</html>

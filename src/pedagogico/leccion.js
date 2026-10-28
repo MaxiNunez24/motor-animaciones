@@ -13,14 +13,23 @@ import { MotorEscena } from '../controles/componente.js';
 //
 // Con el atributo `video` no frena nunca: las preguntas se muestran durante
 // su tramo, como un cartel, para que también se vean en un video grabado.
+//
+// Fuera de la pantalla completa, los controles van fijos abajo: una lección
+// se pausa, se adelanta y se va paso a paso todo el tiempo, y unos controles
+// que se esconden molestan. Con `controles-flotantes` se comportan como en
+// <motor-escena>. En pantalla completa flotan siempre.
 
 const ESTILOS = `
+/* En la página, la pregunta va en un renglón propio debajo del dibujo: si lo
+   tapara, taparía justo lo que hay que mirar para contestarla (la tabla que
+   hay que filtrar, la barra cuya proporción se pregunta). */
+.ma-raiz {
+    grid-template-areas: "escena" "subtitulo" "pregunta" "controles";
+}
 .ma-pregunta {
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    max-height: calc(100% - 24px);
+    grid-area: pregunta;
+    position: relative;
+    margin: 4px 12px 12px;
     overflow: auto;
     box-sizing: border-box;
     padding: 14px 16px 16px;
@@ -28,32 +37,83 @@ const ESTILOS = `
     border-radius: 12px;
     background: var(--ma-superficie);
     color: var(--ma-texto);
-    box-shadow: 0 8px 28px rgb(0 0 0 / 0.25);
     font-size: clamp(15px, 2.3cqi, 22px);
     line-height: 1.4;
     cursor: auto;
+    /* Por encima de los controles: en pantalla completa, escondidos siguen
+       ahí, y no tienen que quedarse con los clics de las opciones. */
+    z-index: 4;
+    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-/* En pantalla completa (una pantalla grande, un video) se lee desde lejos. */
+/* En pantalla completa no hay renglón de abajo: la pregunta va encima del
+   dibujo, más grande (se lee desde lejos), y se puede achicar para mirar lo
+   que tapa. Los controles se esconden mientras está abierta (ver
+   _actualizarVista); si alguien los busca, la pregunta sube para dejarles
+   lugar. */
 :host([pantalla]) .ma-pregunta,
 :host(:fullscreen) .ma-pregunta {
+    grid-area: escena;
+    align-self: end;
+    margin: 0 4% 4%;
+    max-height: calc(100% - 8% - var(--ma-alto-controles, 0px));
+    box-shadow: 0 8px 28px rgb(0 0 0 / 0.25);
     font-size: clamp(18px, 2.2cqi, 40px);
     padding: 0.7em 1em 0.9em;
-    left: 4%;
-    right: 4%;
-    bottom: 4%;
 }
-/* Si los controles flotan sobre el dibujo, la pregunta va arriba de ellos. */
-.flotantes .ma-pregunta {
-    bottom: calc(var(--ma-alto-controles, 0px) + 12px);
-    max-height: calc(100% - var(--ma-alto-controles, 0px) - 24px);
+:host([pantalla]) .ver-controles .ma-pregunta,
+:host(:fullscreen) .ver-controles .ma-pregunta {
+    transform: translateY(calc(-1 * var(--ma-alto-controles, 0px)));
+}
+/* Cuando el subtítulo dice lo mismo que la pregunta (lo normal: el narrador
+   la lee en voz alta), se esconde mientras está abierta: repetido, solo tapa. */
+.ma-raiz.sub-repite .ma-subtitulo {
+    display: none;
 }
 .ma-pregunta[hidden] {
     display: none;
+}
+.ma-pregunta .ma-cabeza {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
 }
 .ma-pregunta .ma-encabezado {
     font-weight: 800;
     color: var(--ma-acento);
     margin: 0 0 4px;
+}
+.ma-pregunta button.ma-ocultar {
+    flex: none;
+    min-height: 36px;
+    margin: -4px -6px 0 0;
+    padding: 4px 12px;
+    border-color: transparent;
+    background: transparent;
+    color: var(--ma-suave);
+    font-size: 0.85em;
+}
+/* En la página no tapa nada: no hace falta achicarla. */
+:host(:not([pantalla]):not(:fullscreen)) .ma-ocultar {
+    display: none;
+}
+/* Achicada (solo en pantalla completa: al salir vuelve a verse entera):
+   queda solo el botón para volver, en una esquina. */
+:host([pantalla]) .ma-pregunta.minimizada,
+:host(:fullscreen) .ma-pregunta.minimizada {
+    justify-self: end;
+    padding: 4px;
+    overflow: visible;
+}
+:host([pantalla]) .ma-pregunta.minimizada > :not(.ma-cabeza),
+:host([pantalla]) .ma-pregunta.minimizada .ma-encabezado,
+:host(:fullscreen) .ma-pregunta.minimizada > :not(.ma-cabeza),
+:host(:fullscreen) .ma-pregunta.minimizada .ma-encabezado {
+    display: none;
+}
+.ma-pregunta.minimizada button.ma-ocultar {
+    margin: 0;
+    color: var(--ma-acento);
 }
 .ma-pregunta .ma-enunciado {
     margin: 0 0 10px;
@@ -108,10 +168,15 @@ const ESTILOS = `
     display: none;
 }
 /* En un celular no entran todos los controles en dos renglones: el tiempo se
-   esconde (la barra lo dice igual a un lector de pantalla) y el botón se acorta. */
+   esconde (la barra lo dice igual a un lector de pantalla). Y en una columna,
+   "Paso a paso" se acorta para que la barra entre en un renglón. */
 @container (max-width: 400px) {
-    .ma-controles .largo,
     .ma-tiempo {
+        display: none;
+    }
+}
+@container (max-width: 720px) {
+    .ma-controles .largo {
         display: none;
     }
     .ma-controles .corto {
@@ -126,7 +191,7 @@ const ESTILOS = `
 `;
 
 export class MotorLeccion extends MotorEscena {
-    static observedAttributes = [...MotorEscena.observedAttributes, 'paso-a-paso', 'video'];
+    static observedAttributes = [...MotorEscena.observedAttributes, 'paso-a-paso', 'video', 'controles-flotantes'];
 
     constructor() {
         super();
@@ -143,7 +208,14 @@ export class MotorLeccion extends MotorEscena {
         // reproducir la escena (un clic en el dibujo sí lo hace).
         this._panel.addEventListener('click', (e) => e.stopPropagation());
         this._panel.addEventListener('keydown', (e) => e.stopPropagation());
-        this._lienzo.appendChild(this._panel);
+        this._raiz.appendChild(this._panel);
+        // Cuánto ocupa la pregunta desde abajo: en pantalla completa, un
+        // subtítulo que no la repite sube eso para quedar encima de ella.
+        new ResizeObserver(() => {
+            if (this._panel.hidden) return;
+            const espacio = this._raiz.getBoundingClientRect().bottom - this._panel.getBoundingClientRect().top;
+            this._raiz.style.setProperty('--ma-alto-pregunta', `${espacio}px`);
+        }).observe(this._panel);
 
         // El botón de paso a paso, en la barra, antes de la velocidad.
         const barra = this.shadowRoot.querySelector('.ma-controles');
@@ -174,6 +246,10 @@ export class MotorLeccion extends MotorEscena {
         super.attributeChangedCallback(nombre, viejo, nuevo);
     }
 
+    _controlesFijos() {
+        return !this.hasAttribute('controles-flotantes');
+    }
+
     get pasoAPaso() {
         return this.hasAttribute('paso-a-paso');
     }
@@ -201,6 +277,14 @@ export class MotorLeccion extends MotorEscena {
         if (pregunta) this._abrir(pregunta, true);
     }
 
+    // Si el subtítulo de ahora repite la pregunta abierta, sobra.
+    _mirarSubtitulo() {
+        const normal = (s) => String(s ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+        const pregunta = normal(this._abierta?.datos?.pregunta);
+        const repite = !!this._abierta && (!pregunta || normal(this._subtitulo.textContent).includes(pregunta));
+        this._raiz.classList.toggle('sub-repite', repite);
+    }
+
     _alPintar(estado) {
         if (this.hasAttribute('video')) {
             // En un video la pregunta es un cartel que dura su tramo.
@@ -211,6 +295,7 @@ export class MotorLeccion extends MotorEscena {
             // Se fue de la pregunta (arrastró la barra, le dio play): se cierra.
             this._cerrar();
         }
+        this._mirarSubtitulo();
     }
 
     // En una lección, ⏮ ⏭ van de paso en paso (y de pregunta en pregunta).
@@ -256,14 +341,36 @@ export class MotorLeccion extends MotorEscena {
         this._abierta = marca;
         const panel = this._panel;
         panel.replaceChildren();
-        const parrafo = (clase, texto) => {
+        panel.classList.remove('minimizada');
+        const parrafo = (clase, texto, dentro = panel) => {
             const p = document.createElement('p');
             p.className = clase;
             p.textContent = texto;
-            panel.appendChild(p);
+            dentro.appendChild(p);
             return p;
         };
-        parrafo('ma-encabezado', '🤔 Pensalo antes de seguir');
+        // La pregunta tapa parte del dibujo, y a veces lo que hay que mirar
+        // para contestarla está justo abajo: se puede achicar un momento.
+        const cabeza = document.createElement('div');
+        cabeza.className = 'ma-cabeza';
+        panel.appendChild(cabeza);
+        parrafo('ma-encabezado', '🤔 Pensalo antes de seguir', cabeza);
+        const ocultar = document.createElement('button');
+        ocultar.type = 'button';
+        ocultar.className = 'ma-ocultar';
+        ocultar.setAttribute('aria-expanded', 'true');
+        const rotular = () => {
+            const chica = panel.classList.contains('minimizada');
+            ocultar.textContent = chica ? '🤔 Volver a la pregunta' : 'Ver el dibujo';
+            ocultar.setAttribute('aria-expanded', String(!chica));
+        };
+        ocultar.addEventListener('click', () => {
+            panel.classList.toggle('minimizada');
+            rotular();
+        });
+        rotular();
+        // En un video no hay quien la toque: el botón solo ensuciaría el cartel.
+        if (interactiva) cabeza.appendChild(ocultar);
         parrafo('ma-enunciado', d.pregunta ?? '¿Qué creés que pasa ahora?');
 
         const opciones = document.createElement('div');
@@ -285,6 +392,9 @@ export class MotorLeccion extends MotorEscena {
             this._botonSeguir(marca, 'Ya lo pensé: ver qué pasa');
         }
         panel.hidden = false;
+        this._vista.pregunta = true;
+        this._actualizarVista();
+        this._mirarSubtitulo();
         // Un lector de pantalla lee la pregunta apenas aparece.
         panel.setAttribute('aria-live', 'polite');
         if (interactiva) (botones[0] ?? panel.querySelector('button'))?.focus();
@@ -327,7 +437,11 @@ export class MotorLeccion extends MotorEscena {
     _cerrar() {
         this._abierta = null;
         this._panel.hidden = true;
+        this._panel.classList.remove('minimizada');
         this._panel.replaceChildren();
+        this._vista.pregunta = false;
+        this._actualizarVista();
+        this._mirarSubtitulo();
     }
 }
 

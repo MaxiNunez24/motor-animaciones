@@ -139,6 +139,15 @@
             color: var(--suave);
             font-size: 0.95rem;
         }
+        h3 {
+            font-size: clamp(1.1rem, 3vw, 1.3rem);
+            margin: 1.8em 0 0.3em;
+        }
+        details summary {
+            cursor: pointer;
+            color: var(--suave);
+            font-size: 0.95rem;
+        }
         .nota {
             color: var(--suave);
             font-size: 0.95rem;
@@ -166,7 +175,7 @@
         <ul class="virtudes">
             <li><strong>Determinista</strong><span>Lo que se ve en cada instante depende solo del instante: se ve igual en vivo, paso a paso y en video.</span></li>
             <li><strong>Para enseñar</strong><span>Frena y pregunta «¿qué creés que pasa ahora?». Se aprende prediciendo, no mirando.</span></li>
-            <li><strong>Liviano y sin dependencias</strong><span>Un solo archivo de 38 KB. Anda en una página de alumno, abierta con doble clic.</span></li>
+            <li><strong>Liviano y sin dependencias</strong><span>Un solo archivo de 42 KB. Anda en una página de alumno, abierta con doble clic.</span></li>
             <li><strong>Accesible</strong><span>Teclado, lector de pantalla, subtítulos, movimiento reducido, modo oscuro, y en un celular de 360 px.</span></li>
         </ul>
 
@@ -199,8 +208,7 @@
             lista que a». Y también: consultas de <strong>SQL</strong> en el orden en que las ejecuta la base, y
             <strong>tests</strong> que fallan, se corrigen y pasan.
         </p>
-        <img class="muestra" src="medios/referencias.gif" width="720" height="405" loading="lazy"
-            alt="Animación: a = [1, 2, 3] y b = a. Al hacer b.append(4) cambian las dos listas, que llevan el mismo número, #1, y una flecha que dice «la misma lista» las une.">
+        <motor-leccion escena="referencias"></motor-leccion>
         <div class="tarjetas">
             <a class="tarjeta" href="ejemplos/funciones-y-objetos/"><strong>Funciones y objetos →</strong><span>La pila de llamadas, la recursión, las referencias y self.</span></a>
             <a class="tarjeta" href="ejemplos/sql/"><strong>SQL, paso a paso →</strong><span>FROM, WHERE, SELECT, ORDER BY: fila por fila.</span></a>
@@ -216,8 +224,7 @@
             consulta <strong>DNS</strong>, <strong>Go-Back-N</strong> con un paquete perdido, la ventana de
             congestión, una <strong>subred</strong> bit por bit.
         </p>
-        <img class="muestra" src="medios/derivada.gif" width="720" height="405" loading="lazy"
-            alt="Animación: sobre la parábola y = x², el punto Q se acerca a P mientras h se achica de 2 a 0,02; la secante gira hasta casi tocar la curva y la pendiente pasa de 4 a 2,02. Al final aparece la recta tangente, con f′(1) = 2.">
+        <motor-leccion escena="mate-derivada"></motor-leccion>
         <div class="tarjetas">
             <a class="tarjeta" href="ejemplos/matematica/"><strong>Matemática →</strong><span>Derivada, gradiente, regresión, Euclides, relaciones, módulo.</span></a>
             <a class="tarjeta" href="ejemplos/estadistica/"><strong>Intervalos y tests →</strong><span>Qué quiere decir 95 %, el p-valor, la región de rechazo.</span></a>
@@ -225,6 +232,37 @@
             <a class="tarjeta" href="ejemplos/matematica-3d/"><strong>Matemática en 3D →</strong><span>Cortes, plano tangente, un límite que no existe.</span></a>
             <a class="tarjeta" href="ejemplos/redes/"><strong>Redes →</strong><span>TCP, HTTP, DNS, ventanas, congestión y subredes.</span></a>
         </div>
+
+        <h2>Ejemplos, con su código</h2>
+        <p>
+            Cada escena de acá abajo está hecha con el código que tiene debajo, tal cual: copialo a una página con
+            <code>motor.min.js</code> y anda. Todo lo que se ve se puede cambiar: los tamaños, los colores, las
+            separaciones, cuándo pasa cada cosa.
+        </p>
+
+        <h3>Una fila que se acomoda sola</h3>
+        <p>
+            La <code>fila</code> pone sus piezas una al lado de la otra: si una crece, corre a las demás. La nota
+            está <strong>pegada</strong> arriba de «guardar», y la acompaña adonde vaya.
+        </p>
+        <motor-escena escena="ej-fila" loop autoplay></motor-escena>
+        <details open><summary>El código</summary><pre><code data-codigo-de="codigo-fila"></code></pre></details>
+
+        <h3>Una lupa</h3>
+        <p>
+            Un <code>espejo</code> muestra agrandada otra parte de la escena, sincronizada con ella. Redondo y
+            mirando justo donde está, es una lupa. Se puede arrastrar con el mouse o el dedo.
+        </p>
+        <motor-escena escena="ej-lupa" loop autoplay></motor-escena>
+        <details open><summary>El código</summary><pre><code data-codigo-de="codigo-lupa"></code></pre></details>
+
+        <h3>Una lección que pregunta</h3>
+        <p>
+            El <code>narrador</code> va diciendo cosas una detrás de la otra y lleva la cuenta del tiempo: no hace
+            falta calcular en qué segundo pasa cada cosa. Antes del cambio, frena y pregunta.
+        </p>
+        <motor-leccion escena="ej-pregunta"></motor-leccion>
+        <details open><summary>El código</summary><pre><code data-codigo-de="codigo-pregunta"></code></pre></details>
 
         <h2>Hacé la tuya</h2>
         <p>
@@ -276,6 +314,7 @@
             <a class="tarjeta" href="ejemplos/tu-programa/"><strong>Animá tu programa</strong><span>Escribís Python y la animación se arma sola.</span></a>
             <a class="tarjeta" href="ejemplos/funciones-y-objetos/"><strong>Funciones y objetos</strong><span>Pila de llamadas, recursión, referencias y self.</span></a>
             <a class="tarjeta" href="ejemplos/sql/"><strong>SQL, paso a paso</strong><span>Una consulta en el orden en que la ejecuta la base.</span></a>
+            <a class="tarjeta" href="ejemplos/vinculos/"><strong>Vínculos y espejos</strong><span>Filas que se acomodan, piezas pegadas, una lupa y un espejo.</span></a>
             <a class="tarjeta" href="ejemplos/tests/"><strong>Tests, paso a paso</strong><span>Rojo, el error, y verde.</span></a>
             <a class="tarjeta" href="ejemplos/editor/"><strong>Editor de escenas</strong><span>Escribí una escena y mirala mientras tipeás.</span></a>
             <a class="tarjeta" href="ejemplos/matematica/"><strong>Matemática</strong><span>Derivada, descenso del gradiente, regresión, Euclides, relaciones.</span></a>
@@ -335,5 +374,168 @@
     <script src="ejemplos/conceptos/bucle-for.traza.js"></script>
     <script src="ejemplos/conceptos/diccionario.traza.js"></script>
     <script src="ejemplos/conceptos/lecciones.js"></script>
+    <script src="ejemplos/funciones-y-objetos/referencias.traza.js"></script>
+    <script>
+        // Las lecciones en vivo de más arriba. Antes eran GIF, pero un GIF es una
+        // foto del motor del día en que se grabó: no se pausa, no se recorre, no
+        // pregunta, y no se entera de las mejoras.
+        Motor.registrar('referencias', Motor.desdeTraza({
+            ...Motor.trazas.referencias,
+            explicar: true,
+            ritmo: 1.6,
+            titulo: 'Dos nombres, una sola lista',
+            archivo: 'referencias.py',
+            descripcion: 'b = a no copia la lista: le pone otro nombre a la misma. Por eso agregar algo a b también cambia a.',
+            preguntas: {
+                2: {
+                    pregunta: 'b.append(4) le agrega un 4 a b. ¿Qué pasa con a?',
+                    opciones: ['Sigue siendo [1, 2, 3]', 'También queda [1, 2, 3, 4]'],
+                    correcta: 1,
+                    explicacion: 'a y b son la misma lista: no hay dos listas, hay una sola con dos nombres.',
+                },
+            },
+        }));
+
+        // La matemática va en un archivo aparte (motor-mate): se carga recién
+        // cuando la lección está por aparecer en la pantalla.
+        new IntersectionObserver((vistas, observador) => {
+            if (!vistas.some((v) => v.isIntersecting)) return;
+            observador.disconnect();
+            const script = document.createElement('script');
+            script.src = 'dist/motor-mate.min.js';
+            script.onload = () => Motor.registrar('mate-derivada', MotorMate.desdeDerivada({
+                titulo: 'La derivada, como límite',
+                f: (x) => x * x,
+                expresion: 'x²',
+                x0: 1,
+                h: 2,
+                preguntas: {
+                    limite: {
+                        pregunta: 'Si acercamos Q a P, ¿a qué número se va a acercar la pendiente de la secante?',
+                        opciones: ['1', '2', '4'],
+                        correcta: 1,
+                        explicacion: 'Con f(x) = x², la pendiente de la secante es 2 + h: cuando h tiende a 0, tiende a 2.',
+                    },
+                },
+            }));
+            document.body.appendChild(script);
+        }, { rootMargin: '600px' }).observe(document.querySelector('[escena="mate-derivada"]'));
+    </script>
+
+    <!-- Los ejemplos con su código. Son módulos para que cada uno tenga su
+         propio alcance (los const no chocan entre sí), y lo que se muestra
+         debajo de cada escena es el texto de estos mismos scripts. -->
+    <script type="module" id="codigo-fila">
+const { caja, fila, flecha } = Motor;
+
+// Una función de la disposición: en un celular parado, la fila es una columna.
+Motor.registrar('ej-fila', (d) => {
+    const angosta = d.nombre === 'angosta';
+    return {
+        ancho: angosta ? 900 : 1600,
+        alto: angosta ? 1100 : 560,
+        piezas: {
+            // La fila va antes que sus piezas. x e y son su centro.
+            f: fila({
+                x: angosta ? 380 : 800, y: angosta ? 560 : 330,
+                piezas: ['a', 'b', 'c'], separacion: 90, direccion: angosta ? 'vertical' : 'horizontal',
+            }),
+            a: caja({ texto: 'leer' }),
+            b: caja({ texto: 'procesar' }),
+            c: caja({ texto: 'guardar' }),
+            ab: flecha({ desde: 'a', hasta: 'b' }),
+            bc: flecha({ desde: 'b', hasta: 'c' }),
+            nota: caja({
+                ancho: 280, alto: 70, texto: 'pegada a «guardar»', tamano: 24, borde: 'acento2',
+                pegar: { a: 'c', lado: angosta ? 'derecha' : 'arriba', separacion: 30 },
+            }),
+        },
+        linea: [
+            // «procesar» crece a lo largo de la fila, y corre a «guardar» (y a su nota).
+            { pieza: 'b', a: angosta ? { alto: 320 } : { ancho: 560 }, dur: 1.5, en: 1 },
+            { pieza: 'b', a: angosta ? { alto: 140 } : { ancho: 280 }, dur: 1.5, en: '+1.5' },
+            { espera: 1 },
+        ],
+    };
+});
+    </script>
+    <script type="module" id="codigo-lupa">
+const { tabla, espejo } = Motor;
+
+const filas = [
+    ['Ana', 'Electricidad', '12'], ['Bruno', 'Programación', '9'], ['Carla', 'Gastronomía', '14'],
+    ['Diego', 'Programación', '5'], ['Eva', 'Electricidad', '11'], ['Facundo', 'Gastronomía', '7'],
+];
+// La lupa mira justo el lugar donde está: x va con mirarX, y con mirarY.
+const ir = (x, y) => ({ x, y, mirarX: x, mirarY: y });
+
+Motor.registrar('ej-lupa', (d) => {
+    const W = d.nombre === 'angosta' ? 900 : 1600;
+    const T = Math.min(900, W - 60);
+    // Donde arranca lo escrito en la primera y en la última columna.
+    const [izq, der] = [W / 2 - T / 2 + 60, W / 2 + T / 6 + 60];
+    return {
+        ancho: W,
+        alto: d.nombre === 'angosta' ? 600 : 620,
+        piezas: {
+            t: tabla({ x: W / 2, y: 280, columnas: ['nombre', 'curso', 'presentes'], filas, ancho: T, tamano: 22, altoFila: 52 }),
+            lupa: espejo({ ...ir(izq, 175), forma: 'circulo', ancho: 230, alto: 230, zoom: 2, aro: 8, colorAro: 'texto' }),
+        },
+        linea: [
+            { pieza: 'lupa', a: ir(der, 175), dur: 2.5, en: 0.5 },
+            { pieza: 'lupa', a: ir(der, 435), dur: 1.5 },
+            { pieza: 'lupa', a: ir(izq, 175), dur: 2.5 },
+        ],
+    };
+});
+    </script>
+    <script type="module" id="codigo-pregunta">
+const { codigo, variable, crearNarrador } = Motor;
+
+const n = crearNarrador({
+    preguntas: {
+        suma: {
+            pregunta: 'x vale 5. ¿Cuánto va a valer después de x = x + 3?',
+            opciones: ['3', '5', '8'],
+            correcta: 2,
+            explicacion: 'Primero se calcula x + 3 con el valor de antes, 5, y el 8 se guarda en x.',
+        },
+    },
+});
+n.decir('La primera línea guarda un 5 en x.');
+n.animar([
+    { pieza: 'cod', a: { linea: 1, marca: 1 }, dur: 0.4 },
+    { pieza: 'x', a: { valor: '5', opacidad: 1 }, dur: 0.4 },
+], -2);
+n.preguntar('suma');
+n.animar({ pieza: 'cod', a: { linea: 2 }, dur: 0.4 });
+n.animar({ pieza: 'x', a: { valor: '8', destello: 1 }, dur: 0.4 }, 0.4);
+n.animar({ pieza: 'x', a: { destello: 0 }, dur: 0.6 }, 0.8);
+n.decir('El valor de antes se usó para la cuenta, y se reemplazó por el nuevo.');
+
+Motor.registrar('ej-pregunta', (d) => {
+    // En un celular, la variable va debajo del código en vez de al costado.
+    const angosta = d.nombre === 'angosta';
+    return {
+        titulo: 'x = x + 3',
+        ancho: angosta ? 900 : 1600,
+        alto: angosta ? 720 : 560,
+        piezas: {
+            cod: codigo({ x: angosta ? 450 : 500, y: angosta ? 260 : 280, ancho: 640, codigo: 'x = 5\nx = x + 3', tamano: 40, linea: 0, marca: 0 }),
+            x: variable({
+                x: angosta ? 450 : 1150, y: angosta ? 560 : 280,
+                nombre: 'x', valor: '', ancho: 260, alto: 100, tamano: 40, opacidad: 0,
+            }),
+        },
+        linea: n.linea,
+    };
+});
+    </script>
+    <script type="module">
+        // Debajo de cada ejemplo, el código del script que lo arma.
+        for (const destino of document.querySelectorAll('[data-codigo-de]')) {
+            destino.textContent = document.getElementById(destino.dataset.codigoDe).textContent.trim();
+        }
+    </script>
 </body>
 </html>

@@ -64,7 +64,7 @@ function queEs(v) {
  *     explicar?: boolean,
  *     capitulos?: Record<number, string>,
  *     piezas?: (d: any, lugar: any) => Record<string, any>,
- *     lupa?: boolean | number,
+ *     lupa?: boolean | number | { zoom?: number, forma?: 'rect' | 'circulo', radio?: number, aro?: number },
  *     lupaDebajoDe?: number,
  *     contexto?: number,
  * }} opciones
@@ -81,6 +81,9 @@ function queEs(v) {
  *     de una cámara que lo agranda y sigue a la línea marcada, como un editor:
  *     baja suave cuando la marca se acerca al borde, dejando `contexto` líneas
  *     (3) arriba y abajo. El zoom nunca es tanto que corte una línea a lo ancho.
+ *     Con un objeto se elige también cómo se ve la ventana: { zoom, forma,
+ *     radio, aro } (por defecto, esquinas redondeadas como la caja del código
+ *     y un aro fino que la enmarca).
  *     `lupaDebajoDe` (en píxeles): la lupa se usa solo si el lugar donde se ve
  *     la escena es más angosto que eso (por ejemplo, 900).
  */
@@ -238,12 +241,10 @@ export function desdeTraza(opciones) {
         }
         // Las flechas entre dos variables que son lo mismo. Van por afuera, por
         // el costado izquierdo de las dos: entre una y otra no hay lugar, y una
-        // flecha recta cruzaría por encima de la segunda.
-        const costado = (id) => {
-            const { tipo, props } = piezas[id];
-            const ancho = tipo.nombre === 'lista' ? props.celda * Math.max(maxItems, 1) : (tipo.tamano?.(props).ancho ?? 0);
-            return { x: props.x - ancho / 2 - 12, y: props.y };
-        };
+        // flecha recta cruzaría por encima de la segunda. Enganchadas al
+        // costado (y no a un punto fijo), quedan pegadas a las listas y se
+        // corren cuando crecen.
+        const costado = (id) => ({ pieza: id, lado: 'izquierda', dx: -12 });
         for (const [clave, par] of pares) {
             piezas['alias_' + clave.replace('|', '_')] = flecha({
                 desde: costado(lugarVariable[par.a]), hasta: costado(lugarVariable[par.b]), progreso: 0, curvatura: 0.45,
@@ -275,7 +276,8 @@ export function desdeTraza(opciones) {
         // ---- La lupa ----
         // Cuánto se puede acercar sin cortar la línea más larga: lo que mide
         // de ancho lo escrito (con los números de línea), contra la ventana.
-        const pedida = lupa === true ? 1.8 : Number(lupa) || 0;
+        const comoSeVe = typeof lupa === 'object' && lupa ? lupa : {};
+        const pedida = lupa === true ? 1.8 : typeof lupa === 'object' && lupa ? (lupa.zoom ?? 1.8) : Number(lupa) || 0;
         const conLupa = pedida > 1 && (lupaDebajoDe == null || (disposicion.ancho ?? Infinity) < lupaDebajoDe);
         const geo = /** @type {any} */ (piezaCodigo.props);
         const altoLinea = geo.tamano * geo.interlineado;
@@ -301,6 +303,13 @@ export function desdeTraza(opciones) {
                         // lo que sobraba a la derecha de la línea más larga.
                         mirarX: izqCodigo + geo.ancho / (2 * zoom),
                         mirarY,
+                        // Las esquinas, como las de la caja del código (que con
+                        // el zoom quedan afuera de la ventana).
+                        forma: comoSeVe.forma ?? 'rect',
+                        radio: comoSeVe.radio ?? 16,
+                        aro: comoSeVe.aro ?? 2,
+                        colorAro: 'borde',
+                        fondo: 'superficie',
                     });
                     pieza.props.dentro = 'lupa';
                 }

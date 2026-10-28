@@ -13,8 +13,11 @@
 export function posicionAbsoluta(id, estado, tipos) {
     const p = estado.piezas[id];
     const tam = tipos[id].tamano?.(p) ?? { ancho: 0, alto: 0 };
-    let x = p.x;
-    let y = p.y;
+    // Si x, y no es el centro de lo que se ve (un texto alineado a la
+    // izquierda), la pieza dice dónde queda el centro.
+    const c = tipos[id].centro?.(p) ?? { x: 0, y: 0 };
+    let x = p.x + c.x * p.escala;
+    let y = p.y + c.y * p.escala;
     let escala = p.escala;
     let padre = p.dentro;
     while (padre != null) {
@@ -65,6 +68,15 @@ export function caminoFlecha(a, b, curvatura = 0, separacion = 0) {
         x: (a.x + b.x) / 2 - (dy / largo) * curvatura * largo,
         y: (a.y + b.y) / 2 + (dx / largo) * curvatura * largo,
     };
+    if (curvatura === 0) {
+        // Recta: el punto de control va en el medio de las puntas, no de los
+        // centros. Si una pieza es mucho más grande que la otra, el medio de
+        // los centros puede caer adentro de la grande, y la punta quedaría
+        // apuntando para atrás.
+        const p0 = bordeHacia(a, b, separacion);
+        const p1 = bordeHacia(b, a, separacion);
+        return { p0, c: { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 }, p1 };
+    }
     // Cada punta sale en la dirección del punto de control: así una flecha
     // curva sale "derecha" de la pieza, como la dibujaría una persona.
     return { p0: bordeHacia(a, c, separacion), c, p1: bordeHacia(b, c, separacion) };

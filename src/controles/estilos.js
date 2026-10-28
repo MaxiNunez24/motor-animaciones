@@ -40,10 +40,16 @@ ${CSS_TEMA}
        el zoom lo maneja el componente. Con zoom, arrastrar mueve el dibujo. */
     touch-action: pan-y;
 }
+[data-arrastrable] {
+    cursor: grab;
+    touch-action: none;
+}
 .ma-raiz.con-zoom .ma-lienzo {
     touch-action: none;
     cursor: grab;
 }
+.ma-raiz.arrastrando .ma-lienzo,
+.ma-raiz.arrastrando [data-arrastrable],
 .ma-raiz.con-zoom.arrastrando .ma-lienzo {
     cursor: grabbing;
 }
@@ -73,7 +79,9 @@ ${CSS_TEMA}
     line-height: 1.35;
     text-wrap: balance;
 }
-.ma-raiz:not(.con-subtitulos) .ma-subtitulo {
+.ma-raiz:not(.con-subtitulos) .ma-subtitulo,
+.ma-raiz.sin-textos .ma-subtitulo,
+.ma-raiz.sin-textos [data-accion="subtitulos"] {
     display: none;
 }
 
@@ -103,13 +111,24 @@ ${CSS_TEMA}
     align-self: end;
     z-index: 3;
     border-top: 0;
-    padding-top: 22px;
-    background: linear-gradient(transparent, color-mix(in srgb, var(--ma-superficie) 94%, transparent) 22px);
-    transition: opacity 0.25s;
+    padding-top: 36px;
+    /* Un velo que se oscurece de a poco, sin un borde donde empieza: con dos
+       paradas el ojo ve una franja. */
+    background: linear-gradient(
+        transparent,
+        color-mix(in srgb, var(--ma-superficie) 25%, transparent) 14px,
+        color-mix(in srgb, var(--ma-superficie) 60%, transparent) 30px,
+        color-mix(in srgb, var(--ma-superficie) 85%, transparent) 48px,
+        color-mix(in srgb, var(--ma-superficie) 92%, transparent));
+    transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .ma-raiz.flotantes:not(.ver-controles) .ma-controles,
 .ma-raiz.flotantes:not(.ver-controles) .ma-zoom {
     opacity: 0;
+}
+/* Al irse bajan un poquito: se van, no se apagan de golpe. */
+.ma-raiz.flotantes:not(.ver-controles) .ma-controles {
+    transform: translateY(8px);
 }
 .ma-raiz.flotantes.sin-cursor {
     cursor: none;
@@ -248,6 +267,18 @@ ${CSS_TEMA}
     display: none;
 }
 
+/* En la columna de una clase (unos 650px) todo entra en un renglón si los
+   botones se aprietan un poco; si no, el último se cae solo a un renglón nuevo. */
+@container (max-width: 720px) {
+    .ma-controles {
+        gap: 4px 2px;
+    }
+    .ma-controles button {
+        min-width: 40px;
+        padding: 0 4px;
+    }
+}
+
 /* En angosto (un celular), la barra de tiempo va sola en su renglón y los
    botones abajo: no entran todos en 360px con un tamaño que se pueda tocar. */
 @container (max-width: 520px) {
@@ -315,7 +346,7 @@ ${CSS_TEMA}
     background: color-mix(in srgb, var(--ma-fondo) 85%, transparent);
     font-size: clamp(18px, 2.2cqi, 46px);
     pointer-events: none;
-    transition: transform 0.25s;
+    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 :host([pantalla]) .ma-subtitulo:empty,
 :host(:fullscreen) .ma-subtitulo:empty {
@@ -325,6 +356,17 @@ ${CSS_TEMA}
 :host([pantalla]) .ver-controles .ma-subtitulo,
 :host(:fullscreen) .ver-controles .ma-subtitulo {
     transform: translateY(calc(-1 * var(--ma-alto-controles, 0px)));
+}
+/* Con una pregunta abierta (en <motor-leccion>), la pregunta ocupa la parte
+   de abajo: el subtítulo sube y queda justo encima de ella. Arriba de todo
+   taparía el título de la escena. --ma-alto-pregunta lo mide la lección. */
+:host([pantalla]) .con-pregunta .ma-subtitulo,
+:host(:fullscreen) .con-pregunta .ma-subtitulo {
+    transform: translateY(calc(-1 * var(--ma-alto-pregunta, 0px)));
+}
+:host([pantalla]) .con-pregunta.ver-controles .ma-subtitulo,
+:host(:fullscreen) .con-pregunta.ver-controles .ma-subtitulo {
+    transform: translateY(calc(-1 * (var(--ma-alto-pregunta, 0px) + var(--ma-alto-controles, 0px))));
 }
 /* Sin controles no hay nada que apuntar: que el mouse no quede en el medio
    de la pantalla de la Expo. */

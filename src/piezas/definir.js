@@ -23,6 +23,13 @@ export const COMUNES = {
     // El id de otra pieza (un celular, por ejemplo) para dibujarse adentro,
     // con las coordenadas de esa pieza.
     dentro: null,
+    // Pegarse a un costado de otra pieza y seguirla si se mueve o crece:
+    // { a: 'id', lado: 'derecha' | 'izquierda' | 'arriba' | 'abajo' | 'centro',
+    //   separacion, alinear: 'centro' | 'inicio' | 'fin', dx, dy }.
+    pegar: null,
+    // Cuánto manda el pegar sobre x e y (de 0 a 1): animándolo, se despega
+    // (o se pega) de a poco.
+    pegado: 1,
 };
 
 /**
@@ -33,6 +40,7 @@ export const COMUNES = {
  *     crear: (grupo: SVGGElement, props: any, ctx: any) => any,
  *     actualizar: (partes: any, props: any, ctx: any) => void,
  *     tamano?: (props: any) => { ancho: number, alto: number },
+ *     centro?: (props: any) => { x: number, y: number },
  *     contenedor?: (partes: any) => SVGGElement,
  *     origenContenedor?: (props: any) => { x: number, y: number, escala: number },
  *     dependeDeOtras?: boolean,

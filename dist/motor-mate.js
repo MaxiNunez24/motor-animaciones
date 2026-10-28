@@ -7,7 +7,14 @@ var COMUNES = {
   opacidad: 1,
   // El id de otra pieza (un celular, por ejemplo) para dibujarse adentro,
   // con las coordenadas de esa pieza.
-  dentro: null
+  dentro: null,
+  // Pegarse a un costado de otra pieza y seguirla si se mueve o crece:
+  // { a: 'id', lado: 'derecha' | 'izquierda' | 'arriba' | 'abajo' | 'centro',
+  //   separacion, alinear: 'centro' | 'inicio' | 'fin', dx, dy }.
+  pegar: null,
+  // Cuánto manda el pegar sobre x e y (de 0 a 1): animándolo, se despega
+  // (o se pega) de a poco.
+  pegado: 1
 };
 function definirPieza(definicion) {
   if (!definicion.nombre) throw new Error("Una pieza necesita un nombre.");
@@ -1360,6 +1367,11 @@ function caminoFlecha(a, b, curvatura = 0, separacion = 0) {
     x: (a.x + b.x) / 2 - dy / largo2 * curvatura * largo2,
     y: (a.y + b.y) / 2 + dx / largo2 * curvatura * largo2
   };
+  if (curvatura === 0) {
+    const p0 = bordeHacia(a, b, separacion);
+    const p1 = bordeHacia(b, a, separacion);
+    return { p0, c: { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 }, p1 };
+  }
   return { p0: bordeHacia(a, c, separacion), c, p1: bordeHacia(b, c, separacion) };
 }
 function bordeHacia(r3, hacia, separacion) {
@@ -1600,6 +1612,12 @@ var texto2 = definirPieza({
     });
     const lineas = partirLineas(p.texto, anchoEnLetras(p));
     renglones(partes.texto, revelar(lineas, p.escrito), { tamano: p.tamano, interlineado: p.interlineado });
+  },
+  // x es el borde izquierdo con 'inicio' y el derecho con 'fin': el centro
+  // de lo escrito queda corrido medio ancho.
+  centro(p) {
+    const medio = this.tamano(p).ancho / 2;
+    return { x: p.alineacion === "inicio" ? medio : p.alineacion === "fin" ? -medio : 0, y: 0 };
   },
   // Estimado, no medido: ver por qué en partirLineas.
   tamano(p) {

@@ -47,6 +47,13 @@ export const texto = definirPieza({
         renglones(partes.texto, revelar(lineas, p.escrito), { tamano: p.tamano, interlineado: p.interlineado });
     },
 
+    // x es el borde izquierdo con 'inicio' y el derecho con 'fin': el centro
+    // de lo escrito queda corrido medio ancho.
+    centro(p) {
+        const medio = (this.tamano(p).ancho) / 2;
+        return { x: p.alineacion === 'inicio' ? medio : p.alineacion === 'fin' ? -medio : 0, y: 0 };
+    },
+
     // Estimado, no medido: ver por qué en partirLineas.
     tamano(p) {
         const lineas = partirLineas(p.texto, anchoEnLetras(p));

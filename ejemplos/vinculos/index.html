@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vínculos y espejos · motor de animaciones</title>
+    <style>
+        :root {
+            font-family: system-ui, "Segoe UI", sans-serif;
+            color-scheme: light dark;
+        }
+        body {
+            margin: 0;
+            padding: 20px 16px 48px;
+            background: Canvas;
+            color: CanvasText;
+            line-height: 1.5;
+        }
+        main {
+            max-width: 1040px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: clamp(1.4rem, 4.5vw, 2rem);
+            margin: 0 0 0.3em;
+        }
+        h2 {
+            font-size: clamp(1.15rem, 3.6vw, 1.5rem);
+            margin: 2em 0 0.3em;
+        }
+        motor-leccion {
+            margin-top: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Vínculos y espejos</h1>
+        <p>
+            Piezas que se acomodan solas: una <strong>fila</strong> corre a sus piezas cuando una crece, y una pieza
+            <strong>pegada</strong> a otra la sigue adonde vaya. Y un <strong>espejo</strong>: una ventana que muestra
+            agrandada otra parte de la escena, sincronizada con ella. Los espejos se pueden arrastrar.
+        </p>
+
+        <h2>Una fila que se acomoda sola</h2>
+        <motor-leccion escena="vinculos-fila"></motor-leccion>
+
+        <h2>Dos nombres, la misma lista</h2>
+        <motor-leccion escena="vinculos-listas"></motor-leccion>
+
+        <h2>Un espejo de la línea que corre</h2>
+        <motor-leccion escena="espejo-linea"></motor-leccion>
+
+        <h2>Una lupa sobre la tabla</h2>
+        <motor-leccion escena="espejo-lupa"></motor-leccion>
+    </main>
+    <script src="../../dist/motor.min.js"></script>
+    <script src="lecciones.js"></script>
+</body>
+</html>

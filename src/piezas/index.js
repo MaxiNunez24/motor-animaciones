@@ -5,6 +5,8 @@ export { flecha } from './flecha.js';
 export { tabla } from './tabla.js';
 export { celular, PANTALLA } from './celular.js';
 export { camara } from './camara.js';
+export { espejo } from './espejo.js';
+export { fila } from './fila.js';
 export { contador, formatearNumero } from './contador.js';
 export { cilindro } from './cilindro.js';
 export { grafo } from './grafo.js';

@@ -12,7 +12,7 @@ async function abrir(page, url) {
     return errores;
 }
 
-for (const [pagina, cuantas] of [['/ejemplos/funciones-y-objetos/', 5], ['/ejemplos/sql/', 2], ['/ejemplos/tests/', 1]]) {
+for (const [pagina, cuantas] of [['/ejemplos/funciones-y-objetos/', 5], ['/ejemplos/sql/', 2], ['/ejemplos/tests/', 1], ['/ejemplos/vinculos/', 4]]) {
     test(`${pagina}: las lecciones se arman y se recorren sin errores`, async ({ page }) => {
         const errores = await abrir(page, pagina);
         const n = await page.evaluate(() => {
@@ -124,4 +124,66 @@ test.describe('el editor de escenas', () => {
         expect(html).toContain("Motor.registrar('mi-escena'");
         expect(html).toContain('const { ');
     });
+});
+
+test('el espejo muestra la misma línea que el código, y quien mira lo puede arrastrar sin cambiar la escena', async ({ page }) => {
+    await abrir(page, '/ejemplos/vinculos/');
+    const l = page.locator('motor-leccion[escena="espejo-linea"]');
+    await l.scrollIntoViewIfNeeded();
+    const leer = () => l.evaluate((m) => {
+        const g = m.shadowRoot.querySelector('[data-pieza="lente"]');
+        const uso = g.querySelector('use');
+        return {
+            transform: g.getAttribute('transform'),
+            // El <use> apunta al grupo del código: es la misma línea, no una copia.
+            apunta: m.shadowRoot.querySelector(uso.getAttribute('href')).getAttribute('data-pieza'),
+            x: m.compilada.estado(m.t).piezas.lente.x,
+        };
+    });
+    await l.evaluate((m) => m.irA(m.duracion / 2));
+    const antes = await leer();
+    expect(antes.apunta).toBe('codigo');
+    const caja = await l.evaluate((m) => {
+        const r = m.shadowRoot.querySelector('[data-pieza="lente"] > rect:last-of-type').getBoundingClientRect();
+        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    await page.mouse.move(caja.x, caja.y);
+    await page.mouse.down();
+    await page.mouse.move(caja.x - 120, caja.y - 60, { steps: 6 });
+    await page.mouse.up();
+    const despues = await leer();
+    expect(despues.transform).not.toBe(antes.transform);
+    // La escena no cambió: es de la vista, como el zoom. Y arrastrar no pausó ni reprodujo.
+    expect(despues.x).toBe(antes.x);
+    expect(await l.evaluate((m) => m.corriendo)).toBe(false);
+});
+
+test('la flecha de "la misma lista" se corre cuando las listas crecen', async ({ page }) => {
+    await abrir(page, '/ejemplos/vinculos/');
+    const xs = await page.locator('motor-leccion[escena="vinculos-listas"]').evaluate((m) => {
+        const punta = (t) => {
+            m.irA(t);
+            const d = m.shadowRoot.querySelector('[data-pieza="alias"] path').getAttribute('d');
+            return Number(d.match(/^M([-\d.]+)/)[1]);
+        };
+        return [punta(m.duracion * 0.3), punta(m.duracion)];
+    });
+    // Las listas crecen para los dos lados (están centradas): el costado izquierdo se corre a la izquierda.
+    expect(xs[1]).toBeLessThan(xs[0] - 100);
+});
+
+test('la portada: las escenas en vivo se arman, y el código de cada ejemplo es el que corre', async ({ page }) => {
+    const errores = [];
+    page.on('pageerror', (e) => errores.push(e.message));
+    await page.goto('/');
+    // La derivada se carga recién cuando está por verse.
+    await page.locator('[escena="mate-derivada"]').scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => [...document.querySelectorAll('motor-escena, motor-leccion')].every((m) => m.compilada));
+    const codigos = await page.evaluate(() => [...document.querySelectorAll('[data-codigo-de]')].map((c) => ({
+        mostrado: c.textContent,
+        script: document.getElementById(c.dataset.codigoDe).textContent.trim(),
+    })));
+    expect(codigos).toHaveLength(3);
+    for (const { mostrado, script } of codigos) expect(mostrado).toBe(script);
+    expect(errores).toEqual([]);
 });

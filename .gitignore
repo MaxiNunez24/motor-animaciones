@@ -18,3 +18,10 @@ __pycache__/
 
 # El cache de la voz que deja herramientas/video.js al lado de cada video.
 .voz/
+
+# Tu voz no va al repo (es público): grabaciones, checkpoints y modelos
+# entrenados viven en una carpeta tuya. Esto es por si alguno cae acá por error.
+*.wav
+*.ckpt
+*.onnx
+mi-voz/

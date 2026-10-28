@@ -155,3 +155,47 @@ test('"Animá tu programa": corre Python en el navegador y arma la lección sola
     expect(salida).toBe('Número: 3\n0\n1\n2\n');
     expect(explicaciones).toContain('El for toma el primer elemento: i vale 0.');
 });
+
+test('con una pregunta abierta: en la página va debajo del dibujo; en pantalla completa los controles se esconden, se puede achicar, y el subtítulo repetido no se ve', async ({ page }) => {
+    await abrir(page);
+    const l = leccion(page);
+    await l.evaluate((m) => m._llegarA(m.compilada.marcas.find((x) => x.tipo === 'pregunta').t));
+    await expect(l.getByText('Pensalo antes de seguir')).toBeVisible();
+    const medir = () => l.evaluate((m) => {
+        const s = m.shadowRoot;
+        const caja = (sel) => s.querySelector(sel).getBoundingClientRect();
+        return {
+            clases: s.querySelector('.ma-raiz').className,
+            debajo: caja('.ma-pregunta').top >= caja('.ma-lienzo').bottom - 1,
+            subtitulo: getComputedStyle(s.querySelector('.ma-subtitulo')).display,
+        };
+    });
+    // En la página: no tapa el dibujo, y el subtítulo que la repite se va.
+    expect(await medir()).toMatchObject({ debajo: true, subtitulo: 'none' });
+    await expect(l.getByRole('button', { name: 'Ver el dibujo' })).toBeHidden();
+
+    await l.evaluate((m) => m.setAttribute('pantalla', ''));
+    await expect.poll(async () => (await medir()).clases).toMatch(/con-pregunta/);
+    expect((await medir()).clases).not.toMatch(/ver-controles/);
+    // Achicada queda el botón para volver; las opciones no se ven.
+    await l.getByRole('button', { name: 'Ver el dibujo' }).click();
+    await expect(l.getByRole('button', { name: '27' })).toBeHidden();
+    await l.getByRole('button', { name: /Volver a la pregunta/ }).click();
+    // Las opciones se pueden tocar aunque los controles escondidos estén abajo.
+    await l.getByRole('button', { name: '27' }).click();
+    await expect(l.getByText('¡Bien!')).toBeVisible();
+});
+
+test('en una lección los controles van fijos abajo, salvo con controles-flotantes o en pantalla completa', async ({ page }) => {
+    await abrir(page);
+    const l = leccion(page);
+    const flotan = () => l.evaluate((m) => m.shadowRoot.querySelector('.ma-raiz').classList.contains('flotantes'));
+    expect(await flotan()).toBe(false);
+    await l.evaluate((m) => m.setAttribute('controles-flotantes', ''));
+    expect(await flotan()).toBe(true);
+    await l.evaluate((m) => {
+        m.removeAttribute('controles-flotantes');
+        m.setAttribute('pantalla', '');
+    });
+    await expect.poll(flotan).toBe(true);
+});

@@ -8,8 +8,12 @@ import { posicionAbsoluta } from '../piezas/geometria.js';
 /**
  * @param {SVGSVGElement} svg
  * @param {ReturnType<import('../nucleo/linea.js').compilar>} escena
+ * @param {{ arrastres?: Record<string, { x: number, y: number }> }} [opciones]
+ *     `arrastres`: cuánto corrió quien mira cada pieza arrastrable (un espejo).
+ *     Es de la vista, como el zoom: no está en la escena ni sale en un video.
  */
-export function crearPintor(svg, escena) {
+export function crearPintor(svg, escena, opciones = {}) {
+    const arrastres = opciones.arrastres ?? {};
     svg.replaceChildren();
     poner(svg, {
         viewBox: `0 0 ${escena.ancho} ${escena.alto}`,
@@ -24,13 +28,14 @@ export function crearPintor(svg, escena) {
     const raiz = el('g', { 'clip-path': `url(#${marco})` }, svg);
 
     const inicial = escena.estado(0);
-    const ctx = { estado: inicial, tipos: escena.tipos };
+    const ctx = { estado: inicial, tipos: escena.tipos, id: '', ids: escena.ids, arrastres };
     const nodos = {};
     for (const id of escena.ids) {
         const tipo = escena.tipos[id];
         const props = inicial.piezas[id];
         const padre = props.dentro != null ? nodos[props.dentro].contenido : raiz;
         const grupo = /** @type {SVGGElement} */ (el('g', { 'data-pieza': id }, padre));
+        ctx.id = id;
         const partes = tipo.crear(grupo, props, ctx);
         nodos[id] = {
             tipo,
@@ -49,8 +54,9 @@ export function crearPintor(svg, escena) {
                 const nodo = nodos[id];
                 const p = estado.piezas[id];
                 const invisible = p.opacidad <= 0;
+                const corrida = arrastres[id] ?? { x: 0, y: 0 };
                 poner(nodo.grupo, {
-                    transform: `translate(${r(p.x)} ${r(p.y)})` +
+                    transform: `translate(${r(p.x + corrida.x)} ${r(p.y + corrida.y)})` +
                         (p.rotacion ? ` rotate(${r(p.rotacion)})` : '') +
                         (p.escala !== 1 ? ` scale(${r(p.escala)})` : ''),
                     opacity: p.opacidad >= 1 ? null : r(p.opacidad),
@@ -60,6 +66,7 @@ export function crearPintor(svg, escena) {
                 // Una pieza que no cambió no se vuelve a dibujar: en una escena
                 // de 40 piezas, en cada cuadro se mueven tres o cuatro.
                 if (invisible || (!nodo.tipo.dependeDeOtras && iguales(nodo.ultimo, p))) continue;
+                ctx.id = id;
                 nodo.tipo.actualizar(nodo.partes, p, ctx);
                 nodo.ultimo = p;
             }

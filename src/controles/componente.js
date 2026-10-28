@@ -87,6 +87,12 @@ export class MotorEscena extends Base {
         this._definicion = null;
         this._compilada = null;
         this._pintor = null;
+        // Cuánto corrió quien mira cada pieza arrastrable (un espejo). Es de
+        // la vista, como el zoom: sobrevive a rearmar la escena al cambiar de tamaño.
+        /** @type {Record<string, { x: number, y: number }>} */
+        this._arrastres = {};
+        /** @type {{ id: string, pointerId: number, x: number, y: number } | null} */
+        this._agarrada = null;
         this._disposicion = null;
         this._pausadoPorOcultar = false;
         this._limpiar = [];
@@ -136,7 +142,8 @@ export class MotorEscena extends Base {
         for (const fin of ['pointerup', 'pointercancel']) this._lienzo.addEventListener(fin, (e) => this._dedoArriba(e));
 
         // ---- Los controles que se esconden ----
-        this._vista = { dentro: false, reciente: false, sobreControles: false, foco: false, tactil: false, tocado: false };
+        // `pregunta`: <motor-leccion> la prende mientras muestra una pregunta.
+        this._vista = { dentro: false, reciente: false, sobreControles: false, foco: false, tactil: false, tocado: false, pregunta: false };
         /** @type {ReturnType<typeof setTimeout> | undefined} */
         this._temporizador = undefined;
         const moverse = (e) => {
@@ -282,6 +289,11 @@ export class MotorEscena extends Base {
     // Una capa que extiende el componente (la pedagógica) los redefine. Acá
     // no hacen nada: el componente común no sabe de preguntas ni de pasos.
 
+    /** Si los controles van fijos abajo del dibujo (fuera de la pantalla completa). */
+    _controlesFijos() {
+        return this.hasAttribute('controles-fijos');
+    }
+
     /** Cada vez que la escena se arma (o se rearma por la disposición). */
     _alArmar(compilada) {}
 
@@ -375,7 +387,9 @@ export class MotorEscena extends Base {
         }
         this._compilada = compilada;
         this._disposicion = disposicion.nombre;
-        this._pintor = crearPintor(this._svg, compilada);
+        this._pintor = crearPintor(this._svg, compilada, { arrastres: this._arrastres });
+        // Una escena sin subtítulos no necesita su renglón ni el botón CC.
+        this._raiz.classList.toggle('sin-textos', compilada.subtitulos.length === 0);
         this._encuadre();
         this._aplicarZoom();
         this._actualizarVista();
@@ -456,14 +470,17 @@ export class MotorEscena extends Base {
         if (!this.isConnected) return;
         const llena = this._llena();
         const flotantes = !this.hasAttribute('sin-controles') && (llena
-            || (!this.hasAttribute('controles-fijos') && matchMedia('(hover: hover) and (pointer: fine)').matches));
+            || (!this._controlesFijos() && matchMedia('(hover: hover) and (pointer: fine)').matches));
         const v = this._vista;
         // Se ven si alguien los está usando o se acaba de mover; y, con la
         // animación en pausa, mientras el mouse esté encima (o si nadie pasó
-        // todavía por acá: que se sepa que hay controles).
-        const ver = v.foco || v.sobreControles || v.reciente
-            || (!this._reloj.corriendo && (v.dentro || v.tactil || !v.tocado));
+        // todavía por acá: que se sepa que hay controles). Con una pregunta
+        // abierta, solo si se los busca: lo que hay que mirar es la pregunta, y
+        // los controles flotando encima la tapan.
+        const ver = v.foco || v.sobreControles || (!v.pregunta && (v.reciente
+            || (!this._reloj.corriendo && (v.dentro || v.tactil || !v.tocado))));
         this._raiz.classList.toggle('flotantes', flotantes);
+        this._raiz.classList.toggle('con-pregunta', v.pregunta);
         this._raiz.classList.toggle('ver-controles', ver);
         this._raiz.classList.toggle('sin-cursor', llena && !ver);
     }
@@ -533,7 +550,15 @@ export class MotorEscena extends Base {
     }
 
     _dedoAbajo(e) {
-        if (/** @type {HTMLElement} */ (e.target).closest('.ma-pregunta, .ma-zoom')) return;
+        const objetivo = /** @type {Element} */ (e.target);
+        if (objetivo.closest('.ma-pregunta, .ma-zoom')) return;
+        // Una pieza arrastrable (un espejo) se agarra y se lleva a otro lado.
+        const agarrable = this._dedos.size === 0 && objetivo.closest('[data-arrastrable]');
+        if (agarrable) {
+            this._agarrada = { id: agarrable.getAttribute('data-arrastrable'), pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+            this._lienzo.setPointerCapture(e.pointerId);
+            return;
+        }
         this._dedos.set(e.pointerId, { x: e.clientX, y: e.clientY });
         this._movido = 0;
         if (this._dedos.size === 2) {
@@ -544,6 +569,19 @@ export class MotorEscena extends Base {
     }
 
     _dedoMueve(e) {
+        const a = this._agarrada;
+        if (a && a.pointerId === e.pointerId) {
+            const m = this._svg.getScreenCTM();
+            if (!m) return;
+            const corrida = (this._arrastres[a.id] ??= { x: 0, y: 0 });
+            corrida.x += (e.clientX - a.x) / m.a;
+            corrida.y += (e.clientY - a.y) / m.d;
+            [a.x, a.y] = [e.clientX, e.clientY];
+            this._pintar(this._reloj.t);
+            this._arrastro = true;
+            this._raiz.classList.add('arrastrando');
+            return;
+        }
         const antes = this._dedos.get(e.pointerId);
         if (!antes) return;
         const ahora = { x: e.clientX, y: e.clientY };
@@ -570,6 +608,7 @@ export class MotorEscena extends Base {
     }
 
     _dedoArriba(e) {
+        if (this._agarrada?.pointerId === e.pointerId) this._agarrada = null;
         this._dedos.delete(e.pointerId);
         if (this._dedos.size < 2) this._pellizco = null;
         this._raiz.classList.remove('arrastrando');

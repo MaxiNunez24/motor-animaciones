@@ -1,5 +1,6 @@
 import { curva } from './curvas.js';
 import { interpolar, claseDe, limitar } from './interpolar.js';
+import { revisarVinculos, hayVinculos, resolverVinculos } from './vinculos.js';
 
 // La línea de tiempo: convierte una escena escrita a mano en una función
 // estado(t).
@@ -58,6 +59,7 @@ export function compilar(definicion, opciones = {}) {
     }
 
     // ---- Las piezas: de qué propiedades parte cada una ----
+    /** @type {Record<string, any>} */
     const piezas = {};
     for (const [id, pieza] of Object.entries(def.piezas ?? {})) {
         if (!pieza || !pieza.tipo || !pieza.props) {
@@ -77,6 +79,10 @@ export function compilar(definicion, opciones = {}) {
             throw new Error(`"${p.id}" va dentro de "${padre}", pero no hay ninguna pieza que se llame así.`);
         }
     }
+
+    const enFila = revisarVinculos(piezas);
+    const conVinculos = hayVinculos(piezas);
+    const tiposPorId = Object.fromEntries(Object.values(piezas).map((p) => [p.id, p.tipo]));
 
     // ---- La línea: cuándo empieza y termina cada cosa ----
     const capitulos = [];
@@ -201,6 +207,7 @@ export function compilar(definicion, opciones = {}) {
         /** Cómo está todo en el instante t. */
         estado(t) {
             const tt = limitar(Number(t) || 0, 0, duracion);
+            /** @type {Record<string, Record<string, any>>} */
             const props = {};
             for (const id of ids) {
                 const p = piezas[id];
@@ -210,6 +217,8 @@ export function compilar(definicion, opciones = {}) {
                 }
                 props[id] = actual;
             }
+            // Las pegadas y las acomodadas en filas, a partir de lo anterior.
+            if (conVinculos) resolverVinculos(props, tiposPorId, enFila);
             return {
                 t: tt,
                 piezas: props,

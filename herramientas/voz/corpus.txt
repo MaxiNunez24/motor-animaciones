@@ -1,0 +1,661 @@
+0007920d|Y la nota, pegada arriba de guardar, la acompaña.
+003a3d1f|¿Qué devuelve la función cuando la lista está vacía?
+00be507a|STC igual a SCR más SCE: la variabilidad total es la que explica la regresión más la que queda en los errores.
+01f9618a|¡Clic!
+02cd0e1d|Hay que mirar bien la pantalla antes de apretar enter.
+036dfe69|¿Qué paquetes se reenvían?
+03bdf768|Arrancamos en 9 y avanzamos 5 lugares.
+0585d2b7|El for repitió la línea 4 una vez por cada elemento de la lista.
+05d14654|Depende de cuánto varían los paquetes.
+066321c1|Con El Niño, los alisios se debilitan.
+072dfe59|¿Quién llamó a esta función, y qué le va a devolver?
+0868dc00|El año dos mil veintiséis empezó con mucho calor.
+0879305b|Yo me llamo como mi abuelo, que llegó en barco desde Galicia.
+08b887be|Tampoco dice que la recta sea el modelo correcto: una curva clarísima puede dar un R al cuadrado alto igual.
+08c209d3|¿Cuánto va a valer en la ronda 4?
+0909bbe6|Otro clic: la misma función, otra vez desde el principio.
+0947119f|Con decenas de miles de datos el error estándar se achica tanto que casi cualquier pendiente da significativa.
+09c65b6f|Mil doscientos más ochocientos cincuenta da dos mil cincuenta.
+0a3b9953|2. otra y lucia son el mismo objeto: el presente se le suma a una sola alumna, que ya tenía 1.
+0ac4c3ca|Da 0,0017.
+0acf4732|Afuera de ese rango es extrapolar, y nada garantiza que siga siendo una recta.
+0b2143a8|¿Quién tiene razón? Los dos, en parte.
+0bc0f295|Proyectadas sobre el piso, son las curvas de nivel.
+0bc28796|El viento sur trajo frío y el cielo quedó limpísimo.
+0c1ae546|Un for recorre la lista, un elemento por vez.
+0c6b26d1|Ahora sí.
+0cc08855|El servidor de nombres traduce un nombre en una dirección.
+0d911b38|Primero, leer. Segundo, entender. Tercero, recién ahí, escribir.
+0dfc04fc|Todas las corridas arrancan del mismo punto.
+0eb64323|Son de Programación Lucía, Sofía y Pablo; de esos, solo Lucía y Sofía tienen más de 8.
+0ed3d021|Muestra la cuenta, y la función termina.
+0ef319f9|Antes de empezar, repasemos lo que vimos la clase pasada.
+0f47daaa|Las animaciones de este curso se pueden pausar, recorrer hacia atrás y hacia adelante, y en cada pregunta frenan para que pienses antes de ver la respuesta.
+0ff8c353|Si querés, pausá y pensalo antes de seguir.
+1002c41d|¿Por qué la lista cambió si solo tocamos la otra?
+103a1564|En el océano Pacífico, sobre el ecuador, pasa algo que cambia el clima de medio mundo.
+10478511|Para MB igual a 120 la recta da 32.
+105a8a86|Vistas desde arriba son circunferencias, cada vez más juntas: la superficie se empina hacia afuera.
+10915625|Si la pendiente es cero, la recta es horizontal.
+10cbe1ae|Al final de la clase, cada grupo cuenta qué hizo y qué le costó.
+11830e2d|Cada kVarh más se asocia, en promedio, con unos 1,26 kWh más de consumo.
+119c36ed|Llegan tres ACK duplicados: se perdió un segmento, pero los siguientes llegan.
+1291d08a|Dos elevado a la diez es mil veinticuatro.
+12a7f765|En el Litoral y el noreste, donde también aumenta el riesgo de que crezcan ríos como el Paraná y el Uruguay.
+12b6178b|Recién ahora SELECT: de cada fila quedan solo las columnas pedidas, nombre.
+13677df2|En el verano, la ruta a la costa se llena de autos.
+148a0de6|total vale 12 y n vale 15.
+14e4ec68|¿Y si en vez de sumar, multiplicamos?
+15d8852f|¿R es simétrica?
+16433fdc|Es el riesgo de equivocarnos que aceptamos: el error de tipo I.
+164c6d1a|Este sí: es el autoritativo de la zona, y contesta con el registro A.
+1738b878|El truco de Euclides: el mcd de 1071 y 462 es el mismo que el de 462 y 147.
+1788a7a1|El de un valor puntual.
+1797deb7|Hubo 4 retransmisiones: Go-Back-N reenvía también los que habían llegado bien después del perdido.
+1816e0c9|El diccionario guarda pares de clave y valor.
+182f7dbe|Que coincidan no alcanza para probar que existe; que difieran sí alcanza para probar que no.
+185e77ce|Arrancamos en 2 y avanzamos 5 lugares para atrás.
+18712662|La recta de mínimos cuadrados hace que la suma de los errores al cuadrado sea mínima.
+190f4109|factorial termina y devuelve 24.
+19b1a177|Así que seguimos con lo que sobró.
+1a00e610|Se cortó la luz justo cuando estaba por guardar el archivo.
+1a4f9d20|El kiosco de la esquina abre a las siete y cierra a la medianoche.
+1a907baa|Cuando h tiende a 0, la secante se vuelve la recta tangente.
+1aaf99bf|x vale 7.
+1ac0907d|4 más 8 igual a 12, y otra vez al for.
+1af47b0b|En Go-Back-N el emisor puede tener hasta 4 paquetes en viaje sin confirmar: es su ventana, el recuadro de arriba.
+1b3bb1fc|La PC le pregunta a su resolver.
+1b832c1c|Cayó en la zona blanca, la de lo esperable.
+1c3a79e6|Con los datos, T igual a -1,53.
+1d7eee03|Buscamos el valor t que deja el 95 por ciento del área en el medio: 2,131.
+1d9a9847|Un intervalo de confianza del noventa y cinco por ciento no es una garantía.
+1dbdb923|Una muestra más grande da un intervalo más angosto.
+1dbe6acf|El servidor responde con un código doscientos cuando todo salió bien.
+1e407e9b|KeyError: la clave Lucía no está, y el programa se corta en esa línea.
+1e61f5e6|Cada fila de X es un caso, cada columna una variable, más una columna de unos para la ordenada al origen.
+1ed4c580|Una pieza nueva entra con la escala de 0 a 1: va abriendo su lugar de a poco, sin empujones.
+1edb0d70|Cada llamada multiplica su n por lo que le devuelve la de arriba: 4 por 3 por 2 por 1 igual a 24. factorial termina y devuelve 1.
+1ee4c416|Arranca el programa, por la primera línea.
+1f58a881|Si se pierde un paquete, el emisor lo vuelve a mandar.
+1f9545d8|lucia es un objeto Alumno.
+1f9720b9|Andá paso a paso: no hay apuro, nadie te está corriendo.
+20bf8e0a|Ensenada queda pegada a La Plata, a orillas del río.
+21417c71|Go-Back-N vuelve atrás hasta el perdido y reenvía todo lo que había mandado desde ahí.
+224db4b7|Para eso hay que mirar el gráfico de los residuos.
+2392d749|Correr por la rambla a la mañana temprano es lo mejor que hay.
+240bf69c|Cada variable que se agrega sube el R al cuadrado, aunque sea un poquito: con la de ruido pasa de 0,8636 a 0,8646.
+241c01c5|Y para octubre, noviembre y diciembre, el Servicio Meteorológico Nacional espera más lluvias que lo normal en gran parte del país: del Litoral a la Patagonia norte, Neuquén y Río Negro incluidos.
+24e055fe|Antes de optimizar un programa, hay que asegurarse de que funcione bien; y antes de que funcione, de que resuelva el problema correcto.
+24ec85fb|Mirá la secante.
+24f6fafa|Cada uno está relacionado consigo mismo.
+254d787f|Un cuadrado de 21 por 21 llena el rectángulo entero.
+2625a2d2|El color de la barra cambia cuando se supera el umbral.
+26b23d7b|El carro de la carrera derrapó en la curva y terminó en el barro.
+270f0bb5|Una lista es mutable: se puede cambiar después de creada.
+29c16987|Si el archivo no existiera, ¿qué código de estado devolvería el servidor?
+29d03a19|Como s también es una estimación, no se usa la normal sino la t de Student, con n menos 1 igual a 15 grados de libertad.
+2a029f39|En lo que sobró entran 3 de 147, y sobra 21.
+2a91229a|¡Exacto! Eso es justamente lo que hace el programa.
+2b611599|Es mucho más ancho.
+2b716796|total vale 7.
+2ba51a3d|Más seguridad, a cambio de intervalos más anchos.
+2d394de1|Arriba, abajo, a la izquierda y a la derecha.
+2d63d4c6|Recorremos la lista de derecha a izquierda, sin repetir ningún elemento.
+2db750da|Un byte tiene ocho bits, y cada bit es un cero o un uno.
+2e821cda|Con los datos, T igual a 15,31.
+2ec55f22|precio con iva termina y devuelve 60.5.
+300ba055|Adentro, a vale 3 y b vale 4.
+307ea3d2|Decime qué pensás que va a pasar, y lo vemos juntos.
+308371f7|¿Cuánto va a valer total después de la línea 4?
+30e01368|La impresora se quedó sin tinta en el peor momento.
+3151be8f|El cliente mandó seq igual a 1000.
+31c5218a|total más n da 4.
+3212281b|El cliente terminó de mandar datos y avisa con FIN.
+322aa175|El navegador guarda una copia de la página para que cargue más rápido.
+32447eb1|total arranca en 0: ahí vamos a ir sumando.
+324eb5a0|Si se mueve la fila, se mueve todo lo que está acomodado en ella y pegado a ella.
+32c85b9c|Se define la función factorial: todavía no se ejecuta, queda guardada para cuando se la llame.
+34b66c25|Una base de datos guarda la información en tablas, con filas y columnas.
+34db8d78|En slow start se duplica en cada ronda.
+34de9ba4|Uno solo no alcanza; dos tampoco; con tres, ya se ve un patrón.
+358b2fbc|El ajuste es muy bueno.
+35beca23|El cliente confirma el SYN del servidor con ack igual a 5001.
+35cc417d|subtotal termina y devuelve 242.0.
+36560337|Ojo: son tendencias para tres meses, no un pronóstico de qué día va a llover.
+366df3dd|edadesAna busca la clave Ana y muestra su valor.
+36f4d837|Con miles de datos, la recta media se conoce casi exacta; un caso individual sigue siendo tan incierto como siempre.
+370bbadf|Da 0,1432.
+37a30d53|total vale 60.5.
+386cd216|Cero coma cinco es lo mismo que un medio.
+39cdbd56|Mirá la línea marcada: es la que está por ejecutarse.
+39fe6717|El máximo común divisor de doce y dieciocho es seis.
+3a19aeff|El print muestra en la pantalla lo que le pasamos entre paréntesis.
+3a2d4a1e|Abran el editor y creen un archivo nuevo que se llame práctica.
+3b2f2826|Ramiro rompió el récord de la carrera sin respirar.
+3bf6436b|Se define la función precio con iva: todavía no se ejecuta, queda guardada para cuando se la llame.
+3c056645|La de predicción no: le queda el 1, la variabilidad propia de cada caso.
+3c151320|Y listo.
+3cace158|Un espejo redondo que mira justo el lugar donde está es una lupa: agranda lo que tiene abajo.
+3cc6aaf9|Si nadie toca el botón, ¿se ejecuta la función?
+3d07924f|¡Ojo! Acá hay una trampa: la variable no se reinicia.
+3d1b6779|Cada octeto son 8 bits: en total, 32.
+3ddae8f0|Se muestra: 1, 2, 3, 4 1, 2, 3, 4 1, 2, 3, 4, 5 Terminó el programa.
+3de39c20|Ahora con Selective Repeat.
+3e28fd28|Entran 2 cuadrados de 462 de lado, y sobra una tira de 147.
+3f2dac26|Se llama a marcar sobre Alumno número 1.
+3f7ec0e8|Por eso se llama de mínimos cuadrados.
+4019da57|Mañana a la mañana tengo turno con el médico, así que llego más tarde.
+40b5b31a|Un test que falla no es una mala noticia: encontró un error antes que los usuarios.
+40cf403c|Es reflexiva, simétrica y transitiva: R es una relación de equivalencia.
+4136029e|Yo ya me iba, pero me quedé a ayudar con la mudanza.
+418f2d7a|Adentro, n vale 3.
+419cdc55|Abajo van los encabezados, como Host: www.ejemplo.com.ar.
+41a6fc27|El protocolo define cómo se hablan dos computadoras.
+428b08db|Con ORDER BY presentes DESC, ¿quién va a quedar primero?
+42df2d3e|DESC es de mayor a menor, y Diego tiene 14.
+42ea75a6|Ahora acercamos Q a P: h se hace cada vez más chico.
+43524aa1|¿Esta condición se cumple o no se cumple?
+43c3cc35|¿Qué hora va a ser dentro de 5 horas?
+43eba34b|Probalo vos.
+4495e2f2|Una dirección de red tiene cuatro números separados por puntos.
+44b705b0|Es el segundo clic.
+458054ad|Se parece a la normal, con colas un poco más gordas.
+45a2f58c|Enero, febrero, marzo, abril, mayo y junio.
+45cb772a|R al cuadrado.
+45e6fd74|En septiembre, el centro del Pacífico estuvo dos grados más caliente que lo normal: es un Niño fuerte.
+46196a6d|La hipótesis nula dice que no hay efecto; la alternativa, que sí lo hay.
+462cda22|Las ballenas llegan a la costa de Chubut en invierno.
+479e61d0|Para MB igual a 35, la recta estima segundos aproximadamente 9,7.
+47c7d284|El espejo siguió a la marca todo el tiempo.
+47eabcd7|Todavía le falta: con más pasos, o una tasa un poco mayor, llegaría.
+47f0038b|Adentro, nombre vale 'Lucía'.
+48881333|La bicicleta tiene la cadena floja y la rueda de atrás pinchada.
+48d69e41|Adentro de sumar, a vale 7 y b vale 10: devuelve 17, y eso se guarda en y.
+49133c1a|Pensalo como un rectángulo de 1071 por 462: buscamos el cuadrado más grande que lo llene justo, sin que sobre nada.
+494c9641|Da 192.168.10.64.
+49b7ca8d|Un diccionario no inventa valores: si la clave no está, es un error.
+49e48775|precio con iva termina y devuelve 121.0.
+4a52adf9|En stop-and-wait el emisor manda un paquete y espera su ACK antes de mandar el siguiente.
+4bfa6b84|¿Cuántas van a quedar?
+4c72d46c|Para estar más seguros hay que abrir más la red: con 99 por ciento el valor crítico sube a 2,947 y el intervalo se estira, de 9,09 a 14,91.
+4c9f5f3b|Al terminar, el valor de retorno vuelve a quien llamó a la función.
+4ccc51ea|En aritmética módulo 12 solo hay 12 números, del 0 al 11, en ronda como las horas de un reloj.
+4d5a7592|Más confianza, menos precisión.
+4e0cdc95|A las 19 es negativa, -3,54: el consumo ya está bajando.
+4f17a2ae|ticket termina y devuelve 302.5.
+4f267d56|Compré pan, leche, yerba y un paquete de galletitas.
+4f3898c7|Seguimos.
+4f9cb63d|Cada segmento rojo es un residuo: cuánto le erra la recta a ese punto.
+4fae69ba|Antes de hablar HTTP hace falta una conexión TCP: el saludo de tres vías, al puerto 80.
+4fbbaf27|Importamos la biblioteca, llamamos a la función y guardamos lo que devuelve.
+4ff83432|Muestra el resultado.
+507f593e|Mirá qué parte se ilumina en cada momento.
+50fbcf14|subtotal termina y devuelve 60.5.
+51ac3418|Clics: 2. clics guardaba 1 del clic anterior: 1 más 1 igual a 2. clics no volvió a 0: está afuera de la función, y guarda la cuenta entre un clic y otro.
+51f79c81|En cada punto, el gradiente gradiente de f apunta hacia donde f sube más rápido.
+52326872|Quedan 6 bits para los hosts.
+52e71793|Tres segmentos, y la conexión queda abierta en los dos sentidos.
+53395b5e|La probabilidad de sacar cara al tirar una moneda es un medio.
+536c66a8|La pregunta es cuánto mejor que el promedio predice la recta.
+53944041|Podés arrastrar la lupa con el mouse o con el dedo.
+5430eca7|Llegaron los 3 paquetes.
+546d3634|La raíz no la sabe, pero sabe quién maneja.ar: le contesta con los servidores de ese dominio.
+5521ab59|El test falla, encontramos el error, lo corregimos, y el test pasa.
+558544d4|Parece que cuando MB crece, segundos también: ¿qué recta las representa mejor?
+5676012b|La segunda: ¿dónde va a caer UNA observación nueva con x igual a 20?
+57634a74|Los datos viajan en paquetes, y cada paquete puede tomar un camino distinto.
+577d1545|¿Es la misma lista o es una copia? Es la misma.
+5788d266|Se muestra: Total: 302.5 Terminó el programa.
+57fa8b95|El arroz con leche se revuelve sin parar para que no se pegue.
+5840faee|Frente a Perú, en cambio, sube agua fría de las profundidades, y el mar es más frío.
+585cf0b4|La recursión se corta cuando se llega al caso base.
+58d32f88|Si el p-valor es menor que alfa, rechazamos la hipótesis nula.
+5920c513|El resolver le pasa la respuesta a la PC y la guarda en caché durante el TTL: la próxima vez contesta sin preguntarle a nadie.
+5a66aac3|sumar termina y devuelve 7.
+5aa28e93|¿Cuál va a ser más ancho: el intervalo para el consumo promedio con x igual a 20, o el de un intervalo puntual con x igual a 20?
+5aee3c6a|addEventListener no ejecuta la función: la deja anotada para cuando haya un clic.
+5b2517a9|ORDER BY presentes DESC: ordena el resultado de mayor a menor.
+5b3652b9|La relación R sobre 1, 2, 3, 4 se puede escribir como pares, dibujar como un dígrafo o poner en una matriz.
+5b62d580|La computadora tiene un procesador, memoria y un disco donde guarda los archivos.
+5b99bf2e|El for toma el primer elemento de la lista: n vale 4.
+5c2e9d19|Vence el timer: se reenvía desde el 2.
+5cddb865|Cuando el servidor también termina, manda su FIN.
+5cf58892|Adentro, cantidad vale 1 y precio vale 50.
+5db5b73a|Para entender un error, conviene leer el mensaje entero.
+5db8a51c|El R al cuadrado nunca baja, porque mínimos cuadrados puede usar la variable nueva aunque sea para ajustar casualidades.
+5dba0877|Si en vez del 95 por ciento queremos un intervalo del 99 por ciento, ¿qué le pasa?
+5e5d024e|Abrir, leer, procesar y cerrar el archivo: siempre en ese orden.
+5edc2085|Hacer una copia de seguridad lleva cinco minutos y puede salvar meses de trabajo.
+5eed034e|El gradiente apunta hacia donde f sube más rápido: para bajar, hay que ir al revés.
+5ff26952|Si a está relacionado con b, b también con a.
+606cf3a0|¿Qué tan seguros estamos?
+60c80c5a|Lo que queda, 5 por ciento, se reparte entre las dos colas.
+613d022a|Las lluvias se mudan con el agua cálida, y la atmósfera de todo el planeta se reacomoda.
+61da76f5|a es una lista con 3 elementos.
+62196c5a|El colectivo sesenta pasa cada doce minutos por la avenida.
+626e0f73|El cliente manda un paquete, y el servidor confirma que lo recibió.
+6278134c|El examen va a ser parecido a la práctica, pero con otros números.
+63953c2a|Mirá cómo baja la suma.
+639b70ee|La biblioteca del barrio presta libros por dos semanas.
+63a511eb|Guarden seguido, que la computadora se puede colgar en cualquier momento.
+63ad1b7e|Y la de broadcast, con todos los bits de host en 1: 192.168.10.127.
+6439e5fa|Su pendiente es lo que sube dividido lo que avanza: el cociente incremental.
+647c8b3d|Un número primo solo se divide por uno y por sí mismo.
+64a485b8|Y también b: son la misma lista.
+64cd4141|¿Y ahora? Ahora la variable vale diez.
+64ce9284|Rápido, que el remís ya está en la puerta.
+64e8aca8|Sobró una tira de 462 por 147.
+6513bb35|Si el ACK no llega a tiempo, lo reenvía.
+66b1878b|Se define la función sumar: todavía no se ejecuta, queda guardada para cuando se la llame.
+66c1e785|Al revés de gradiente de f.
+671685e4|El programa arranca por la primera línea.
+6747e649|Un error de redondeo puede arruinar el resultado de la resta.
+67678b0f|La cuenta da trescientos cuarenta y siete con veinte.
+67a0f447|Adentro, precio vale 100.
+67d47e0a|Sin el viento que la empuja, el agua cálida se reparte hacia el este, y frente a Perú deja de subir agua fría.
+6825f0da|Once, doce, trece, catorce, quince, dieciséis, diecisiete, dieciocho y diecinueve.
+6847115f|Está tan lejos que ni entra en el dibujo: la campana, a esa distancia, es prácticamente cero.
+68dcdc59|Pero todavía puede seguir mandando: la conexión se cierra de a un sentido por vez.
+691ea3ae|Repetimos con otras 24 muestras.
+695c60e4|Los domingos comemos asado en la casa de mis viejos.
+695caf96|Llamame cuando llegues, así me quedo tranquila.
+69edad24|Cuando crecen, se corre con ellas.
+69f03eab|En naranja, los 6 bits de host: cambian de una máquina a otra.
+6b06f48d|Resultado: 1 falla, 2 pasan.
+6b458d8d|Antisimétrica no: 1 y 3 son distintos, y hay flecha de ida y de vuelta.
+6b52a7bd|Se muestra: 2 Terminó el programa.
+6b6ef197|El coeficiente de determinación dice qué parte de la variabilidad explica la recta.
+6b91c3df|Un archivo de texto no tiene formato: solo letras, números y símbolos.
+6bbc5573|Fijate que siempre cruza las curvas en ángulo recto.
+6c9f52b4|Probá cambiar el valor y mirá cómo se mueve la recta.
+6cc9f983|b no es una copia: es la misma lista que a.
+6d019a4c|Si subimos el plano, la circunferencia se agranda: x al cuadrado más y al cuadrado igual a c tiene radio raíz de c.
+6d32b569|Un terremoto sacudió la región y derrumbó varias casas.
+6d8c4a8c|Un string es inmutable: cada cambio crea uno nuevo.
+6daf50c8|Transitiva: siempre que se puede ir de a a b y de b a c, también hay flecha directa de a a c.
+6de722fd|La entrega es el viernes, y se sube al aula virtual.
+6ec235bd|No es una copia: es la misma línea vista otra vez.
+6ecf44ad|El archivo pesa demasiado para mandarlo por correo.
+6f07bbae|Vence el timer: se reenvía desde el 1.
+6f7e2e54|cantidad pasa de 2 a 1. precio pasa de 100 a 50.
+6fa50471|Una función cuadrática tiene forma de parábola, con un vértice arriba o abajo.
+6fe9f6e8|Martín, Ana y Pablo tienen menos de 8.
+70186580|¡Ahí está! Ese es el caso que rompía todo.
+707562a8|Quedan 62 hosts, de 192.168.10.65 a 192.168.10.126.
+70d926e8|Si hubiera caído afuera, sería una extrapolación del modelo, no algo que dicen los datos.
+70f451ae|Perfecto.
+71086b99|El margen es t por el error estándar: 2,102.
+71300071|La red del instituto anda lenta cuando todos se conectan a la vez.
+71a2a861|Si llueve el sábado, suspendemos el partido y lo jugamos el miércoles.
+71df9d3a|Donde lo toca, queda una curva: x al cuadrado más y al cuadrado igual a 1, una circunferencia.
+72587844|Se agregó 5 a la lista c.
+72a39215|Norte, sur, este y oeste.
+72b253d0|La tasa es grande; un poco más, y diverge.
+737a384b|Un año normal, los vientos alisios soplan del este al oeste: de Sudamérica hacia Indonesia.
+73d9e6fb|Tenemos 8 mediciones.
+742897c1|sumar termina y devuelve 17.
+746aa881|Hay un pollito amarillo escondido debajo de la silla.
+748ebb58|Cada clic es una ejecución nueva de la función.
+74aeeb06|Las gallinas del gallinero pusieron siete huevos ayer.
+763debed|¿Cuántas filas van a cumplir presentes mayor o igual a 8?
+769752d4|Lucía no está en el diccionario.
+77316f5d|A la izquierda, las curvas de nivel de la función que queremos minimizar.
+774bc5b1|Elevar al cuadrado, sacar la raíz, y volver al número del principio.
+777a79b8|Contestá primero, y después mirá si acertaste.
+777b73e9|La contraseña tiene que ser larga, y no conviene usar la misma en todos lados.
+78a06ea2|El caballo se escapó del corral y apareció en la playa.
+7974bca5|El celular se actualizó solo durante la noche.
+7a2292d6|En la Argentina, el invierno es seco en el centro del país y lluvioso en la Patagonia andina, mientras que en el norte hace calor casi todo el año.
+7a343672|El programa arranca.
+7a792795|La derivada es eso: la pendiente de la recta que apenas toca la curva en ese punto.
+7a9c88bb|Resultado: 3 de 3: todos pasan.
+7ad7353b|Por eso, para comparar un modelo simple con uno múltiple, se usa el R al cuadrado ajustado.
+7af41129|Se agregó 4 a la lista a.
+7bea1299|Cortamos con un plano horizontal a la altura z igual a 1.
+7bfc4abe|¿Qué creés que va a pasar ahora?
+7cd5ab21|Adentro, n vale 2.
+7ce0a191|Hay dos preguntas distintas, y cada una tiene su intervalo.
+7d81701f|Simétrica: cada flecha tiene su vuelta.
+7e0ca3e7|Es la hora de mayor consumo según el modelo.
+7ea674fc|El paquete 2 se pierde en el camino: nunca llega al receptor.
+7ea99137|Empujan el agua cálida de la superficie, que se apila del lado de Indonesia.
+7f163442|Mirá la sombra en el piso: es el mismo camino que sobre las curvas de nivel.
+7f246a97|Como volvió a 1, arranca otra vez en slow start, duplicando hasta el umbral nuevo.
+802c3b9a|Si la giramos, ¿qué le va a pasar a la suma de los residuos al cuadrado?
+806ed277|La ventana de congestión crece mientras no haya pérdidas.
+814d64df|Enrique tiene una guitarra de cuerdas gastadas y un parrillero en el patio.
+8155c589|¿Alcanza para decir que está desajustada?
+8166d34c|El mate se ceba con agua caliente, nunca hirviendo.
+81b38f0b|El if decide, el else cubre el resto, y el elif agrega otros casos.
+82289445|Son las 9.
+826997cb|Trabajen de a dos: uno escribe y el otro revisa.
+82f7e823|Las cuentas de subredes se hacen con los bits, no con los números.
+832e3ec8|El servidor lo confirma.
+8387abe4|No sobra nada.
+8448d707|Israel y Rodrigo revisaron el registro antes de reiniciar el router.
+84d13539|¿Cuántas máquinas entran en la subred?
+85b1a5cf|El 95 por ciento de 25 es 23,75: alrededor de 24, a veces uno más o uno menos.
+86ffc464|¿Qué hacemos con el resto? Lo guardamos en otra variable.
+883557cc|También queda 1, 2, 3, 4. a y b son la misma lista: no hay dos listas, hay una sola con dos nombres.
+887efc44|Ya no quedan elementos: el for termina.
+88902a15|Si algo no se entiende, pregunten: no hay preguntas tontas.
+88d51bf7|R al cuadrado igual a 0,998: la recta explica el 100 por ciento de la variación de segundos.
+88d5b249|La condición se cumple: entra.
+88eb4c57|Con b igual a a, b no es una copia: es otro nombre para la misma lista.
+89012809|a es una lista.
+8923dd69|Es una consulta recursiva: quiere la respuesta final, no una pista.
+89408116|¿Alcanza con un solo test, o hace falta más de uno?
+89690253|Reflexiva: todos los elementos tienen su lazo.
+89d4958c|otra no es una copia: es el mismo objeto que lucia.
+8a0d0456|Conviene volver a calibrarla.
+8a2a7571|Cuando h tiende a cero, la secante se convierte en tangente.
+8ba42db7|Vamos a resolver este ejercicio entre todos, en el pizarrón.
+8bcfd2cb|iva vale 21.0.
+8bda8978|Vence el timer del 2: se reenvía solo ese.
+8c900dd3|Sacamos una muestra de 16 y armamos su intervalo del 95 por ciento: de 11,8 a 16,4.
+8cee7be1|Tengo ciento veintitrés mensajes sin leer y ninguna gana de leerlos.
+8d17aab4|Cada dos a siete años, el agua de la superficie se calienta más de lo normal: eso es El Niño.
+8d33f254|Recién ahora se ejecuta la función.
+8d524a04|24 de 25.
+8d7469d5|Se muestra: 24 Terminó el programa.
+8db73087|Cuando terminemos este tema, van a poder leer un programa ajeno y entender qué hace, aunque nunca lo hayan visto antes.
+8eeeacd6|Y está dentro del rango de horas observado, de 0 a 24, así que tiene sentido interpretarlo.
+8fdda939|Para cada número de la lista, sumar uno al contador.
+9097779d|Vence el timer del paquete 2.
+9165f66b|Honrar la palabra es raro en estos tiempos, decía mi abuela.
+91c48a50|Antisimétrica no: 1 y 2 son distintos, y hay flecha de ida y de vuelta.
+9216f08d|¿Qué va a mostrar la consola?
+9278ba82|Si la clave no está, Python se corta con un KeyError.
+929aaf35|se corre hacia Sudamérica.
+930e4c22|La pantalla se apaga sola después de diez minutos sin usarla.
+938f6f3e|Listo.
+939e8bf5|self tiene un atributo nuevo: nombre vale 'Lucía'.
+93a28a7f|Con estos 20 paquetes no hay evidencia suficiente para decir que la máquina esté desajustada: un promedio de 498,6 g es esperable por azar aunque llene bien.
+948b2bdf|Cada paso es más corto que el anterior porque, cerca del mínimo, el gradiente se achica.
+9582353d|Asignarle algo a una clave nueva la agrega: ahora también está Cami.
+95852a88|Mi hermana estudia enfermería y trabaja de noche en el hospital.
+9601bcbf|Del 2 al 5.
+967a53f0|La pendiente dice cuánto cambia segundos, en promedio, por cada unidad de MB: 0,262.
+96af4dcb|¿Te parece que la pendiente es positiva o negativa?
+96dc3e4a|El programa terminó, y la página espera.
+97a8cc05|factorial termina y devuelve 6.
+98d5a396|Recién ahora SELECT: de cada fila quedan solo las columnas pedidas, nombre y presentes.
+998df1b7|Pausá y pensalo.
+99b277f4|Los elevamos al cuadrado y los sumamos.
+99ddb066|c es una copia: tiene lo mismo que a, pero es otra lista.
+9a42a788|¡Cuidado con dividir por cero!
+9ab49588|Confiamos en el método.
+9adb4d74|¿Funciona? Todavía no, pero estamos cerca.
+9b15933e|En slow start, por cada ACK la ventana crece un segmento: en cada ronda se duplica.
+9ba95512|Converge, pero lentísimo.
+9bdb246e|Si dos nombres apuntan a la misma lista, cambiar una cambia la otra, porque en realidad no hay dos listas: hay una sola, con dos nombres.
+9d7cae5a|Se muestra: 7 17 Terminó el programa.
+9db7c5c1|Rebota cada vez más lejos: diverge.
+9e18fd0e|La única forma de tener las dos cosas es juntar más datos: el error estándar se achica con raíz de n.
+9e52ebe0|La media de cuatro, seis y ocho es seis.
+9ec62e26|Cumplen 3 de 6.
+9fb99e3c|Vos tenés que decidir qué número va a imprimir el programa.
+a0030d4b|¿Te animás a probarlo? Dale, que no se rompe nada.
+a021b5a7|Me olvidé el paraguas en el colectivo, otra vez.
+a1654127|Que cierre no es casualidad: pasa porque los residuos de mínimos cuadrados suman cero y no tienen relación con x.
+a1a0477b|Hasta la próxima.
+a1ee88fa|La derivada es la pendiente de la recta tangente en ese punto.
+a2371720|Se define la función ticket: todavía no se ejecuta, queda guardada para cuando se la llame.
+a2f7b385|Cuando un programa no hace lo que esperamos, lo mejor es ir línea por línea, mirando cómo cambia cada variable, hasta encontrar el lugar exacto donde se separan lo que creíamos y lo que pasa.
+a31f052c|SQL se escribe empezando por SELECT, pero la base lo ejecuta en otro orden.
+a353c4b9|Por eso la banda de predicción abarca a casi todos los puntos.
+a3b6eec6|En la columna de una clase el código se ve chico.
+a3d00334|¿Cuántas veces se repite el bucle?
+a4a8bb7f|compra es una lista con 2 elementos.
+a5383f1d|En una red, cada computadora tiene una dirección, y los paquetes saltan de una a otra hasta llegar a destino, como cartas que pasan por varias oficinas de correo.
+a5ba2176|Son cuatro números de 0 a 255, uno por octeto.
+a659e475|Es decir, el consumo promedio de todos los casos con x igual a 20.
+a6daca7d|y vale 17.
+a745f1ab|El ACK 1 se pierde: el receptor sí recibió el paquete, pero el emisor no se entera.
+a7a8bfbb|Ayer llovió toda la tarde y la calle quedó llena de charcos.
+a83c8f2e|La página vuelve a esperar.
+a89703f4|¿Qué paquetes va a reenviar el emisor?
+a9b63b3d|La inteligencia artificial ayuda, pero hay que revisar lo que propone.
+a9fa6008|No es lo mismo, para nada: una es una copia, y la otra es la misma lista.
+aa47a5e7|Fijate qué pasa con la variable cuando entra al bucle.
+aa537042|Lunes, martes, miércoles, jueves, viernes, sábado y domingo.
+aa7fad38|La torre del reloj marca la hora en el centro del pueblo.
+ab551b56|Pero ojo: los datos van de 5 a 50.
+acd6d945|El llavero se cayó en la alcantarilla de la calle Mayo.
+ad470e78|Hubo 1 retransmisión.
+ad65c847|¡Muy bien! Ahora probemos con un caso más difícil.
+ae039a51|Baja hasta un mínimo.
+ae10389c|Nadie escribió dónde va cada caja: solo en qué orden van.
+af264977|Adentro, a vale 7 y b vale 10.
+b050d5c7|En la cima y en el fondo queda horizontal: ahí las dos derivadas parciales valen 0.
+b068b9c4|Si el punto se mueve, el plano lo acompaña.
+b07805d1|Una nube sin tendencia.
+b1140573|suma vale 0.
+b149baca|¿Qué tan empinada es en x igual a 1?
+b17ab4eb|otra.marcar le suma un presente a otra.
+b18aa9d1|Se reinicia el servidor y se recarga la página desde cero.
+b254e039|clics más 1: ahora vale 1.
+b346f4a7|No: espera el clic.
+b37a8935|De noche es bajo, sube con el turno y vuelve a bajar: una recta no va a poder seguir eso.
+b3810bd6|Tercera vuelta: n vale 15.
+b3fcb8fa|La ventana viene 1, 2, 4.
+b4318aa3|Ahí el mar está caliente, y llueve mucho.
+b4740b46|La función recibe dos parámetros y devuelve un solo resultado.
+b4b2c18f|Una diferencia de 1,4 g es mucho o poco según el desvío y la cantidad de datos: eso mide T.
+b4d9ca83|Si el resultado no es el que esperabas, no te frustres: cada error es una pista que te acerca a la solución.
+b52e8548|Listo: el resultado tiene 2 filas.
+b5895dea|Diego.
+b59bca5f|Y este año, ¿qué esperar?
+b5ba9889|Leer, escribir, borrar y volver a empezar: así se programa.
+b5bb73cd|El teclado tiene la eñe en su lugar, al lado de la ele.
+b6030ef0|El plano tangente es el que apenas toca la superficie en ese punto: tiene la misma inclinación en todas las direcciones.
+b6174363|La lluvia de anoche llenó el arroyo hasta el borde.
+b61b0103|Y se puede mover a cualquier lado: arrastrala con el mouse o el dedo.
+b6dfbb38|Adentro, precio vale 50.
+b742d8b9|El precio subió un quince por ciento en un solo mes.
+b74dbaee|total vale 17.
+b7b19486|El gradiente apunta hacia donde la función crece más rápido.
+b7e1bef1|La integral es el área debajo de la curva.
+b83369c5|Y no es una sola: depende de la hora.
+b864ae49|Con los datos, T igual a 3,52.
+b8702ae0|Después WHERE presentes mayor o igual a 8: revisa fila por fila, y se queda solo con las que cumplen.
+b870760d|Me llevé la silla al balcón para mirar las estrellas.
+b92e7d5e|boton es el botón de la página.
+b9338202|Quiero aprender a programar para crear mis propios juegos.
+b9bb7ca3|El perro de la vecina ladra cada vez que pasa el cartero.
+bae2d74d|Se define la clase Alumno: es el molde, todavía no hay ningún objeto.
+bb1cf727|En Selective Repeat el receptor guarda los que llegan fuera de orden y confirma cada uno por separado.
+bb809617|La recta explica el 86,1 por ciento de la variabilidad de kWh.
+bb90e835|Después WHERE curso igual a 'Programación' AND presentes mayor que 8: revisa fila por fila, y se queda solo con las que cumplen.
+bbb2a2bf|El cuadrático supone que la tasa de cambio va cambiando, y que en algún momento se da vuelta.
+bbb727e8|Lo bueno es que la cuenta cierra también con los cuadrados.
+bc131f0f|Pero la recta salió de una muestra: con otros datos sería otra.
+bc5e6be8|Tres coma catorce dieciséis es una aproximación de pi.
+bc6ff85d|En decimal, 255.255.255.192.
+bce24dd9|¿Hasta cuándo sigue el bucle? Hasta que la condición sea falsa.
+bd4b2865|El yuyo creció tanto que tapó la ventana de la cocina.
+bd51ada9|El cliente confirma y espera un rato en TIME-WAIT, por si ese último ACK se pierde y hay que repetirlo.
+bdb74919|Tenemos una muestra de 16 mediciones de minutos.
+bddbc90c|Ese reacomodo llega hasta acá: en la Argentina, El Niño suele traer más lluvias en primavera y en verano.
+be28c8fa|El mejor momento para escribir un test es antes de escribir el código.
+be99b4a9|Escribí tu programa a la izquierda y la animación se arma sola.
+beeef061|100 dividido 12 da 8 y sobra 4: es dar 8 vueltas enteras al reloj y avanzar 4 más.
+bf0b6828|La varianza mide qué tan desparramados están los datos alrededor de la media.
+bf599ce5|Cumplen 2 de 6.
+c03547f7|Según Noá, lo más probable es que siga fuerte, o muy fuerte, hasta el verano.
+c1693003|Queremos el máximo común divisor de 1071 y 462.
+c17d2205|El programa pregunta el nombre y lo guarda en una variable.
+c18979df|factorial termina y devuelve 2.
+c1e95700|Con 99 por ciento los mismos intervalos se estiran: ahora atrapan 25 de 25.
+c288db3e|Eso es dividir: 1071 igual a 2, 462 más 147.
+c31348cb|El cuadrado de un número negativo es positivo.
+c3733759|No quedan elementos: termina el for.
+c4791656|Cada altura deja su curva.
+c4f71949|El consumo promedio de cada hora del día.
+c529f09b|R al cuadrado no dice que kVarh cause kWh: una correlación alta puede venir de una tercera variable que mueve a las dos.
+c5d623cc|Adentro, n vale 1.
+c5ee4aa5|Al pasar el 11, se vuelve al 0.
+c60c2fc6|Lo que se marca allá se marca acá.
+c60cba62|Ojo: los límites iterados dan 0 los dos, y aun así el límite no existe.
+c6223897|Dos rectas paralelas tienen la misma pendiente y nunca se cruzan.
+c671fb6c|Es una respuesta iterativa.
+c6e5935d|Para ser de equivalencia necesita ser reflexiva, simétrica y transitiva; para ser de orden, reflexiva, antisimétrica y transitiva.
+c6eb17d9|Adentro, n vale 4.
+c74bbe66|R no es de equivalencia ni de orden.
+c7bfa96e|Un objeto tiene atributos y métodos, y self es el objeto mismo.
+c8444aa2|Vence un timer: algo se perdió y no llegan ACK.
+c880a9be|Veinte, treinta, cuarenta, cincuenta, sesenta, setenta, ochenta, noventa y cien.
+c8fa1f18|Buen día a todos, hoy vamos a ver cómo funciona un bucle.
+c930923f|Ese es el intervalo de confianza para la respuesta media: 29,66; 33,42.
+c9e86c88|Para llegar al mínimo, ¿para dónde conviene moverse?
+ca9c1d5d|Ahora entran 7 cuadrados de 21 justos: el resto es 0.
+caab01f2|¿Se puede hacer más corto? Sí, pero se entiende menos.
+cac6f9c1|Si lo calculamos para cada x, queda una banda.
+cbe47f25|La dirección de red es la IP con todos los bits de host en 0: un AND bit a bit con la máscara.
+cceb7d74|Aprender a programar no es memorizar comandos: es aprender a partir un problema grande en problemas chicos, y resolverlos de a uno.
+cd2ddf02|Rosa arregló la radio roja que estaba rota desde el martes.
+cd624b34|La flecha está enganchada al costado izquierdo de las dos listas.
+cdc94520|Lo de la derecha está pegado al costado derecho de a: también se corre, sin que nadie calcule cuánto.
+cdd2ff23|Adentro, cantidad vale 2 y precio vale 100.
+cdfbbaa2|Segunda vuelta: n ahora vale 8.
+ce5d7cce|Es el intervalo de predicción: 19,53; 43,55.
+ce6e35a0|¿Qué creés que pasa con el agua cálida si los alisios se debilitan?
+ce7916b7|En el modelo lineal la derivada es siempre la pendiente, 1,25: supone que el consumo cambia igual a cualquier hora.
+ce87668b|Vamos de nuevo.
+ce928336|Arriba del cerro hay un refugio redondo y un reloj enorme.
+ce9847f2|Para leerla por hora, se multiplica por 3600.
+cef2d24f|Uno, dos, tres, cuatro, cinco, seis, siete, ocho, nueve y diez.
+cf1c0b08|numeros guarda una lista con tres números.
+cf5ae1bd|Las raíces n-ésimas de cualquier número complejo son siempre los vértices de un polígono regular de n lados.
+cf8b3071|Un índice fuera de rango es uno de los errores más comunes.
+cfb3ccdd|Solo el 2.
+cfd47c79|La condición no se cumple: la saltea.
+d010d092|La llave de la puerta amarilla está arriba de la heladera.
+d0e7833e|La recta que los une es una secante.
+d1ab1488|El desvío estándar es la raíz cuadrada de la varianza.
+d1b0525a|Llegué tarde porque el subte estuvo parado veinte minutos.
+d38657ee|Eso es todo por hoy.
+d3d0a21f|27. total más n es 12 más 15, y eso se guarda en total: 27.
+d47156c9|Un algoritmo es una receta: una serie de pasos que siempre terminan.
+d4d1e479|¿Por qué falla? Porque la lista está vacía y no lo tuvimos en cuenta.
+d546b851|Hacemos lo mismo con todos, elevamos al cuadrado y sumamos.
+d5eef1e2|La diferencia entre un buen programa y uno malo no está en que funcione, sino en que otra persona lo pueda leer, entender y cambiar sin miedo.
+d62d2f8e|Eso es el 95 por ciento: no habla de UN intervalo, habla del método.
+d6e7e136|El servidor de.ar tampoco: deriva a los servidores de ejemplo.com.ar, que tienen la delegación.
+d735d34a|¡Listo! El test pasó, y la barra se puso verde.
+d7abbf20|Se pasa de largo y diverge.
+d81d56a8|El descenso del gradiente da pasos en la dirección contraria.
+d83622fe|Y en la cordillera, de Mendoza a la Patagonia, Neuquén incluido: ahí llegan más lluvias y más nevadas.
+d986d519|La rueda gira, la rampa baja, y el robot reacciona.
+d9d46bf9|La derivada dice cuánto cambia el consumo por cada hora que pasa, en kWh por hora.
+da1412ef|El error: 10 división entera 20 da 0, porque la división entera redondea para abajo, y 0 por 100 es 0.
+da8359ec|Cayó en la zona roja.
+dabd5bd7|En otoño las hojas de los plátanos tapan las veredas.
+dadc6c76|El pollo con papas es lo que más me gusta del domingo.
+db040635|Está dentro del rango de los datos, así que es una estimación razonable.
+db2f0e6d|Hay que tener paciencia: lo que se aprende de a poco, se queda.
+db9e1ccd|El rastrillo, la regadera y la rastra están en el galpón de atrás.
+dc476b83|iva vale 10.5.
+dc8cefb1|Es una congestión leve.
+dca590fd|Llegaron los 7 paquetes.
+dcd2ea94|Este ejercicio tiene trampa: lean bien qué pide.
+dcd99e24|El ruido del tráfico no me dejó dormir en toda la noche.
+dd54c9c0|Listo: el resultado tiene 3 filas.
+dd5d6963|La consulta toma la tabla, filtra las filas y ordena el resultado.
+deae0ad4|Sabés más de lo que creés: confiá en lo que ya aprendiste.
+deb7f968|El profesor explicó por qué el árbol binario se recorre en orden.
+e06425bf|Un test automático es como un compañero que revisa tu trabajo cada vez que cambiás algo, sin cansarse nunca.
+e06ebad4|Se vuelven a correr todos los tests, no solo el que fallaba.
+e0a49524|¿Cuál es el cuadrado más grande que entra en ella?
+e10b443b|Con una sola muestra, que es lo que pasa en la realidad, no sabemos si nos tocó uno verde o uno rojo.
+e14ea322|¡No, todavía no! Primero hay que guardar el valor.
+e2f04b5f|Rojo, amarillo, verde: así se ve un test que falla, se corrige y pasa.
+e2ff91c0|¿Cuánto vale total después de la tercera vuelta?
+e36f6418|Tres por cuatro, doce; cuatro por cuatro, dieciséis.
+e37a2c92|El bucle infinito no termina nunca: hay que cortarlo a mano.
+e3aacb2e|Una fila acomoda sus piezas una al lado de la otra.
+e3b56fd2|La verdulería de enfrente tiene las mejores mandarinas del barrio.
+e3ff4a05|Va tanteando cuánto aguanta la red.
+e4831407|¿Qué número es esa proporción?
+e490b720|Pasa por la columna de los presentes, fila por fila.
+e50bcb89|Hay cuatro factorial esperando, y el de arriba va a devolver 1.
+e52390af|¿Cómo sabemos que el resultado está bien?
+e530c782|Si acercamos Q a P, ¿a qué número se va a acercar la pendiente de la secante?
+e5ecc8f0|¿Qué número de ack le va a contestar el servidor?
+e5fd4a5d|Esto es importante: la copia y el original son dos cosas distintas.
+e64262e2|El espejo muestra agrandada la línea que corre, al lado de las variables.
+e64be9f1|¿Cuánto va a valer lucia.presentes?
+e71e2aab|Primero FROM: la consulta toma la tabla alumnos, con sus 6 filas.
+e86cc85a|Ahora el código hace lo que los tests dicen que tiene que hacer.
+e8a54c9b|Se agranda.
+e8d48e7b|¿Dónde está el error en este programa?
+e8e3643f|En Selective Repeat el emisor puede tener hasta 4 paquetes en viaje sin confirmar: es su ventana, el recuadro de arriba.
+e935e0b7|¿Qué pasa con a?
+e9469d81|A las 7, la derivada vale 4,67: a esa hora el consumo sube unos 4,7 kWh por cada hora que pasa.
+e947d77a|Otra vez: se calcula el gradiente en el punto nuevo, y se da otro paso.
+e9e1bb02|total vale 242.0.
+eab78cee|Despacio, que estoy apurado, decía un general.
+eb26727a|La máscara de subred dice qué parte de la dirección es la red y qué parte es el equipo.
+ebd898a6|Más o menos 24.
+ebf1ff22|Un mensaje a esa dirección le llega a todas las máquinas de la subred.
+ec11aa37|El tren de las ocho y cuarto viene siempre lleno.
+ecb08eb0|¿Te acordás de lo que hacía la función que vimos antes?
+ecc7146f|Por eso se suelen estandarizar antes.
+edc66ee7|clics empieza en 0.
+edcb600a|El SYN ocupa un número de secuencia: el próximo que espera es el 1001.
+edd8ce32|Ya está: la lluvia paró y salió el sol sobre la ruta.
+edff667b|Da menos de 0,0001.
+ee42a186|El índice empieza en cero, no en uno: el tercer elemento es el número dos.
+ee850d66|La regresión arroja una recta que resume la relación entre las dos variables.
+f034db9d|Multiplicar es sumar varias veces: 5 saltos de 4, arrancando en 0.
+f051f680|La función queda esperando: corre una vez por cada clic, y si no hay clics, nunca.
+f0b8fd81|Con pegado de 1 a 0, la nota se despega de a poco y vuelve a su lugar propio.
+f0e88caa|Es congestion avoidance.
+f1aebfc0|Si una crece, corre a las que vienen después.
+f2081a21|cantidad vale 2. precio vale 100.
+f22c97ab|Que la pendiente sea significativa no dice que sea grande ni que la relación sea causal: dice que, si no hubiera relación, sería rarísimo ver una pendiente así.
+f2323e6f|Se define la función subtotal: todavía no se ejecuta, queda guardada para cuando se la llame.
+f286ef79|Ricardo regaló rosas rojas a su ruidosa sobrina Romina.
+f2da16cb|Sin conexión persistente, cada recurso pagaría otra vez el saludo de tres vías.
+f33d6e97|En azul, los 26 bits de red: son iguales para toda la subred.
+f3a49334|Primero se compara, después se ordena, y por último se imprime.
+f3b320fd|Con AND, una fila tiene que cumplir las dos condiciones.
+f4338284|¡Qué lindo cuando todo anda a la primera!
+f4391892|El total pasó de 3000: el envío es gratis.
+f4423243|Copien el enunciado y piensen cinco minutos antes de escribir código.
+f471e086|Hoy cerramos el tema de funciones y la semana que viene empezamos con objetos.
+f4d045ba|La parte verde de la barra es la variabilidad que explica la recta.
+f577fec3|La línea punteada es el umbral: 8.
+f59b27d3|Por eso al verificarlo con los datos tiene que dar exacto, salvo redondeo.
+f5d23d6c|La temperatura bajó a menos tres grados durante la noche.
+f5f36a05|Al leer el HTML, el navegador encuentra más recursos y los pide.
+f617535e|El perro corrió por la orilla del río hasta el ferrocarril.
+f65b74d1|Son las nueve y media de la mañana del martes catorce.
+f67b2a9b|Con la de ruido baja de 0,8537 a 0,852: la variable no aporta.
+f67e823c|¿Cuánto tarda? Depende de cuántos datos haya.
+f6c638f3|¿Qué pasa en la línea 4?
+f7607616|self tiene un atributo nuevo: presentes vale 0.
+f7f29ae6|Vuelve a donde se había llamado a la función.
+f8c1fd57|Acá, 9353,71 igual a 8049,52 más 1304,19.
+f8c499b6|El promedio dio 498,6 g, 1,4 g menos que 500.
+f8d7d56f|En un reloj de 12, después del 11 viene el 0.
+f8f6c7f6|TCP no sabe cuánto aguanta la red, así que arranca con una ventana de 1 y la va agrandando.
+f9983514|Rocío recorre el barrio repartiendo revistas.
+f9aaba11|Vuelve al for, a buscar el siguiente.
+f9c4f21d|La pila de llamadas crece con cada función que se llama, y se achica cuando termina.
+f9e1b86a|Hoy me levanté temprano, salí a caminar y desayuné tranquilo.
+fa44843e|Una variable es una caja con un nombre que guarda un valor.
+fa9f45d0|100 y 4 están en la misma clase: dejan el mismo resto al dividir por 12.
+faa9b6b0|Ahora la giramos sobre el punto promedio.
+fb6e311c|La recta queda casi plana.
+fb8c68a3|Es la señal más grave.
+fcf74ff1|No se preocupen si no les sale a la primera: a nadie le sale.
+fcf781a3|Un while repite mientras la condición sea verdadera.
+fd01a47d|Esa flecha no tiene vuelta.
+fd8a2e32|Así se ve TCP en una conexión larga: sube hasta que algo se pierde, baja, y vuelve a subir.
+fdd1a7f1|El cerrajero arregló la cerradura y cobró carísimo.
+fe042eb6|En la vida real nunca la conocemos: por eso estimamos.
+fe078cc3|La estadística no da certezas: da una medida de qué tan seguros podemos estar, y eso ya es muchísimo.
+febac0b5|Levanten la mano si el programa les tiró un error.
+ffcd8cdf|Julio, agosto, septiembre, octubre, noviembre y diciembre.
+ffd57078|El rollo de cable está en el cajón de abajo, al lado de la pinza.

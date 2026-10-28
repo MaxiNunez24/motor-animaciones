@@ -75,6 +75,259 @@ function limitar(valor, min, max) {
   return Math.min(Math.max(valor, min), max);
 }
 
+// src/piezas/geometria.js
+function posicionAbsoluta(id, estado, tipos) {
+  const p = estado.piezas[id];
+  const tam = tipos[id].tamano?.(p) ?? { ancho: 0, alto: 0 };
+  const c = tipos[id].centro?.(p) ?? { x: 0, y: 0 };
+  let x = p.x + c.x * p.escala;
+  let y = p.y + c.y * p.escala;
+  let escala = p.escala;
+  let padre = p.dentro;
+  while (padre != null) {
+    const pp = estado.piezas[padre];
+    const o = tipos[padre].origenContenedor?.(pp) ?? { x: 0, y: 0, escala: 1 };
+    x = pp.x + pp.escala * (o.x + o.escala * x);
+    y = pp.y + pp.escala * (o.y + o.escala * y);
+    escala *= pp.escala * o.escala;
+    padre = pp.dentro;
+  }
+  return { x, y, ancho: tam.ancho * escala, alto: tam.alto * escala };
+}
+function aCoordenadasDe(punto, contenedor, estado, tipos) {
+  const donde = (x, y) => {
+    const falso = { piezas: { ...estado.piezas, __punto: { x, y, escala: 1, dentro: contenedor } } };
+    return posicionAbsoluta("__punto", falso, { ...tipos, __punto: {} });
+  };
+  const origen = donde(0, 0);
+  const escala = donde(1, 0).x - origen.x || 1;
+  return { x: (punto.x - origen.x) / escala, y: (punto.y - origen.y) / escala, escala };
+}
+function caminoFlecha(a, b, curvatura = 0, separacion = 0) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const largo2 = Math.hypot(dx, dy) || 1;
+  const c = {
+    x: (a.x + b.x) / 2 - dy / largo2 * curvatura * largo2,
+    y: (a.y + b.y) / 2 + dx / largo2 * curvatura * largo2
+  };
+  if (curvatura === 0) {
+    const p0 = bordeHacia(a, b, separacion);
+    const p1 = bordeHacia(b, a, separacion);
+    return { p0, c: { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 }, p1 };
+  }
+  return { p0: bordeHacia(a, c, separacion), c, p1: bordeHacia(b, c, separacion) };
+}
+function bordeHacia(r3, hacia, separacion) {
+  const dx = hacia.x - r3.x;
+  const dy = hacia.y - r3.y;
+  const d = Math.hypot(dx, dy);
+  if (d === 0) return { x: r3.x, y: r3.y };
+  const ux = dx / d;
+  const uy = dy / d;
+  const mx = (r3.ancho ?? 0) / 2;
+  const my = (r3.alto ?? 0) / 2;
+  const hastaBorde = Math.min(
+    ux === 0 ? Infinity : mx / Math.abs(ux),
+    uy === 0 ? Infinity : my / Math.abs(uy)
+  );
+  const t = (Number.isFinite(hastaBorde) ? hastaBorde : 0) + separacion;
+  return { x: r3.x + ux * t, y: r3.y + uy * t };
+}
+function puntoCurva({ p0, c, p1 }, u) {
+  const v = 1 - u;
+  return {
+    x: v * v * p0.x + 2 * v * u * c.x + u * u * p1.x,
+    y: v * v * p0.y + 2 * v * u * c.y + u * u * p1.y
+  };
+}
+function anguloCurva({ p0, c, p1 }, u) {
+  const dx = 2 * (1 - u) * (c.x - p0.x) + 2 * u * (p1.x - c.x);
+  const dy = 2 * (1 - u) * (c.y - p0.y) + 2 * u * (p1.y - c.y);
+  return Math.atan2(dy, dx);
+}
+var TRAMOS = 32;
+function medirCurva(curva2) {
+  const largos = [0];
+  let anterior = curva2.p0;
+  for (let i = 1; i <= TRAMOS; i++) {
+    const p = puntoCurva(curva2, i / TRAMOS);
+    largos.push(largos[i - 1] + Math.hypot(p.x - anterior.x, p.y - anterior.y));
+    anterior = p;
+  }
+  return largos;
+}
+function uParaFraccion(largos, fraccion) {
+  const total = largos[TRAMOS];
+  if (fraccion <= 0 || total === 0) return 0;
+  if (fraccion >= 1) return 1;
+  const objetivo = fraccion * total;
+  let i = 1;
+  while (largos[i] < objetivo) i++;
+  const tramo = largos[i] - largos[i - 1];
+  const dentro = tramo === 0 ? 0 : (objetivo - largos[i - 1]) / tramo;
+  return (i - 1 + dentro) / TRAMOS;
+}
+function cortarCurva({ p0, c, p1 }, u) {
+  const c2 = { x: p0.x + (c.x - p0.x) * u, y: p0.y + (c.y - p0.y) * u };
+  return { p0, c: c2, p1: puntoCurva({ p0, c, p1 }, u) };
+}
+function partirLineas(texto3, maxCaracteres = 0) {
+  const parrafos = String(texto3 ?? "").split("\n");
+  if (!(maxCaracteres > 0)) return parrafos;
+  const lineas = [];
+  for (const parrafo of parrafos) {
+    let actual = "";
+    for (const palabra of parrafo.split(" ")) {
+      const prueba = actual ? `${actual} ${palabra}` : palabra;
+      if (largo(prueba) > maxCaracteres && actual) {
+        lineas.push(actual);
+        actual = palabra;
+      } else {
+        actual = prueba;
+      }
+    }
+    lineas.push(actual);
+  }
+  return lineas;
+}
+function revelar(lineas, escrito) {
+  if (escrito >= 1) return lineas;
+  const total = lineas.reduce((n2, l) => n2 + largo(l), 0);
+  let quedan = Math.floor(total * Math.max(escrito, 0) + 1e-9);
+  return lineas.map((l) => {
+    const letras = Array.from(l);
+    const visibles = letras.slice(0, quedan).join("");
+    quedan = Math.max(quedan - letras.length, 0);
+    return visibles;
+  });
+}
+function largo(texto3) {
+  return Array.from(texto3).length;
+}
+var ANCHO_LETRA = 0.55;
+
+// src/nucleo/vinculos.js
+var LADOS = ["derecha", "izquierda", "arriba", "abajo", "centro"];
+function revisarVinculos(piezas) {
+  const enFila = {};
+  for (const [id, p] of Object.entries(piezas)) {
+    const pegar = p.base.pegar;
+    if (pegar != null) {
+      if (typeof pegar !== "object" || typeof pegar.a !== "string") {
+        throw new Error(`"${id}" tiene pegar, pero le falta "a": el id de la pieza a la que se pega, por ejemplo pegar: { a: 'caja', lado: 'derecha' }.`);
+      }
+      if (!piezas[pegar.a]) throw new Error(`"${id}" se pega a "${pegar.a}", y no hay ninguna pieza que se llame as\xED.`);
+      if (pegar.lado != null && !LADOS.includes(pegar.lado)) {
+        throw new Error(`"${id}" se pega del lado "${pegar.lado}": los lados son ${LADOS.join(", ")}.`);
+      }
+    }
+    if (p.tipo.nombre === "fila") {
+      for (const hijo of p.base.piezas) {
+        if (!piezas[hijo]) throw new Error(`La fila "${id}" lleva "${hijo}", y no hay ninguna pieza que se llame as\xED.`);
+        if (enFila[hijo]) throw new Error(`"${hijo}" est\xE1 en dos filas: "${enFila[hijo]}" y "${id}".`);
+        if (piezas[hijo].base.pegar != null) throw new Error(`"${hijo}" est\xE1 en la fila "${id}" y adem\xE1s pegada a otra pieza: es una cosa o la otra.`);
+        enFila[hijo] = id;
+      }
+    }
+  }
+  return enFila;
+}
+function hayVinculos(piezas) {
+  return Object.values(piezas).some((p) => p.base.pegar != null || p.tipo.nombre === "fila");
+}
+function resolverVinculos(props, tipos, enFila) {
+  const estado = { piezas: props };
+  const medidas2 = {};
+  const medir3 = (id, camino = /* @__PURE__ */ new Set()) => {
+    if (medidas2[id]) return medidas2[id];
+    if (camino.has(id)) throw new Error(`La fila "${id}" est\xE1 dentro de s\xED misma.`);
+    camino.add(id);
+    const f = props[id];
+    const horizontal = f.direccion !== "vertical";
+    let largo2 = 0;
+    let ancho = 0;
+    const tramos = f.piezas.map((hijo, k) => {
+      if (tipos[hijo].nombre === "fila") medir3(hijo, camino);
+      const t = posicionAbsoluta(hijo, estado, tipos);
+      const [a, b] = horizontal ? [t.ancho, t.alto] : [t.alto, t.ancho];
+      const hueco = k === 0 ? 0 : f.separacion * Math.min(Math.max(props[hijo].escala, 0), 1);
+      largo2 += hueco + a;
+      ancho = Math.max(ancho, b);
+      return { hijo, largo: a, ancho: b, hueco };
+    });
+    f.ancho = horizontal ? largo2 : ancho;
+    f.alto = horizontal ? ancho : largo2;
+    return medidas2[id] = { tramos, largo: largo2, ancho, horizontal };
+  };
+  for (const id of Object.keys(props)) if (tipos[id].nombre === "fila") medir3(id);
+  const listo = /* @__PURE__ */ new Set();
+  const resolver = (id, camino = /* @__PURE__ */ new Set()) => {
+    if (listo.has(id)) return;
+    if (camino.has(id)) throw new Error(`"${id}" depende de s\xED misma dando una vuelta: revis\xE1 los pegar y las filas.`);
+    camino.add(id);
+    const p = props[id];
+    if (p.dentro != null) resolver(p.dentro, camino);
+    const fila2 = enFila[id];
+    if (fila2) {
+      resolver(fila2, camino);
+      ubicar(id, lugarEnFila(fila2, id), p);
+    } else if (p.pegar != null) {
+      resolver(p.pegar.a, camino);
+      ubicar(id, lugarPegado(id, p.pegar), p);
+    }
+    listo.add(id);
+  };
+  const lugarEnFila = (fila2, hijo) => {
+    const m = medidas2[fila2];
+    const f = posicionAbsoluta(fila2, estado, tipos);
+    const centroLargo = m.horizontal ? f.x : f.y;
+    const centroAncho = m.horizontal ? f.y : f.x;
+    let cursor = centroLargo - m.largo / 2;
+    for (const t of m.tramos) {
+      cursor += t.hueco;
+      if (t.hijo === hijo) {
+        const a = alineado(props[fila2].alinear, centroAncho, m.ancho, t.ancho);
+        const l = cursor + t.largo / 2;
+        return m.horizontal ? { x: l, y: a } : { x: a, y: l };
+      }
+      cursor += t.largo;
+    }
+    return null;
+  };
+  const lugarPegado = (id, pegar) => {
+    const otra = posicionAbsoluta(pegar.a, estado, tipos);
+    const yo = posicionAbsoluta(id, estado, tipos);
+    const sep = pegar.separacion ?? 0;
+    const lado = pegar.lado ?? "derecha";
+    let x = otra.x;
+    let y = otra.y;
+    if (lado === "derecha") x = otra.x + otra.ancho / 2 + sep + yo.ancho / 2;
+    if (lado === "izquierda") x = otra.x - otra.ancho / 2 - sep - yo.ancho / 2;
+    if (lado === "abajo") y = otra.y + otra.alto / 2 + sep + yo.alto / 2;
+    if (lado === "arriba") y = otra.y - otra.alto / 2 - sep - yo.alto / 2;
+    if (lado === "derecha" || lado === "izquierda") y = alineado(pegar.alinear, otra.y, otra.alto, yo.alto);
+    if (lado === "arriba" || lado === "abajo") x = alineado(pegar.alinear, otra.x, otra.ancho, yo.ancho);
+    return { x: x + (pegar.dx ?? 0), y: y + (pegar.dy ?? 0) };
+  };
+  const ubicar = (id, lugar, p) => {
+    if (!lugar) return;
+    const local = p.dentro != null ? { ...aCoordenadasDe(lugar, p.dentro, estado, tipos) } : { ...lugar };
+    const c = tipos[id].centro?.(p) ?? { x: 0, y: 0 };
+    local.x -= c.x * p.escala;
+    local.y -= c.y * p.escala;
+    const k = Math.min(Math.max(p.pegado ?? 1, 0), 1);
+    p.x += (local.x - p.x) * k;
+    p.y += (local.y - p.y) * k;
+  };
+  for (const id of Object.keys(props)) resolver(id);
+}
+function alineado(alinear, centro, largoOtra, largoMio) {
+  if (alinear === "inicio") return centro - largoOtra / 2 + largoMio / 2;
+  if (alinear === "fin") return centro + largoOtra / 2 - largoMio / 2;
+  return centro;
+}
+
 // src/nucleo/linea.js
 var SUAVES_SIEMPRE = /* @__PURE__ */ new Set(["opacidad"]);
 function duracionLectura(texto3, caracteresPorSegundo = 15) {
@@ -109,6 +362,9 @@ function compilar(definicion, opciones = {}) {
       throw new Error(`"${p.id}" va dentro de "${padre}", pero no hay ninguna pieza que se llame as\xED.`);
     }
   }
+  const enFila = revisarVinculos(piezas);
+  const conVinculos = hayVinculos(piezas);
+  const tiposPorId = Object.fromEntries(Object.values(piezas).map((p) => [p.id, p.tipo]));
   const capitulos = [];
   const subtitulos = [];
   const marcas = [];
@@ -216,6 +472,7 @@ function compilar(definicion, opciones = {}) {
         }
         props[id] = actual;
       }
+      if (conVinculos) resolverVinculos(props, tiposPorId, enFila);
       return {
         t: tt,
         piezas: props,
@@ -440,134 +697,9 @@ function renglones(nodoTexto, lineas, { x = 0, y = 0, tamano, interlineado = 1.2
   });
 }
 
-// src/piezas/geometria.js
-function posicionAbsoluta(id, estado, tipos) {
-  const p = estado.piezas[id];
-  const tam = tipos[id].tamano?.(p) ?? { ancho: 0, alto: 0 };
-  let x = p.x;
-  let y = p.y;
-  let escala = p.escala;
-  let padre = p.dentro;
-  while (padre != null) {
-    const pp = estado.piezas[padre];
-    const o = tipos[padre].origenContenedor?.(pp) ?? { x: 0, y: 0, escala: 1 };
-    x = pp.x + pp.escala * (o.x + o.escala * x);
-    y = pp.y + pp.escala * (o.y + o.escala * y);
-    escala *= pp.escala * o.escala;
-    padre = pp.dentro;
-  }
-  return { x, y, ancho: tam.ancho * escala, alto: tam.alto * escala };
-}
-function aCoordenadasDe(punto, contenedor, estado, tipos) {
-  const donde = (x, y) => {
-    const falso = { piezas: { ...estado.piezas, __punto: { x, y, escala: 1, dentro: contenedor } } };
-    return posicionAbsoluta("__punto", falso, { ...tipos, __punto: {} });
-  };
-  const origen = donde(0, 0);
-  const escala = donde(1, 0).x - origen.x || 1;
-  return { x: (punto.x - origen.x) / escala, y: (punto.y - origen.y) / escala, escala };
-}
-function caminoFlecha(a, b, curvatura = 0, separacion = 0) {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const largo2 = Math.hypot(dx, dy) || 1;
-  const c = {
-    x: (a.x + b.x) / 2 - dy / largo2 * curvatura * largo2,
-    y: (a.y + b.y) / 2 + dx / largo2 * curvatura * largo2
-  };
-  return { p0: bordeHacia(a, c, separacion), c, p1: bordeHacia(b, c, separacion) };
-}
-function bordeHacia(r3, hacia, separacion) {
-  const dx = hacia.x - r3.x;
-  const dy = hacia.y - r3.y;
-  const d = Math.hypot(dx, dy);
-  if (d === 0) return { x: r3.x, y: r3.y };
-  const ux = dx / d;
-  const uy = dy / d;
-  const mx = (r3.ancho ?? 0) / 2;
-  const my = (r3.alto ?? 0) / 2;
-  const hastaBorde = Math.min(
-    ux === 0 ? Infinity : mx / Math.abs(ux),
-    uy === 0 ? Infinity : my / Math.abs(uy)
-  );
-  const t = (Number.isFinite(hastaBorde) ? hastaBorde : 0) + separacion;
-  return { x: r3.x + ux * t, y: r3.y + uy * t };
-}
-function puntoCurva({ p0, c, p1 }, u) {
-  const v = 1 - u;
-  return {
-    x: v * v * p0.x + 2 * v * u * c.x + u * u * p1.x,
-    y: v * v * p0.y + 2 * v * u * c.y + u * u * p1.y
-  };
-}
-function anguloCurva({ p0, c, p1 }, u) {
-  const dx = 2 * (1 - u) * (c.x - p0.x) + 2 * u * (p1.x - c.x);
-  const dy = 2 * (1 - u) * (c.y - p0.y) + 2 * u * (p1.y - c.y);
-  return Math.atan2(dy, dx);
-}
-var TRAMOS = 32;
-function medirCurva(curva2) {
-  const largos = [0];
-  let anterior = curva2.p0;
-  for (let i = 1; i <= TRAMOS; i++) {
-    const p = puntoCurva(curva2, i / TRAMOS);
-    largos.push(largos[i - 1] + Math.hypot(p.x - anterior.x, p.y - anterior.y));
-    anterior = p;
-  }
-  return largos;
-}
-function uParaFraccion(largos, fraccion) {
-  const total = largos[TRAMOS];
-  if (fraccion <= 0 || total === 0) return 0;
-  if (fraccion >= 1) return 1;
-  const objetivo = fraccion * total;
-  let i = 1;
-  while (largos[i] < objetivo) i++;
-  const tramo = largos[i] - largos[i - 1];
-  const dentro = tramo === 0 ? 0 : (objetivo - largos[i - 1]) / tramo;
-  return (i - 1 + dentro) / TRAMOS;
-}
-function cortarCurva({ p0, c, p1 }, u) {
-  const c2 = { x: p0.x + (c.x - p0.x) * u, y: p0.y + (c.y - p0.y) * u };
-  return { p0, c: c2, p1: puntoCurva({ p0, c, p1 }, u) };
-}
-function partirLineas(texto3, maxCaracteres = 0) {
-  const parrafos = String(texto3 ?? "").split("\n");
-  if (!(maxCaracteres > 0)) return parrafos;
-  const lineas = [];
-  for (const parrafo of parrafos) {
-    let actual = "";
-    for (const palabra of parrafo.split(" ")) {
-      const prueba = actual ? `${actual} ${palabra}` : palabra;
-      if (largo(prueba) > maxCaracteres && actual) {
-        lineas.push(actual);
-        actual = palabra;
-      } else {
-        actual = prueba;
-      }
-    }
-    lineas.push(actual);
-  }
-  return lineas;
-}
-function revelar(lineas, escrito) {
-  if (escrito >= 1) return lineas;
-  const total = lineas.reduce((n2, l) => n2 + largo(l), 0);
-  let quedan = Math.floor(total * Math.max(escrito, 0) + 1e-9);
-  return lineas.map((l) => {
-    const letras = Array.from(l);
-    const visibles = letras.slice(0, quedan).join("");
-    quedan = Math.max(quedan - letras.length, 0);
-    return visibles;
-  });
-}
-function largo(texto3) {
-  return Array.from(texto3).length;
-}
-var ANCHO_LETRA = 0.55;
-
 // src/pintor/pintor.js
-function crearPintor(svg, escena) {
+function crearPintor(svg, escena, opciones = {}) {
+  const arrastres = opciones.arrastres ?? {};
   svg.replaceChildren();
   poner(svg, {
     viewBox: `0 0 ${escena.ancho} ${escena.alto}`,
@@ -578,7 +710,7 @@ function crearPintor(svg, escena) {
   el("rect", { x: 0, y: 0, width: escena.ancho, height: escena.alto }, el("clipPath", { id: marco }, el("defs", {}, svg)));
   const raiz = el("g", { "clip-path": `url(#${marco})` }, svg);
   const inicial = escena.estado(0);
-  const ctx = { estado: inicial, tipos: escena.tipos };
+  const ctx = { estado: inicial, tipos: escena.tipos, id: "", ids: escena.ids, arrastres };
   const nodos = {};
   for (const id of escena.ids) {
     const tipo = escena.tipos[id];
@@ -588,6 +720,7 @@ function crearPintor(svg, escena) {
       /** @type {SVGGElement} */
       el("g", { "data-pieza": id }, padre)
     );
+    ctx.id = id;
     const partes = tipo.crear(grupo, props, ctx);
     nodos[id] = {
       tipo,
@@ -605,13 +738,15 @@ function crearPintor(svg, escena) {
         const nodo = nodos[id];
         const p = estado.piezas[id];
         const invisible = p.opacidad <= 0;
+        const corrida = arrastres[id] ?? { x: 0, y: 0 };
         poner(nodo.grupo, {
-          transform: `translate(${r(p.x)} ${r(p.y)})` + (p.rotacion ? ` rotate(${r(p.rotacion)})` : "") + (p.escala !== 1 ? ` scale(${r(p.escala)})` : ""),
+          transform: `translate(${r(p.x + corrida.x)} ${r(p.y + corrida.y)})` + (p.rotacion ? ` rotate(${r(p.rotacion)})` : "") + (p.escala !== 1 ? ` scale(${r(p.escala)})` : ""),
           opacity: p.opacidad >= 1 ? null : r(p.opacidad),
           // Lo invisible tampoco se lee en voz alta ni se puede tocar.
           visibility: invisible ? "hidden" : null
         });
         if (invisible || !nodo.tipo.dependeDeOtras && iguales(nodo.ultimo, p)) continue;
+        ctx.id = id;
         nodo.tipo.actualizar(nodo.partes, p, ctx);
         nodo.ultimo = p;
       }
@@ -838,10 +973,16 @@ ${CSS_TEMA}
        el zoom lo maneja el componente. Con zoom, arrastrar mueve el dibujo. */
     touch-action: pan-y;
 }
+[data-arrastrable] {
+    cursor: grab;
+    touch-action: none;
+}
 .ma-raiz.con-zoom .ma-lienzo {
     touch-action: none;
     cursor: grab;
 }
+.ma-raiz.arrastrando .ma-lienzo,
+.ma-raiz.arrastrando [data-arrastrable],
 .ma-raiz.con-zoom.arrastrando .ma-lienzo {
     cursor: grabbing;
 }
@@ -871,7 +1012,9 @@ ${CSS_TEMA}
     line-height: 1.35;
     text-wrap: balance;
 }
-.ma-raiz:not(.con-subtitulos) .ma-subtitulo {
+.ma-raiz:not(.con-subtitulos) .ma-subtitulo,
+.ma-raiz.sin-textos .ma-subtitulo,
+.ma-raiz.sin-textos [data-accion="subtitulos"] {
     display: none;
 }
 
@@ -901,13 +1044,24 @@ ${CSS_TEMA}
     align-self: end;
     z-index: 3;
     border-top: 0;
-    padding-top: 22px;
-    background: linear-gradient(transparent, color-mix(in srgb, var(--ma-superficie) 94%, transparent) 22px);
-    transition: opacity 0.25s;
+    padding-top: 36px;
+    /* Un velo que se oscurece de a poco, sin un borde donde empieza: con dos
+       paradas el ojo ve una franja. */
+    background: linear-gradient(
+        transparent,
+        color-mix(in srgb, var(--ma-superficie) 25%, transparent) 14px,
+        color-mix(in srgb, var(--ma-superficie) 60%, transparent) 30px,
+        color-mix(in srgb, var(--ma-superficie) 85%, transparent) 48px,
+        color-mix(in srgb, var(--ma-superficie) 92%, transparent));
+    transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .ma-raiz.flotantes:not(.ver-controles) .ma-controles,
 .ma-raiz.flotantes:not(.ver-controles) .ma-zoom {
     opacity: 0;
+}
+/* Al irse bajan un poquito: se van, no se apagan de golpe. */
+.ma-raiz.flotantes:not(.ver-controles) .ma-controles {
+    transform: translateY(8px);
 }
 .ma-raiz.flotantes.sin-cursor {
     cursor: none;
@@ -1046,6 +1200,18 @@ ${CSS_TEMA}
     display: none;
 }
 
+/* En la columna de una clase (unos 650px) todo entra en un rengl\xF3n si los
+   botones se aprietan un poco; si no, el \xFAltimo se cae solo a un rengl\xF3n nuevo. */
+@container (max-width: 720px) {
+    .ma-controles {
+        gap: 4px 2px;
+    }
+    .ma-controles button {
+        min-width: 40px;
+        padding: 0 4px;
+    }
+}
+
 /* En angosto (un celular), la barra de tiempo va sola en su rengl\xF3n y los
    botones abajo: no entran todos en 360px con un tama\xF1o que se pueda tocar. */
 @container (max-width: 520px) {
@@ -1113,7 +1279,7 @@ ${CSS_TEMA}
     background: color-mix(in srgb, var(--ma-fondo) 85%, transparent);
     font-size: clamp(18px, 2.2cqi, 46px);
     pointer-events: none;
-    transition: transform 0.25s;
+    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 :host([pantalla]) .ma-subtitulo:empty,
 :host(:fullscreen) .ma-subtitulo:empty {
@@ -1123,6 +1289,17 @@ ${CSS_TEMA}
 :host([pantalla]) .ver-controles .ma-subtitulo,
 :host(:fullscreen) .ver-controles .ma-subtitulo {
     transform: translateY(calc(-1 * var(--ma-alto-controles, 0px)));
+}
+/* Con una pregunta abierta (en <motor-leccion>), la pregunta ocupa la parte
+   de abajo: el subt\xEDtulo sube y queda justo encima de ella. Arriba de todo
+   tapar\xEDa el t\xEDtulo de la escena. --ma-alto-pregunta lo mide la lecci\xF3n. */
+:host([pantalla]) .con-pregunta .ma-subtitulo,
+:host(:fullscreen) .con-pregunta .ma-subtitulo {
+    transform: translateY(calc(-1 * var(--ma-alto-pregunta, 0px)));
+}
+:host([pantalla]) .con-pregunta.ver-controles .ma-subtitulo,
+:host(:fullscreen) .con-pregunta.ver-controles .ma-subtitulo {
+    transform: translateY(calc(-1 * (var(--ma-alto-pregunta, 0px) + var(--ma-alto-controles, 0px))));
 }
 /* Sin controles no hay nada que apuntar: que el mouse no quede en el medio
    de la pantalla de la Expo. */
@@ -1193,6 +1370,8 @@ var MotorEscena = class extends Base {
     this._definicion = null;
     this._compilada = null;
     this._pintor = null;
+    this._arrastres = {};
+    this._agarrada = null;
     this._disposicion = null;
     this._pausadoPorOcultar = false;
     this._limpiar = [];
@@ -1241,7 +1420,7 @@ var MotorEscena = class extends Base {
     this._lienzo.addEventListener("pointerdown", (e) => this._dedoAbajo(e));
     this._lienzo.addEventListener("pointermove", (e) => this._dedoMueve(e));
     for (const fin of ["pointerup", "pointercancel"]) this._lienzo.addEventListener(fin, (e) => this._dedoArriba(e));
-    this._vista = { dentro: false, reciente: false, sobreControles: false, foco: false, tactil: false, tocado: false };
+    this._vista = { dentro: false, reciente: false, sobreControles: false, foco: false, tactil: false, tocado: false, pregunta: false };
     this._temporizador = void 0;
     const moverse = (e) => {
       if (e.pointerType) this._vista.tactil = e.pointerType === "touch";
@@ -1364,6 +1543,10 @@ var MotorEscena = class extends Base {
   // ---------------- Para las capas de arriba ----------------
   // Una capa que extiende el componente (la pedagógica) los redefine. Acá
   // no hacen nada: el componente común no sabe de preguntas ni de pasos.
+  /** Si los controles van fijos abajo del dibujo (fuera de la pantalla completa). */
+  _controlesFijos() {
+    return this.hasAttribute("controles-fijos");
+  }
   /** Cada vez que la escena se arma (o se rearma por la disposición). */
   _alArmar(compilada) {
   }
@@ -1445,7 +1628,8 @@ var MotorEscena = class extends Base {
     }
     this._compilada = compilada;
     this._disposicion = disposicion.nombre;
-    this._pintor = crearPintor(this._svg, compilada);
+    this._pintor = crearPintor(this._svg, compilada, { arrastres: this._arrastres });
+    this._raiz.classList.toggle("sin-textos", compilada.subtitulos.length === 0);
     this._encuadre();
     this._aplicarZoom();
     this._actualizarVista();
@@ -1513,10 +1697,11 @@ var MotorEscena = class extends Base {
   _actualizarVista() {
     if (!this.isConnected) return;
     const llena = this._llena();
-    const flotantes = !this.hasAttribute("sin-controles") && (llena || !this.hasAttribute("controles-fijos") && matchMedia("(hover: hover) and (pointer: fine)").matches);
+    const flotantes = !this.hasAttribute("sin-controles") && (llena || !this._controlesFijos() && matchMedia("(hover: hover) and (pointer: fine)").matches);
     const v = this._vista;
-    const ver = v.foco || v.sobreControles || v.reciente || !this._reloj.corriendo && (v.dentro || v.tactil || !v.tocado);
+    const ver = v.foco || v.sobreControles || !v.pregunta && (v.reciente || !this._reloj.corriendo && (v.dentro || v.tactil || !v.tocado));
     this._raiz.classList.toggle("flotantes", flotantes);
+    this._raiz.classList.toggle("con-pregunta", v.pregunta);
     this._raiz.classList.toggle("ver-controles", ver);
     this._raiz.classList.toggle("sin-cursor", llena && !ver);
   }
@@ -1576,10 +1761,17 @@ var MotorEscena = class extends Base {
     this._zoomEn(Math.exp(-e.deltaY * 25e-4), e.clientX, e.clientY);
   }
   _dedoAbajo(e) {
-    if (
-      /** @type {HTMLElement} */
-      e.target.closest(".ma-pregunta, .ma-zoom")
-    ) return;
+    const objetivo = (
+      /** @type {Element} */
+      e.target
+    );
+    if (objetivo.closest(".ma-pregunta, .ma-zoom")) return;
+    const agarrable = this._dedos.size === 0 && objetivo.closest("[data-arrastrable]");
+    if (agarrable) {
+      this._agarrada = { id: agarrable.getAttribute("data-arrastrable"), pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+      this._lienzo.setPointerCapture(e.pointerId);
+      return;
+    }
     this._dedos.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this._movido = 0;
     if (this._dedos.size === 2) {
@@ -1589,15 +1781,28 @@ var MotorEscena = class extends Base {
     if (this._zoom.escala > 1 || this._dedos.size === 2) this._lienzo.setPointerCapture(e.pointerId);
   }
   _dedoMueve(e) {
+    const a = this._agarrada;
+    if (a && a.pointerId === e.pointerId) {
+      const m2 = this._svg.getScreenCTM();
+      if (!m2) return;
+      const corrida = this._arrastres[a.id] ??= { x: 0, y: 0 };
+      corrida.x += (e.clientX - a.x) / m2.a;
+      corrida.y += (e.clientY - a.y) / m2.d;
+      [a.x, a.y] = [e.clientX, e.clientY];
+      this._pintar(this._reloj.t);
+      this._arrastro = true;
+      this._raiz.classList.add("arrastrando");
+      return;
+    }
     const antes = this._dedos.get(e.pointerId);
     if (!antes) return;
     const ahora = { x: e.clientX, y: e.clientY };
     this._dedos.set(e.pointerId, ahora);
     if (this._dedos.size === 2 && this._pellizco) {
-      const [a, b] = [...this._dedos.values()];
-      const distancia = Math.hypot(a.x - b.x, a.y - b.y);
+      const [a2, b] = [...this._dedos.values()];
+      const distancia = Math.hypot(a2.x - b.x, a2.y - b.y);
       const objetivo = this._pellizco.escala * (distancia / Math.max(this._pellizco.distancia, 1));
-      this._zoomEn(objetivo / this._zoom.escala, (a.x + b.x) / 2, (a.y + b.y) / 2);
+      this._zoomEn(objetivo / this._zoom.escala, (a2.x + b.x) / 2, (a2.y + b.y) / 2);
       this._arrastro = true;
       return;
     }
@@ -1613,6 +1818,7 @@ var MotorEscena = class extends Base {
     this._raiz.classList.add("arrastrando");
   }
   _dedoArriba(e) {
+    if (this._agarrada?.pointerId === e.pointerId) this._agarrada = null;
     this._dedos.delete(e.pointerId);
     if (this._dedos.size < 2) this._pellizco = null;
     this._raiz.classList.remove("arrastrando");
@@ -1681,12 +1887,16 @@ function definirComponente(nombre = "motor-escena") {
 
 // src/pedagogico/leccion.js
 var ESTILOS2 = `
+/* En la p\xE1gina, la pregunta va en un rengl\xF3n propio debajo del dibujo: si lo
+   tapara, tapar\xEDa justo lo que hay que mirar para contestarla (la tabla que
+   hay que filtrar, la barra cuya proporci\xF3n se pregunta). */
+.ma-raiz {
+    grid-template-areas: "escena" "subtitulo" "pregunta" "controles";
+}
 .ma-pregunta {
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    max-height: calc(100% - 24px);
+    grid-area: pregunta;
+    position: relative;
+    margin: 4px 12px 12px;
     overflow: auto;
     box-sizing: border-box;
     padding: 14px 16px 16px;
@@ -1694,32 +1904,83 @@ var ESTILOS2 = `
     border-radius: 12px;
     background: var(--ma-superficie);
     color: var(--ma-texto);
-    box-shadow: 0 8px 28px rgb(0 0 0 / 0.25);
     font-size: clamp(15px, 2.3cqi, 22px);
     line-height: 1.4;
     cursor: auto;
+    /* Por encima de los controles: en pantalla completa, escondidos siguen
+       ah\xED, y no tienen que quedarse con los clics de las opciones. */
+    z-index: 4;
+    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-/* En pantalla completa (una pantalla grande, un video) se lee desde lejos. */
+/* En pantalla completa no hay rengl\xF3n de abajo: la pregunta va encima del
+   dibujo, m\xE1s grande (se lee desde lejos), y se puede achicar para mirar lo
+   que tapa. Los controles se esconden mientras est\xE1 abierta (ver
+   _actualizarVista); si alguien los busca, la pregunta sube para dejarles
+   lugar. */
 :host([pantalla]) .ma-pregunta,
 :host(:fullscreen) .ma-pregunta {
+    grid-area: escena;
+    align-self: end;
+    margin: 0 4% 4%;
+    max-height: calc(100% - 8% - var(--ma-alto-controles, 0px));
+    box-shadow: 0 8px 28px rgb(0 0 0 / 0.25);
     font-size: clamp(18px, 2.2cqi, 40px);
     padding: 0.7em 1em 0.9em;
-    left: 4%;
-    right: 4%;
-    bottom: 4%;
 }
-/* Si los controles flotan sobre el dibujo, la pregunta va arriba de ellos. */
-.flotantes .ma-pregunta {
-    bottom: calc(var(--ma-alto-controles, 0px) + 12px);
-    max-height: calc(100% - var(--ma-alto-controles, 0px) - 24px);
+:host([pantalla]) .ver-controles .ma-pregunta,
+:host(:fullscreen) .ver-controles .ma-pregunta {
+    transform: translateY(calc(-1 * var(--ma-alto-controles, 0px)));
+}
+/* Cuando el subt\xEDtulo dice lo mismo que la pregunta (lo normal: el narrador
+   la lee en voz alta), se esconde mientras est\xE1 abierta: repetido, solo tapa. */
+.ma-raiz.sub-repite .ma-subtitulo {
+    display: none;
 }
 .ma-pregunta[hidden] {
     display: none;
+}
+.ma-pregunta .ma-cabeza {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
 }
 .ma-pregunta .ma-encabezado {
     font-weight: 800;
     color: var(--ma-acento);
     margin: 0 0 4px;
+}
+.ma-pregunta button.ma-ocultar {
+    flex: none;
+    min-height: 36px;
+    margin: -4px -6px 0 0;
+    padding: 4px 12px;
+    border-color: transparent;
+    background: transparent;
+    color: var(--ma-suave);
+    font-size: 0.85em;
+}
+/* En la p\xE1gina no tapa nada: no hace falta achicarla. */
+:host(:not([pantalla]):not(:fullscreen)) .ma-ocultar {
+    display: none;
+}
+/* Achicada (solo en pantalla completa: al salir vuelve a verse entera):
+   queda solo el bot\xF3n para volver, en una esquina. */
+:host([pantalla]) .ma-pregunta.minimizada,
+:host(:fullscreen) .ma-pregunta.minimizada {
+    justify-self: end;
+    padding: 4px;
+    overflow: visible;
+}
+:host([pantalla]) .ma-pregunta.minimizada > :not(.ma-cabeza),
+:host([pantalla]) .ma-pregunta.minimizada .ma-encabezado,
+:host(:fullscreen) .ma-pregunta.minimizada > :not(.ma-cabeza),
+:host(:fullscreen) .ma-pregunta.minimizada .ma-encabezado {
+    display: none;
+}
+.ma-pregunta.minimizada button.ma-ocultar {
+    margin: 0;
+    color: var(--ma-acento);
 }
 .ma-pregunta .ma-enunciado {
     margin: 0 0 10px;
@@ -1774,10 +2035,15 @@ var ESTILOS2 = `
     display: none;
 }
 /* En un celular no entran todos los controles en dos renglones: el tiempo se
-   esconde (la barra lo dice igual a un lector de pantalla) y el bot\xF3n se acorta. */
+   esconde (la barra lo dice igual a un lector de pantalla). Y en una columna,
+   "Paso a paso" se acorta para que la barra entre en un rengl\xF3n. */
 @container (max-width: 400px) {
-    .ma-controles .largo,
     .ma-tiempo {
+        display: none;
+    }
+}
+@container (max-width: 720px) {
+    .ma-controles .largo {
         display: none;
     }
     .ma-controles .corto {
@@ -1791,7 +2057,7 @@ var ESTILOS2 = `
 }
 `;
 var MotorLeccion = class extends MotorEscena {
-  static observedAttributes = [...MotorEscena.observedAttributes, "paso-a-paso", "video"];
+  static observedAttributes = [...MotorEscena.observedAttributes, "paso-a-paso", "video", "controles-flotantes"];
   constructor() {
     super();
     const estilo = document.createElement("style");
@@ -1804,7 +2070,12 @@ var MotorLeccion = class extends MotorEscena {
     this._panel.setAttribute("aria-label", "Pregunta");
     this._panel.addEventListener("click", (e) => e.stopPropagation());
     this._panel.addEventListener("keydown", (e) => e.stopPropagation());
-    this._lienzo.appendChild(this._panel);
+    this._raiz.appendChild(this._panel);
+    new ResizeObserver(() => {
+      if (this._panel.hidden) return;
+      const espacio = this._raiz.getBoundingClientRect().bottom - this._panel.getBoundingClientRect().top;
+      this._raiz.style.setProperty("--ma-alto-pregunta", `${espacio}px`);
+    }).observe(this._panel);
     const barra = this.shadowRoot.querySelector(".ma-controles");
     this._botonPasos = document.createElement("button");
     this._botonPasos.type = "button";
@@ -1830,6 +2101,9 @@ var MotorLeccion = class extends MotorEscena {
     }
     super.attributeChangedCallback(nombre, viejo, nuevo);
   }
+  _controlesFijos() {
+    return !this.hasAttribute("controles-flotantes");
+  }
   get pasoAPaso() {
     return this.hasAttribute("paso-a-paso");
   }
@@ -1846,6 +2120,13 @@ var MotorLeccion = class extends MotorEscena {
     const pregunta = this._marcas.find((m) => m.tipo === "pregunta" && m.t === t);
     if (pregunta) this._abrir(pregunta, true);
   }
+  // Si el subtítulo de ahora repite la pregunta abierta, sobra.
+  _mirarSubtitulo() {
+    const normal = (s) => String(s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+    const pregunta = normal(this._abierta?.datos?.pregunta);
+    const repite = !!this._abierta && (!pregunta || normal(this._subtitulo.textContent).includes(pregunta));
+    this._raiz.classList.toggle("sub-repite", repite);
+  }
   _alPintar(estado) {
     if (this.hasAttribute("video")) {
       const m = this._marcas.find((x) => x.tipo === "pregunta" && estado.t >= x.t && estado.t < x.hasta);
@@ -1854,6 +2135,7 @@ var MotorLeccion = class extends MotorEscena {
     } else if (this._abierta && Math.abs(estado.t - this._abierta.t) > 1e-6) {
       this._cerrar();
     }
+    this._mirarSubtitulo();
   }
   // En una lección, ⏮ ⏭ van de paso en paso (y de pregunta en pregunta).
   capituloSiguiente() {
@@ -1891,14 +2173,33 @@ var MotorLeccion = class extends MotorEscena {
     this._abierta = marca;
     const panel = this._panel;
     panel.replaceChildren();
-    const parrafo = (clase, texto3) => {
+    panel.classList.remove("minimizada");
+    const parrafo = (clase, texto3, dentro = panel) => {
       const p = document.createElement("p");
       p.className = clase;
       p.textContent = texto3;
-      panel.appendChild(p);
+      dentro.appendChild(p);
       return p;
     };
-    parrafo("ma-encabezado", "\u{1F914} Pensalo antes de seguir");
+    const cabeza = document.createElement("div");
+    cabeza.className = "ma-cabeza";
+    panel.appendChild(cabeza);
+    parrafo("ma-encabezado", "\u{1F914} Pensalo antes de seguir", cabeza);
+    const ocultar = document.createElement("button");
+    ocultar.type = "button";
+    ocultar.className = "ma-ocultar";
+    ocultar.setAttribute("aria-expanded", "true");
+    const rotular = () => {
+      const chica = panel.classList.contains("minimizada");
+      ocultar.textContent = chica ? "\u{1F914} Volver a la pregunta" : "Ver el dibujo";
+      ocultar.setAttribute("aria-expanded", String(!chica));
+    };
+    ocultar.addEventListener("click", () => {
+      panel.classList.toggle("minimizada");
+      rotular();
+    });
+    rotular();
+    if (interactiva) cabeza.appendChild(ocultar);
     parrafo("ma-enunciado", d.pregunta ?? "\xBFQu\xE9 cre\xE9s que pasa ahora?");
     const opciones = document.createElement("div");
     opciones.className = "ma-opciones";
@@ -1918,6 +2219,9 @@ var MotorLeccion = class extends MotorEscena {
       this._botonSeguir(marca, "Ya lo pens\xE9: ver qu\xE9 pasa");
     }
     panel.hidden = false;
+    this._vista.pregunta = true;
+    this._actualizarVista();
+    this._mirarSubtitulo();
     panel.setAttribute("aria-live", "polite");
     if (interactiva) (botones[0] ?? panel.querySelector("button"))?.focus();
   }
@@ -1955,7 +2259,11 @@ var MotorLeccion = class extends MotorEscena {
   _cerrar() {
     this._abierta = null;
     this._panel.hidden = true;
+    this._panel.classList.remove("minimizada");
     this._panel.replaceChildren();
+    this._vista.pregunta = false;
+    this._actualizarVista();
+    this._mirarSubtitulo();
   }
 };
 function definirLeccion(nombre = "motor-leccion") {
@@ -2001,7 +2309,14 @@ var COMUNES = {
   opacidad: 1,
   // El id de otra pieza (un celular, por ejemplo) para dibujarse adentro,
   // con las coordenadas de esa pieza.
-  dentro: null
+  dentro: null,
+  // Pegarse a un costado de otra pieza y seguirla si se mueve o crece:
+  // { a: 'id', lado: 'derecha' | 'izquierda' | 'arriba' | 'abajo' | 'centro',
+  //   separacion, alinear: 'centro' | 'inicio' | 'fin', dx, dy }.
+  pegar: null,
+  // Cuánto manda el pegar sobre x e y (de 0 a 1): animándolo, se despega
+  // (o se pega) de a poco.
+  pegado: 1
 };
 function definirPieza(definicion) {
   if (!definicion.nombre) throw new Error("Una pieza necesita un nombre.");
@@ -2135,6 +2450,12 @@ var texto2 = definirPieza({
     const lineas = partirLineas(p.texto, anchoEnLetras(p));
     renglones(partes.texto, revelar(lineas, p.escrito), { tamano: p.tamano, interlineado: p.interlineado });
   },
+  // x es el borde izquierdo con 'inicio' y el derecho con 'fin': el centro
+  // de lo escrito queda corrido medio ancho.
+  centro(p) {
+    const medio = this.tamano(p).ancho / 2;
+    return { x: p.alineacion === "inicio" ? medio : p.alineacion === "fin" ? -medio : 0, y: 0 };
+  },
   // Estimado, no medido: ver por qué en partirLineas.
   tamano(p) {
     const lineas = partirLineas(p.texto, anchoEnLetras(p));
@@ -2150,7 +2471,10 @@ function anchoEnLetras(p) {
 var flecha = definirPieza({
   nombre: "flecha",
   predeterminados: {
-    // El id de una pieza, o un punto { x, y }.
+    // El id de una pieza (se engancha al borde que mira a la otra punta),
+    // un punto { x, y }, o un costado de una pieza: { pieza: 'id', lado:
+    // 'izquierda' | 'derecha' | 'arriba' | 'abajo' | 'centro', dx, dy }.
+    // Enganchada a un costado, la sigue aunque la pieza crezca.
     desde: null,
     hasta: null,
     // De 0 (no se ve) a 1 (dibujada entera).
@@ -2242,11 +2566,17 @@ var flecha = definirPieza({
   }
 });
 function extremo(cual, ctx) {
-  if (typeof cual === "string") {
-    if (!ctx.estado.piezas[cual]) throw new Error(`La flecha apunta a "${cual}", y no hay ninguna pieza que se llame as\xED.`);
-    return posicionAbsoluta(cual, ctx.estado, ctx.tipos);
-  }
-  return { x: cual.x, y: cual.y };
+  const pieza = typeof cual === "string" ? cual : cual.pieza;
+  if (pieza == null) return { x: cual.x, y: cual.y };
+  if (!ctx.estado.piezas[pieza]) throw new Error(`La flecha apunta a "${pieza}", y no hay ninguna pieza que se llame as\xED.`);
+  const r3 = posicionAbsoluta(pieza, ctx.estado, ctx.tipos);
+  if (typeof cual === "string") return r3;
+  return puntoDelLado(r3, cual.lado, cual.dx ?? 0, cual.dy ?? 0);
+}
+function puntoDelLado(r3, lado = "centro", dx = 0, dy = 0) {
+  const x = r3.x + (lado === "derecha" ? r3.ancho / 2 : lado === "izquierda" ? -r3.ancho / 2 : 0);
+  const y = r3.y + (lado === "abajo" ? r3.alto / 2 : lado === "arriba" ? -r3.alto / 2 : 0);
+  return { x: x + dx, y: y + dy };
 }
 function adentro(r3, contenedor, ctx) {
   const { x, y, escala } = aCoordenadasDe(r3, contenedor, ctx.estado, ctx.tipos);
@@ -2305,19 +2635,19 @@ var tabla = definirPieza({
       }
       partes.forma = forma;
     }
-    partes.filas.forEach((fila, i) => {
+    partes.filas.forEach((fila2, i) => {
       const esEncabezado = i === 0;
       const datos = esEncabezado ? p.columnas : p.filas[i - 1];
       const visible = esEncabezado ? 1 : limitar(p.filasVisibles - (i - 1), 0, 1);
       const y = arriba + i * p.altoFila;
-      poner(fila.g, {
+      poner(fila2.g, {
         opacity: visible,
         // Las filas nuevas entran desde un poco más abajo.
         transform: `translate(0 ${Math.round((1 - visible) * 16 * 100) / 100})`,
         visibility: visible > 0 ? null : "hidden"
       });
       const resaltada = !esEncabezado && Math.round(p.resaltarFila) === i - 1;
-      poner(fila.fondo, {
+      poner(fila2.fondo, {
         x: izq,
         y,
         width: total,
@@ -2327,7 +2657,7 @@ var tabla = definirPieza({
         "stroke-width": 2
       });
       let x = izq;
-      fila.celdas.forEach((celda2, j) => {
+      fila2.celdas.forEach((celda2, j) => {
         poner(celda2, {
           x: x + 16,
           y: y + p.altoFila / 2,
@@ -2427,24 +2757,207 @@ var camara = definirPieza({
     zoom: 1,
     // La ventana, centrada en (x, y). 0: sin recortar.
     ancho: 0,
-    alto: 0
+    alto: 0,
+    // 'rect' o 'circulo' (de diámetro el menor entre ancho y alto).
+    forma: "rect",
+    radio: 0,
+    aro: 0,
+    colorAro: "borde",
+    sombra: false,
+    // El fondo de la ventana: lo que se ve donde no hay nada adentro. '' es transparente.
+    fondo: ""
+  },
+  colores: ["colorAro", "fondo"],
+  validar(p) {
+    if (!["rect", "circulo"].includes(p.forma)) throw new Error(`Una c\xE1mara es 'rect' o 'circulo', no "${p.forma}".`);
   },
   crear(grupo) {
     const id = idUnico("ma-camara");
-    const rect = el("rect", {}, el("clipPath", { id }, el("defs", {}, grupo)));
+    const clip = el("clipPath", { id }, el("defs", {}, grupo));
+    const sombra = el("rect", {}, grupo);
     const ventana = el("g", {}, grupo);
-    return { id, rect, ventana, contenido: el("g", {}, ventana) };
+    const contenido = el("g", {}, ventana);
+    return { id, recorte: el("rect", {}, clip), sombra, ventana, contenido, aro: el("rect", { fill: "none" }, grupo) };
   },
   actualizar(partes, p) {
     const recorta = p.ancho > 0 && p.alto > 0;
-    poner(partes.rect, { x: -p.ancho / 2, y: -p.alto / 2, width: p.ancho, height: p.alto });
+    const forma = ventanaDe(p);
+    poner(partes.recorte, forma);
     poner(partes.ventana, { "clip-path": recorta ? `url(#${partes.id})` : null });
     poner(partes.contenido, {
       transform: `scale(${p.zoom}) translate(${-p.mirarX} ${-p.mirarY})`
     });
+    poner(partes.sombra, {
+      ...forma,
+      fill: p.fondo ? aCss(p.fondo) : "var(--ma-fondo)",
+      visibility: recorta && (p.sombra || p.fondo) ? null : "hidden",
+      filter: p.sombra ? "drop-shadow(0 6px 14px rgb(0 0 0 / 0.28))" : null
+    });
+    poner(partes.aro, {
+      ...forma,
+      stroke: aCss(p.colorAro),
+      "stroke-width": p.aro,
+      visibility: recorta && p.aro > 0 ? null : "hidden"
+    });
   },
+  tamano: (p) => p.forma === "circulo" ? { ancho: Math.min(p.ancho, p.alto), alto: Math.min(p.ancho, p.alto) } : { ancho: p.ancho, alto: p.alto },
   contenedor: (partes) => partes.contenido,
   origenContenedor: (p) => ({ x: -p.mirarX * p.zoom, y: -p.mirarY * p.zoom, escala: p.zoom })
+});
+function ventanaDe(p) {
+  const circulo = p.forma === "circulo";
+  const ancho = circulo ? Math.min(p.ancho, p.alto) : p.ancho;
+  const alto = circulo ? ancho : p.alto;
+  const radio = circulo ? ancho / 2 : Math.min(Math.max(p.radio, 0), ancho / 2, alto / 2);
+  return { x: -ancho / 2, y: -alto / 2, width: ancho, height: alto, rx: radio, ry: radio };
+}
+
+// src/piezas/espejo.js
+var espejo = definirPieza({
+  nombre: "espejo",
+  predeterminados: {
+    fuente: null,
+    mirarX: 0,
+    mirarY: 0,
+    zoom: 2,
+    ancho: 360,
+    alto: 160,
+    forma: "rect",
+    radio: 14,
+    aro: 3,
+    colorAro: "acento",
+    fondo: "fondo",
+    sombra: true,
+    marco: false,
+    colorMarco: "acento",
+    arrastrable: true
+  },
+  colores: ["colorAro", "fondo", "colorMarco"],
+  // Lo que muestra depende de otras piezas (y de dónde lo dejó quien mira).
+  dependeDeOtras: true,
+  validar(p) {
+    if (!["rect", "circulo"].includes(p.forma)) throw new Error(`Un espejo es 'rect' o 'circulo', no "${p.forma}".`);
+    if (!(p.zoom > 0)) throw new Error("El zoom de un espejo tiene que ser mayor que 0.");
+  },
+  crear(grupo, p, ctx) {
+    const id = idUnico("ma-espejo");
+    const marco = el("rect", { fill: "none", "stroke-dasharray": "8 6", "stroke-width": 3, "pointer-events": "none" }, grupo);
+    const clip = el("rect", {}, el("clipPath", { id }, el("defs", {}, grupo)));
+    const fondo = el("rect", {}, grupo);
+    const ventana = el("g", { "clip-path": `url(#${id})` }, grupo);
+    const contenido = el("g", {}, ventana);
+    const aro = el("rect", { fill: "none" }, grupo);
+    if (p.arrastrable) {
+      grupo.setAttribute("data-arrastrable", ctx.id);
+    }
+    return { grupo, marco, clip, fondo, contenido, aro, usos: /* @__PURE__ */ new Map() };
+  },
+  actualizar(partes, p, ctx) {
+    const forma = ventanaDe2(p);
+    poner(partes.clip, forma);
+    poner(partes.fondo, {
+      ...forma,
+      fill: aCss(p.fondo),
+      filter: p.sombra ? "drop-shadow(0 8px 18px rgb(0 0 0 / 0.3))" : null
+    });
+    poner(partes.aro, { ...forma, stroke: aCss(p.colorAro), "stroke-width": p.aro, visibility: p.aro > 0 ? null : "hidden" });
+    poner(partes.contenido, { transform: `scale(${p.zoom}) translate(${-p.mirarX} ${-p.mirarY})` });
+    ponerFuentes(partes, p, ctx);
+    const corrida = ctx.arrastres?.[ctx.id] ?? { x: 0, y: 0 };
+    const yo = posicionAbsoluta(ctx.id, ctx.estado, ctx.tipos);
+    const ancho = forma.width / p.zoom;
+    const alto = forma.height / p.zoom;
+    poner(partes.marco, {
+      x: p.mirarX - ancho / 2 - yo.x - corrida.x,
+      y: p.mirarY - alto / 2 - yo.y - corrida.y,
+      width: ancho,
+      height: alto,
+      rx: forma.rx / p.zoom,
+      stroke: aCss(p.colorMarco),
+      visibility: p.marco ? null : "hidden"
+    });
+  },
+  tamano: (p) => {
+    const f = ventanaDe2(p);
+    return { ancho: f.width, alto: f.height };
+  }
+});
+function ponerFuentes(partes, p, ctx) {
+  const svg = partes.grupo.ownerSVGElement;
+  if (!svg) return;
+  const ids = p.fuente != null ? [p.fuente] : ctx.ids.filter((id) => ctx.estado.piezas[id].dentro == null && ctx.tipos[id].nombre !== "espejo");
+  for (const id of ids) {
+    if (!ctx.estado.piezas[id]) throw new Error(`El espejo mira "${id}", y no hay ninguna pieza que se llame as\xED.`);
+    let uso = partes.usos.get(id);
+    if (!uso) {
+      const original = svg.querySelector(`[data-pieza="${id}"]`);
+      if (!original) continue;
+      if (!original.id) original.id = idUnico("ma-pieza");
+      const envoltorio = el("g", {}, partes.contenido);
+      el("use", { href: `#${original.id}` }, envoltorio);
+      uso = { envoltorio };
+      partes.usos.set(id, uso);
+    }
+    const padre = ctx.estado.piezas[id].dentro;
+    let transform = null;
+    if (padre != null) {
+      const falso = { piezas: { ...ctx.estado.piezas, __origen: { x: 0, y: 0, escala: 1, dentro: padre } } };
+      const o = posicionAbsoluta("__origen", falso, { ...ctx.tipos, __origen: {} });
+      const uno = posicionAbsoluta("__origen", { piezas: { ...falso.piezas, __origen: { x: 1, y: 0, escala: 1, dentro: padre } } }, { ...ctx.tipos, __origen: {} });
+      transform = `translate(${o.x} ${o.y}) scale(${uno.x - o.x || 1})`;
+    }
+    poner(uso.envoltorio, { transform });
+  }
+}
+function ventanaDe2(p) {
+  const circulo = p.forma === "circulo";
+  const ancho = circulo ? Math.min(p.ancho, p.alto) : p.ancho;
+  const alto = circulo ? ancho : p.alto;
+  const radio = circulo ? ancho / 2 : Math.min(Math.max(p.radio, 0), ancho / 2, alto / 2);
+  return { x: -ancho / 2, y: -alto / 2, width: ancho, height: alto, rx: radio, ry: radio };
+}
+
+// src/piezas/fila.js
+var fila = definirPieza({
+  nombre: "fila",
+  predeterminados: {
+    piezas: [],
+    direccion: "horizontal",
+    separacion: 24,
+    // A lo ancho de la fila: 'centro', 'inicio' (arriba, o a la izquierda en una columna) o 'fin'.
+    alinear: "centro",
+    margen: 0,
+    relleno: "",
+    borde: "",
+    radio: 12,
+    // Las calcula la fila en cada instante (lo que miden sus piezas): no se escriben.
+    ancho: 0,
+    alto: 0
+  },
+  colores: ["relleno", "borde"],
+  validar(p) {
+    if (!Array.isArray(p.piezas)) throw new Error(`Una fila necesita "piezas": la lista de ids que acomoda, por ejemplo ['a', 'b'].`);
+    if (!["horizontal", "vertical"].includes(p.direccion)) throw new Error(`Una fila es 'horizontal' o 'vertical', no "${p.direccion}".`);
+  },
+  crear(grupo) {
+    return { caja: el("rect", {}, grupo) };
+  },
+  actualizar(partes, p) {
+    const ancho = p.ancho + 2 * p.margen;
+    const alto = p.alto + 2 * p.margen;
+    poner(partes.caja, {
+      x: -ancho / 2,
+      y: -alto / 2,
+      width: ancho,
+      height: alto,
+      rx: p.radio,
+      fill: p.relleno ? aCss(p.relleno) : "none",
+      stroke: p.borde ? aCss(p.borde) : "none",
+      "stroke-width": p.borde ? 2 : 0,
+      visibility: p.relleno || p.borde ? null : "hidden"
+    });
+  },
+  tamano: (p) => ({ ancho: p.ancho + 2 * p.margen, alto: p.alto + 2 * p.margen })
 });
 
 // src/piezas/contador.js
@@ -3053,6 +3566,19 @@ function medir(p) {
   const xCodigo = izq + 16 + (p.numeros ? 2 * p.tamano * ANCHO_MONO + p.tamano * 0.9 : 8);
   return { lineas, altoLinea, encabezado, margen, alto, arriba: -alto / 2, izq, xCodigo };
 }
+function lineaDeCodigo(pieza, k) {
+  const p = (
+    /** @type {any} */
+    "props" in pieza ? pieza.props : pieza
+  );
+  const m = medir(p);
+  return {
+    x: p.x,
+    y: p.y + m.arriba + m.encabezado + m.margen + (k - 0.5) * m.altoLinea,
+    ancho: p.ancho,
+    alto: m.altoLinea
+  };
+}
 function caracteresPorLinea({ ancho, tamano, numeros = true }) {
   const usado = 16 + (numeros ? 2 * tamano * ANCHO_MONO + tamano * 0.9 : 8) + 16;
   return Math.floor((ancho - usado) / (tamano * ANCHO_MONO));
@@ -3185,10 +3711,10 @@ var lista = definirPieza({
       visibility: n2 === 0 ? null : "hidden"
     });
     const senalada = Math.round(p.senalar);
-    partes.filas.forEach((fila, i) => {
+    partes.filas.forEach((fila2, i) => {
       const x = izq + i * p.celda;
       const activa = i === senalada;
-      poner(fila.caja, {
+      poner(fila2.caja, {
         x,
         y: -h / 2,
         width: p.celda,
@@ -3199,16 +3725,16 @@ var lista = definirPieza({
       });
       const texto3 = String(p.items[i]);
       const tamano = Math.min(p.tamano, (p.celda - 12) / (Array.from(texto3).length * ANCHO_MONO));
-      poner(fila.valor, { x: x + p.celda / 2, y: 0, "font-size": tamano, fill: "var(--ma-texto)", "font-weight": activa ? 700 : 400 });
-      texto(fila.valor, texto3);
-      poner(fila.indice, {
+      poner(fila2.valor, { x: x + p.celda / 2, y: 0, "font-size": tamano, fill: "var(--ma-texto)", "font-weight": activa ? 700 : 400 });
+      texto(fila2.valor, texto3);
+      poner(fila2.indice, {
         x: x + p.celda / 2,
         y: h / 2 + p.tamano * 0.55,
         "font-size": p.tamano * 0.6,
         fill: "var(--ma-suave)",
         visibility: p.indices ? null : "hidden"
       });
-      texto(fila.indice, String(i));
+      texto(fila2.indice, String(i));
     });
     const visible = p.senalar >= 0 && n2 > 0;
     const xf = izq + (Math.min(Math.max(p.senalar, 0), n2 - 1) + 0.5) * p.celda;
@@ -3741,11 +4267,7 @@ function desdeTraza(opciones) {
     if (conPila) {
       piezas.pila = pila({ x: col.x, y: y - (angosta ? 10 : 20), ancho: Math.min(col.ancho, angosta ? 560 : 600), tamano: angosta ? 22 : media ? 25 : 32 });
     }
-    const costado = (id) => {
-      const { tipo, props } = piezas[id];
-      const ancho = tipo.nombre === "lista" ? props.celda * Math.max(maxItems, 1) : tipo.tamano?.(props).ancho ?? 0;
-      return { x: props.x - ancho / 2 - 12, y: props.y };
-    };
+    const costado = (id) => ({ pieza: id, lado: "izquierda", dx: -12 });
     for (const [clave, par] of pares) {
       piezas["alias_" + clave.replace("|", "_")] = flecha({
         desde: costado(lugarVariable[par.a]),
@@ -3774,7 +4296,8 @@ function desdeTraza(opciones) {
       const corrimiento = Math.max(0, (arriba + H) / 2 - (minimo + maximo) / 2);
       for (const [id, pieza] of Object.entries(piezas)) if (id !== "titulo") pieza.props.y += corrimiento;
     }
-    const pedida = lupa === true ? 1.8 : Number(lupa) || 0;
+    const comoSeVe = typeof lupa === "object" && lupa ? lupa : {};
+    const pedida = lupa === true ? 1.8 : typeof lupa === "object" && lupa ? lupa.zoom ?? 1.8 : Number(lupa) || 0;
     const conLupa = pedida > 1 && (lupaDebajoDe == null || (disposicion.ancho ?? Infinity) < lupaDebajoDe);
     const geo = (
       /** @type {any} */
@@ -3803,7 +4326,14 @@ function desdeTraza(opciones) {
             // está limitado para que lo escrito entre; lo que se pierde es
             // lo que sobraba a la derecha de la línea más larga.
             mirarX: izqCodigo + geo.ancho / (2 * zoom),
-            mirarY
+            mirarY,
+            // Las esquinas, como las de la caja del código (que con
+            // el zoom quedan afuera de la ventana).
+            forma: comoSeVe.forma ?? "rect",
+            radio: comoSeVe.radio ?? 16,
+            aro: comoSeVe.aro ?? 2,
+            colorAro: "borde",
+            fondo: "superficie"
           });
           pieza.props.dentro = "lupa";
         }
@@ -3996,7 +4526,7 @@ function ejecutarConsulta(sql, t) {
   };
   const seleccion = columnasTexto.trim() === "*" ? [...t.columnas] : columnasTexto.split(",").map((c) => t.columnas[indice(c.trim())]);
   const condicion = dondeTexto ? condicionDesde(dondeTexto, indice) : null;
-  const recorrido = t.filas.map((fila) => ({ fila, cumple: condicion ? condicion(fila) : true }));
+  const recorrido = t.filas.map((fila2) => ({ fila: fila2, cumple: condicion ? condicion(fila2) : true }));
   let resultado = recorrido.filter((r3) => r3.cumple).map((r3) => r3.fila);
   const filtradas = resultado;
   const conColumnas = resultado.map((f) => seleccion.map((c) => f[indice(c)]));
@@ -4027,7 +4557,7 @@ function comparar(a, b) {
 }
 function condicionDesde(textoDonde, indice) {
   const alternativas = textoDonde.split(/\s+OR\s+/i).map((parte) => parte.split(/\s+AND\s+/i).map((c) => comparacion(c, indice)));
-  return (fila) => alternativas.some((todas) => todas.every((f) => f(fila)));
+  return (fila2) => alternativas.some((todas) => todas.every((f) => f(fila2)));
 }
 function comparacion(textoComparacion, indice) {
   const m = textoComparacion.trim().match(/^(\w+)\s*(<=|>=|<>|!=|=|<|>)\s*('(?:[^']|'')*'|-?\d+(?:\.\d+)?)$/);
@@ -4044,7 +4574,7 @@ function comparacion(textoComparacion, indice) {
     ">": (a, b) => comparar(a, b) > 0,
     ">=": (a, b) => comparar(a, b) >= 0
   };
-  return (fila) => ops[op](fila[i], valor);
+  return (fila2) => ops[op](fila2[i], valor);
 }
 var celda = (v) => String(v);
 function desdeConsulta(opciones) {
@@ -4132,11 +4662,11 @@ ${p.toUpperCase()} `).replace(/^select\s+/i, "SELECT ");
       decir(`${respuesta}Despu\xE9s WHERE ${r3.donde}: revisa fila por fila, y se queda solo con las que cumplen.`, 0);
       const marcas = t.filas.map((f) => [...f.map(celda), ""]);
       const elegidas = [];
-      r3.recorrido.forEach(({ fila, cumple }, i) => {
-        marcas[i] = [...fila.map(celda), cumple ? "\u2713 s\xED" : "\u2717 no"];
+      r3.recorrido.forEach(({ fila: fila2, cumple }, i) => {
+        marcas[i] = [...fila2.map(celda), cumple ? "\u2713 s\xED" : "\u2717 no"];
         linea.push({ pieza: "origen", a: { resaltarFila: i, filas: marcas.map((x) => [...x]) }, dur: 0, en: tiempo });
         if (cumple) {
-          elegidas.push(fila.map(celda));
+          elegidas.push(fila2.map(celda));
           linea.push({ pieza: "destino", a: { filas: elegidas.map((x) => [...x]), filasVisibles: elegidas.length - 1 }, dur: 0, en: tiempo });
           linea.push({ pieza: "destino", a: { filasVisibles: elegidas.length }, dur: 0.45, en: tiempo + 0.1 });
         }
@@ -4427,12 +4957,15 @@ export {
   duracionLectura,
   ejecutarConsulta,
   el,
+  espejo,
   explicarPaso,
+  fila,
   flecha,
   formatearNumero,
   grafo,
   interpolar,
   limitar,
+  lineaDeCodigo,
   lista,
   mezclarColores,
   partirLineas,

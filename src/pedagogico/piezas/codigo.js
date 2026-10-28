@@ -116,6 +116,23 @@ function medir(p) {
     return { lineas, altoLinea, encabezado, margen, alto, arriba: -alto / 2, izq, xCodigo };
 }
 
+/**
+ * Dónde está la línea k (desde 1) de un código, en las coordenadas en que está
+ * puesto: para apuntarle con una flecha o mirarla con un espejo.
+ * @param {{ props: Record<string, any> } | Record<string, any>} pieza codigo({...}) o sus props
+ * @param {number} k
+ */
+export function lineaDeCodigo(pieza, k) {
+    const p = /** @type {any} */ ('props' in pieza ? pieza.props : pieza);
+    const m = medir(p);
+    return {
+        x: p.x,
+        y: p.y + m.arriba + m.encabezado + m.margen + (k - 0.5) * m.altoLinea,
+        ancho: p.ancho,
+        alto: m.altoLinea,
+    };
+}
+
 /** Cuántos caracteres entran en un renglón de un código de ese ancho y tamaño. */
 export function caracteresPorLinea({ ancho, tamano, numeros = true }) {
     const usado = 16 + (numeros ? 2 * tamano * ANCHO_MONO + tamano * 0.9 : 8) + 16;

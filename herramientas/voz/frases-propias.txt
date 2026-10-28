@@ -1,0 +1,284 @@
+# Frases para grabar, además de las que salen de las escenas del motor.
+# Están pensadas para cubrir lo que a la voz de hoy le falta o le cuesta:
+# la erre fuerte, la ere suave, la ye y la elle como en el Río de la Plata,
+# el voseo, preguntas y exclamaciones (para la entonación), números, y las
+# palabras de programación y de matemática que se dicen todo el tiempo.
+# Son inventadas. Las líneas que empiezan con # no se graban.
+
+# ---- La erre fuerte ----
+El perro corrió por la orilla del río hasta el ferrocarril.
+Rosa arregló la radio roja que estaba rota desde el martes.
+Ramiro rompió el récord de la carrera sin respirar.
+Arriba del cerro hay un refugio redondo y un reloj enorme.
+Enrique tiene una guitarra de cuerdas gastadas y un parrillero en el patio.
+La recursión se corta cuando se llega al caso base.
+Un error de redondeo puede arruinar el resultado de la resta.
+Recorremos la lista de derecha a izquierda, sin repetir ningún elemento.
+El carro de la carrera derrapó en la curva y terminó en el barro.
+Rápido, que el remís ya está en la puerta.
+La rueda gira, la rampa baja, y el robot reacciona.
+Israel y Rodrigo revisaron el registro antes de reiniciar el router.
+Honrar la palabra es raro en estos tiempos, decía mi abuela.
+La regresión arroja una recta que resume la relación entre las dos variables.
+El rastrillo, la regadera y la rastra están en el galpón de atrás.
+Se reinicia el servidor y se recarga la página desde cero.
+
+# ---- La ere suave y la erre al final ----
+Para cada número de la lista, sumar uno al contador.
+El programa pregunta el nombre y lo guarda en una variable.
+Hay que mirar bien la pantalla antes de apretar enter.
+Al terminar, el valor de retorno vuelve a quien llamó a la función.
+Tres por cuatro, doce; cuatro por cuatro, dieciséis.
+El profesor explicó por qué el árbol binario se recorre en orden.
+Quiero aprender a programar para crear mis propios juegos.
+Primero se compara, después se ordena, y por último se imprime.
+El color de la barra cambia cuando se supera el umbral.
+Abrir, leer, procesar y cerrar el archivo: siempre en ese orden.
+Para entender un error, conviene leer el mensaje entero.
+El mejor momento para escribir un test es antes de escribir el código.
+
+# ---- La ye y la elle, como acá ----
+Ayer llovió toda la tarde y la calle quedó llena de charcos.
+Yo me llamo como mi abuelo, que llegó en barco desde Galicia.
+La llave de la puerta amarilla está arriba de la heladera.
+El caballo se escapó del corral y apareció en la playa.
+Ya está: la lluvia paró y salió el sol sobre la ruta.
+Me llevé la silla al balcón para mirar las estrellas.
+Las ballenas llegan a la costa de Chubut en invierno.
+El pollo con papas es lo que más me gusta del domingo.
+Hay que tener paciencia: lo que se aprende de a poco, se queda.
+El rollo de cable está en el cajón de abajo, al lado de la pinza.
+
+# ---- El voseo ----
+Mirá la línea marcada: es la que está por ejecutarse.
+Fijate qué pasa con la variable cuando entra al bucle.
+Si querés, pausá y pensalo antes de seguir.
+Vos tenés que decidir qué número va a imprimir el programa.
+Probá cambiar el valor y mirá cómo se mueve la recta.
+¿Te acordás de lo que hacía la función que vimos antes?
+Escribí tu programa a la izquierda y la animación se arma sola.
+Podés arrastrar la lupa con el mouse o con el dedo.
+Contestá primero, y después mirá si acertaste.
+Decime qué pensás que va a pasar, y lo vemos juntos.
+Andá paso a paso: no hay apuro, nadie te está corriendo.
+Sabés más de lo que creés: confiá en lo que ya aprendiste.
+
+# ---- Preguntas ----
+¿Qué creés que va a pasar ahora?
+¿Cuántas veces se repite el bucle?
+¿Por qué la lista cambió si solo tocamos la otra?
+¿Cuánto vale total después de la tercera vuelta?
+¿Esta condición se cumple o no se cumple?
+¿Qué devuelve la función cuando la lista está vacía?
+¿Dónde está el error en este programa?
+¿Y si en vez de sumar, multiplicamos?
+¿Te parece que la pendiente es positiva o negativa?
+¿Alcanza con un solo test, o hace falta más de uno?
+¿Quién llamó a esta función, y qué le va a devolver?
+¿Cómo sabemos que el resultado está bien?
+
+# ---- Exclamaciones y énfasis ----
+¡Exacto! Eso es justamente lo que hace el programa.
+¡Ojo! Acá hay una trampa: la variable no se reinicia.
+¡Muy bien! Ahora probemos con un caso más difícil.
+¡No, todavía no! Primero hay que guardar el valor.
+¡Listo! El test pasó, y la barra se puso verde.
+¡Qué lindo cuando todo anda a la primera!
+¡Cuidado con dividir por cero!
+¡Ahí está! Ese es el caso que rompía todo.
+Esto es importante: la copia y el original son dos cosas distintas.
+No es lo mismo, para nada: una es una copia, y la otra es la misma lista.
+
+# ---- Números ----
+El año dos mil veintiséis empezó con mucho calor.
+Son las nueve y media de la mañana del martes catorce.
+La cuenta da trescientos cuarenta y siete con veinte.
+Uno, dos, tres, cuatro, cinco, seis, siete, ocho, nueve y diez.
+Once, doce, trece, catorce, quince, dieciséis, diecisiete, dieciocho y diecinueve.
+Veinte, treinta, cuarenta, cincuenta, sesenta, setenta, ochenta, noventa y cien.
+El precio subió un quince por ciento en un solo mes.
+Mil doscientos más ochocientos cincuenta da dos mil cincuenta.
+La temperatura bajó a menos tres grados durante la noche.
+Cero coma cinco es lo mismo que un medio.
+El índice empieza en cero, no en uno: el tercer elemento es el número dos.
+Tengo ciento veintitrés mensajes sin leer y ninguna gana de leerlos.
+El colectivo sesenta pasa cada doce minutos por la avenida.
+Tres coma catorce dieciséis es una aproximación de pi.
+
+# ---- Programación ----
+Un for recorre la lista, un elemento por vez.
+Un while repite mientras la condición sea verdadera.
+La función recibe dos parámetros y devuelve un solo resultado.
+Una variable es una caja con un nombre que guarda un valor.
+El diccionario guarda pares de clave y valor.
+Si la clave no está, Python se corta con un KeyError.
+El print muestra en la pantalla lo que le pasamos entre paréntesis.
+La pila de llamadas crece con cada función que se llama, y se achica cuando termina.
+Un objeto tiene atributos y métodos, y self es el objeto mismo.
+El test falla, encontramos el error, lo corregimos, y el test pasa.
+La consulta toma la tabla, filtra las filas y ordena el resultado.
+Un índice fuera de rango es uno de los errores más comunes.
+El bucle infinito no termina nunca: hay que cortarlo a mano.
+Una lista es mutable: se puede cambiar después de creada.
+Un string es inmutable: cada cambio crea uno nuevo.
+El if decide, el else cubre el resto, y el elif agrega otros casos.
+Importamos la biblioteca, llamamos a la función y guardamos lo que devuelve.
+El servidor responde con un código doscientos cuando todo salió bien.
+El cliente manda un paquete, y el servidor confirma que lo recibió.
+Una dirección de red tiene cuatro números separados por puntos.
+
+# ---- Matemática ----
+La derivada es la pendiente de la recta tangente en ese punto.
+Cuando h tiende a cero, la secante se convierte en tangente.
+El gradiente apunta hacia donde la función crece más rápido.
+El descenso del gradiente da pasos en la dirección contraria.
+La recta de mínimos cuadrados hace que la suma de los errores al cuadrado sea mínima.
+Un intervalo de confianza del noventa y cinco por ciento no es una garantía.
+Si el p-valor es menor que alfa, rechazamos la hipótesis nula.
+El coeficiente de determinación dice qué parte de la variabilidad explica la recta.
+La varianza mide qué tan desparramados están los datos alrededor de la media.
+El máximo común divisor de doce y dieciocho es seis.
+Una función cuadrática tiene forma de parábola, con un vértice arriba o abajo.
+La integral es el área debajo de la curva.
+Elevar al cuadrado, sacar la raíz, y volver al número del principio.
+Dos rectas paralelas tienen la misma pendiente y nunca se cruzan.
+
+# ---- Frases largas, para el ritmo ----
+Cuando un programa no hace lo que esperamos, lo mejor es ir línea por línea, mirando cómo cambia cada variable, hasta encontrar el lugar exacto donde se separan lo que creíamos y lo que pasa.
+Las animaciones de este curso se pueden pausar, recorrer hacia atrás y hacia adelante, y en cada pregunta frenan para que pienses antes de ver la respuesta.
+Aprender a programar no es memorizar comandos: es aprender a partir un problema grande en problemas chicos, y resolverlos de a uno.
+En la Argentina, el invierno es seco en el centro del país y lluvioso en la Patagonia andina, mientras que en el norte hace calor casi todo el año.
+Si dos nombres apuntan a la misma lista, cambiar una cambia la otra, porque en realidad no hay dos listas: hay una sola, con dos nombres.
+
+# ---- Frases cortas, para los finales ----
+Y listo.
+Eso es todo por hoy.
+Vamos de nuevo.
+Seguimos.
+Perfecto.
+Probalo vos.
+Ahora sí.
+Hasta la próxima.
+
+# ---- De todos los días ----
+El mate se ceba con agua caliente, nunca hirviendo.
+Mañana a la mañana tengo turno con el médico, así que llego más tarde.
+El kiosco de la esquina abre a las siete y cierra a la medianoche.
+Se cortó la luz justo cuando estaba por guardar el archivo.
+Los domingos comemos asado en la casa de mis viejos.
+El tren de las ocho y cuarto viene siempre lleno.
+Me olvidé el paraguas en el colectivo, otra vez.
+En otoño las hojas de los plátanos tapan las veredas.
+La verdulería de enfrente tiene las mejores mandarinas del barrio.
+Si llueve el sábado, suspendemos el partido y lo jugamos el miércoles.
+Ensenada queda pegada a La Plata, a orillas del río.
+El viento sur trajo frío y el cielo quedó limpísimo.
+Hoy me levanté temprano, salí a caminar y desayuné tranquilo.
+La bicicleta tiene la cadena floja y la rueda de atrás pinchada.
+Compré pan, leche, yerba y un paquete de galletitas.
+La biblioteca del barrio presta libros por dos semanas.
+El perro de la vecina ladra cada vez que pasa el cartero.
+Mi hermana estudia enfermería y trabaja de noche en el hospital.
+En el verano, la ruta a la costa se llena de autos.
+Llegué tarde porque el subte estuvo parado veinte minutos.
+
+# ---- En clase ----
+Buen día a todos, hoy vamos a ver cómo funciona un bucle.
+Antes de empezar, repasemos lo que vimos la clase pasada.
+Abran el editor y creen un archivo nuevo que se llame práctica.
+No se preocupen si no les sale a la primera: a nadie le sale.
+Levanten la mano si el programa les tiró un error.
+Vamos a resolver este ejercicio entre todos, en el pizarrón.
+Copien el enunciado y piensen cinco minutos antes de escribir código.
+La entrega es el viernes, y se sube al aula virtual.
+Si algo no se entiende, pregunten: no hay preguntas tontas.
+Hoy cerramos el tema de funciones y la semana que viene empezamos con objetos.
+Este ejercicio tiene trampa: lean bien qué pide.
+El examen va a ser parecido a la práctica, pero con otros números.
+Trabajen de a dos: uno escribe y el otro revisa.
+Guarden seguido, que la computadora se puede colgar en cualquier momento.
+Al final de la clase, cada grupo cuenta qué hizo y qué le costó.
+
+# ---- Tecnología ----
+La computadora tiene un procesador, memoria y un disco donde guarda los archivos.
+La contraseña tiene que ser larga, y no conviene usar la misma en todos lados.
+El navegador guarda una copia de la página para que cargue más rápido.
+El archivo pesa demasiado para mandarlo por correo.
+La red del instituto anda lenta cuando todos se conectan a la vez.
+Una base de datos guarda la información en tablas, con filas y columnas.
+El celular se actualizó solo durante la noche.
+Los datos viajan en paquetes, y cada paquete puede tomar un camino distinto.
+La impresora se quedó sin tinta en el peor momento.
+Un algoritmo es una receta: una serie de pasos que siempre terminan.
+La inteligencia artificial ayuda, pero hay que revisar lo que propone.
+Hacer una copia de seguridad lleva cinco minutos y puede salvar meses de trabajo.
+El teclado tiene la eñe en su lugar, al lado de la ele.
+La pantalla se apaga sola después de diez minutos sin usarla.
+Un archivo de texto no tiene formato: solo letras, números y símbolos.
+
+# ---- Ritmo y pausas ----
+Primero, leer. Segundo, entender. Tercero, recién ahí, escribir.
+Rojo, amarillo, verde: así se ve un test que falla, se corrige y pasa.
+Lunes, martes, miércoles, jueves, viernes, sábado y domingo.
+Enero, febrero, marzo, abril, mayo y junio.
+Julio, agosto, septiembre, octubre, noviembre y diciembre.
+Norte, sur, este y oeste.
+Arriba, abajo, a la izquierda y a la derecha.
+Uno solo no alcanza; dos tampoco; con tres, ya se ve un patrón.
+Despacio, que estoy apurado, decía un general.
+Leer, escribir, borrar y volver a empezar: así se programa.
+
+# ---- Más erres, más elles ----
+El ruido del tráfico no me dejó dormir en toda la noche.
+Ricardo regaló rosas rojas a su ruidosa sobrina Romina.
+Correr por la rambla a la mañana temprano es lo mejor que hay.
+El cerrajero arregló la cerradura y cobró carísimo.
+La torre del reloj marca la hora en el centro del pueblo.
+Un terremoto sacudió la región y derrumbó varias casas.
+El arroz con leche se revuelve sin parar para que no se pegue.
+Rocío recorre el barrio repartiendo revistas.
+La lluvia de anoche llenó el arroyo hasta el borde.
+Llamame cuando llegues, así me quedo tranquila.
+Yo ya me iba, pero me quedé a ayudar con la mudanza.
+El llavero se cayó en la alcantarilla de la calle Mayo.
+Las gallinas del gallinero pusieron siete huevos ayer.
+El yuyo creció tanto que tapó la ventana de la cocina.
+Hay un pollito amarillo escondido debajo de la silla.
+
+# ---- Más preguntas y respuestas ----
+¿Y ahora? Ahora la variable vale diez.
+¿Funciona? Todavía no, pero estamos cerca.
+¿Por qué falla? Porque la lista está vacía y no lo tuvimos en cuenta.
+¿Qué hacemos con el resto? Lo guardamos en otra variable.
+¿Cuánto tarda? Depende de cuántos datos haya.
+¿Se puede hacer más corto? Sí, pero se entiende menos.
+¿Es la misma lista o es una copia? Es la misma.
+¿Hasta cuándo sigue el bucle? Hasta que la condición sea falsa.
+¿Quién tiene razón? Los dos, en parte.
+¿Te animás a probarlo? Dale, que no se rompe nada.
+
+# ---- Más matemática y redes ----
+La media de cuatro, seis y ocho es seis.
+Si la pendiente es cero, la recta es horizontal.
+El cuadrado de un número negativo es positivo.
+Un número primo solo se divide por uno y por sí mismo.
+La probabilidad de sacar cara al tirar una moneda es un medio.
+El desvío estándar es la raíz cuadrada de la varianza.
+Una muestra más grande da un intervalo más angosto.
+La hipótesis nula dice que no hay efecto; la alternativa, que sí lo hay.
+El protocolo define cómo se hablan dos computadoras.
+Si se pierde un paquete, el emisor lo vuelve a mandar.
+La ventana de congestión crece mientras no haya pérdidas.
+El servidor de nombres traduce un nombre en una dirección.
+La máscara de subred dice qué parte de la dirección es la red y qué parte es el equipo.
+Un byte tiene ocho bits, y cada bit es un cero o un uno.
+Dos elevado a la diez es mil veinticuatro.
+
+# ---- Más frases largas ----
+Cuando terminemos este tema, van a poder leer un programa ajeno y entender qué hace, aunque nunca lo hayan visto antes.
+La diferencia entre un buen programa y uno malo no está en que funcione, sino en que otra persona lo pueda leer, entender y cambiar sin miedo.
+Si el resultado no es el que esperabas, no te frustres: cada error es una pista que te acerca a la solución.
+Un test automático es como un compañero que revisa tu trabajo cada vez que cambiás algo, sin cansarse nunca.
+En una red, cada computadora tiene una dirección, y los paquetes saltan de una a otra hasta llegar a destino, como cartas que pasan por varias oficinas de correo.
+La estadística no da certezas: da una medida de qué tan seguros podemos estar, y eso ya es muchísimo.
+Antes de optimizar un programa, hay que asegurarse de que funcione bien; y antes de que funcione, de que resuelva el problema correcto.

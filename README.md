@@ -3,7 +3,7 @@
 Animaciones web **deterministas**: el estado en el instante *t* depende solo de *t*. Por eso la
 misma escena se ve igual en vivo, paso a paso y grabada a video, y se puede probar con tests.
 
-Sin dependencias. 38 KB con gzip con todo (19 KB sin la capa pedagógica, en `motor-base.min.js`).
+Sin dependencias. 42 KB con gzip con todo (22 KB sin la capa pedagógica, en `motor-base.min.js`).
 
 **Ejemplos en vivo:** <https://maxinunez24.github.io/motor-animaciones/>
 
@@ -55,12 +55,28 @@ la plataforma del curso, con un componente de Astro listo: [docs/usar-en-el-curs
 ## La escena
 
 - **piezas**: `caja`, `texto`, `flecha`, `tabla`, `celular`, `cilindro` (una base de datos),
-  `contador` (un número que se anima), `grafo` (nodos y aristas: un dígrafo, una red) y `camara`. Todas tienen `x`, `y` (el centro), `escala`,
-  `rotacion`, `opacidad` y `dentro` (para dibujarse dentro de otra, como un botón en el celular).
+  `contador` (un número que se anima), `grafo` (nodos y aristas: un dígrafo, una red), `camara`,
+  `espejo` y `fila`. Todas tienen `x`, `y` (el centro), `escala`, `rotacion`, `opacidad`, `dentro`
+  (para dibujarse dentro de otra, como un botón en el celular) y `pegar`.
   Las nuevas se hacen con `definirPieza` (ver `src/piezas/definir.js`).
 - **camara**: lo que va `dentro: 'camara'` se ve a través de ella. Se mueve animando `mirarX`,
   `mirarY` y `zoom`, y con `ancho` y `alto` recorta a su ventana. En el celular, en vez de achicar
-  la escena, la cámara se acerca a la parte que se cuenta (ver `ejemplos/expo/siges.js`).
+  la escena, la cámara se acerca a la parte que se cuenta (ver `ejemplos/expo/siges.js`). La
+  ventana puede tener esquinas redondeadas (`radio`) o ser redonda (`forma: 'circulo'`), con un
+  aro (`aro`) y `sombra`.
+- **espejo**: una ventana que muestra agrandada otra parte de la escena (`mirarX`, `mirarY`,
+  `zoom`), sincronizada con ella: no es una copia, es la misma parte vista otra vez. `fuente` es una
+  pieza (o nada: toda la escena); `marco` marca en la escena qué parte se mira; `forma: 'circulo'`
+  y mirar justo donde está lo hace una lupa. Quien mira lo puede arrastrar (`arrastrable`): eso es
+  de la vista, como el zoom, y no cambia la escena.
+- **pegar** (todas las piezas): `pegar: { a: 'caja', lado: 'derecha', separacion: 10, alinear:
+  'inicio' }` la pega a un costado de otra pieza (`derecha`, `izquierda`, `arriba`, `abajo` o
+  `centro`), y la sigue si se mueve o crece. Animando `pegado` de 1 a 0 se despega de a poco.
+- **fila**: `fila({ piezas: ['a', 'b', 'c'], separacion, direccion: 'vertical', alinear })` acomoda
+  piezas una al lado de la otra; si una crece, corre a las demás. Una que entra con la escala de 0
+  a 1 va abriendo su lugar. Con `relleno` o `borde` dibuja la caja que las rodea.
+- **flecha**: se engancha al borde de las piezas que une y las sigue. Con `desde: { pieza: 'a',
+  lado: 'izquierda' }` sale de un costado fijo (ver la flecha de "la misma lista").
 - **linea**: animaciones (`{ pieza, a, dur, curva, en, escalonar }`), `capitulo`, `subtitulo` y
   `espera` (unos segundos, o `'subtitulo'`: hasta que se termine de leer el último).
 - **en**: sin nada, después de todo lo anterior; un número, a esa altura; `'+0.5'`, `'<'`, `'<0.2'`,
@@ -85,12 +101,13 @@ la plataforma del curso, con un componente de Astro listo: [docs/usar-en-el-curs
 | `tema="claro\|oscuro"` | sin él, sigue a `<html data-theme>` (Starlight) o al sistema |
 | `movimiento="reducido\|completo"` | sin él, respeta `prefers-reduced-motion` |
 | `sin-controles`, `sin-subtitulos`, `pantalla` | para una pantalla que solo muestra |
-| `controles-fijos` | los controles van siempre abajo, sin esconderse |
+| `controles-fijos` | los controles van siempre abajo, sin esconderse (en `<motor-leccion>` ya es así; `controles-flotantes` la hace flotar) |
 
 Con mouse (y siempre en pantalla completa) los controles flotan sobre la parte de abajo del dibujo
 y se esconden mientras la animación corre; vuelven al mover el mouse, al pausar o al llegar con el
 teclado. En pantalla completa el subtítulo va encima del dibujo, como en el cine, así que el
-dibujo ocupa toda la pantalla.
+dibujo ocupa toda la pantalla. En una `<motor-leccion>`, mientras hay una pregunta abierta los
+controles se esconden (vuelven si se pasa el mouse por abajo) y el subtítulo sube encima de ella.
 
 **Zoom**: Ctrl + rueda (o pellizcar el touchpad o la pantalla), los botones + y − de arriba a la
 derecha, o las teclas `+` `-` `0`. Con zoom, arrastrar mueve la vista. Es solo de la vista: no
@@ -112,6 +129,9 @@ Está encima del motor, y el motor no sabe que existe (vive en `src/pedagogico/`
   - **Paso a paso** (el botón, o el atributo `paso-a-paso`): frena en cada `{ marca: 'paso' }`, y
     ⏮ ⏭ van de un paso al otro.
   - Con el atributo `video` no frena: la pregunta queda como cartel durante su tramo.
+  - En la página, la pregunta va debajo del dibujo, para no tapar lo que hay que mirar para
+    contestarla. En pantalla completa va encima, y "Ver el dibujo" la achica un momento. Si el
+    subtítulo repite la pregunta, no se muestra mientras está abierta.
 - **Piezas**: `codigo` (con la línea que corre resaltada, en Python, JavaScript o SQL), `variable`
   (una caja con su nombre), `lista` (casilleros con índices y una flechita), `consola` y `pila` (la
   pila de llamadas: una tarjeta por función que se está ejecutando, con sus variables).
@@ -123,7 +143,11 @@ Está encima del motor, y el motor no sabe que existe (vive en `src/pedagogico/`
     entero, y en una columna angosta queda ilegible. Con la lupa, el código va dentro de una
     `camara` que lo agranda y sigue a la línea marcada como un editor: baja suave cuando la marca
     se acerca al borde, dejando `contexto` líneas (3) arriba y abajo. El zoom nunca corta la línea
-    más larga. Con `lupaDebajoDe: 900` se usa solo si el lugar mide menos de 900px.
+    más larga. Con `lupaDebajoDe: 900` se usa solo si el lugar mide menos de 900px. Por defecto
+    tiene las esquinas redondeadas y un aro fino; con `lupa: { zoom, forma: 'circulo', radio, aro }`
+    se elige cómo se ve.
+- **`lineaDeCodigo(codigo, k)`**: dónde está la línea k de un `codigo`, para apuntarle con una
+  flecha o mirarla con un espejo.
 
 ```html
 <motor-leccion escena="bucle-for"></motor-leccion>
@@ -311,6 +335,8 @@ las preguntas no frenan, se leen y quedan como cartel, y el paso siguiente dice 
   `.vtt`, para un `<video>` en una página web.
 - `--desde` y `--hasta` para grabar un pedazo; `--fps`, `--tema`, `--calidad` (crf de x264).
 - Usa el ffmpeg de `ffmpeg-static` (viene con `npm install`), o el de la variable `FFMPEG`.
+- `--voz otra-voz.onnx` narra con otra voz de Piper. Para entrenar la tuya (grabar las frases, clonar o
+  entrenar Piper), ver [herramientas/voz/LEEME.md](herramientas/voz/LEEME.md).
 
 ## Trabajar en el motor
 

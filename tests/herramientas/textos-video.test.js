@@ -102,6 +102,14 @@ describe('el texto que lee la voz', () => {
         assert.equal(prepararParaVoz('marcar() sobre Alumno #1'), 'marcar sobre Alumno número 1.');
     });
 
+    test('la matemática se dice en palabras', () => {
+        assert.equal(prepararParaVoz('f(x) = x²'), 'f(x) igual a x al cuadrado.');
+        assert.equal(prepararParaVoz('4 + 8 = 12, y 4 × 3 − 2 = 10'), '4 más 8 igual a 12, y 4 por 3 menos 2 igual a 10.');
+        assert.equal(prepararParaVoz('f′(1) = 2'), 'f prima(1) igual a 2.');
+        // Un guion pegado (una palabra compuesta, un número negativo) no se toca.
+        assert.equal(prepararParaVoz('el punto x = -3 y la red pre-armada'), 'el punto x igual a -3 y la red pre-armada.');
+    });
+
     test('siempre termina en punto, para que la entonación baje', () => {
         assert.equal(prepararParaVoz('¿Qué pasa con a?'), '¿Qué pasa con a?');
         assert.equal(prepararParaVoz('Listo'), 'Listo.');

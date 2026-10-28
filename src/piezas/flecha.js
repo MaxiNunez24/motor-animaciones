@@ -13,7 +13,10 @@ import { limitar } from '../nucleo/interpolar.js';
 export const flecha = definirPieza({
     nombre: 'flecha',
     predeterminados: {
-        // El id de una pieza, o un punto { x, y }.
+        // El id de una pieza (se engancha al borde que mira a la otra punta),
+        // un punto { x, y }, o un costado de una pieza: { pieza: 'id', lado:
+        // 'izquierda' | 'derecha' | 'arriba' | 'abajo' | 'centro', dx, dy }.
+        // Enganchada a un costado, la sigue aunque la pieza crezca.
         desde: null,
         hasta: null,
         // De 0 (no se ve) a 1 (dibujada entera).
@@ -125,11 +128,20 @@ export const flecha = definirPieza({
 });
 
 function extremo(cual, ctx) {
-    if (typeof cual === 'string') {
-        if (!ctx.estado.piezas[cual]) throw new Error(`La flecha apunta a "${cual}", y no hay ninguna pieza que se llame así.`);
-        return posicionAbsoluta(cual, ctx.estado, ctx.tipos);
-    }
-    return { x: cual.x, y: cual.y };
+    const pieza = typeof cual === 'string' ? cual : cual.pieza;
+    if (pieza == null) return { x: cual.x, y: cual.y };
+    if (!ctx.estado.piezas[pieza]) throw new Error(`La flecha apunta a "${pieza}", y no hay ninguna pieza que se llame así.`);
+    const r = posicionAbsoluta(pieza, ctx.estado, ctx.tipos);
+    if (typeof cual === 'string') return r;
+    return puntoDelLado(r, cual.lado, cual.dx ?? 0, cual.dy ?? 0);
+}
+
+// El medio de un costado de una pieza (como un punto, sin tamaño: la flecha
+// arranca justo ahí).
+export function puntoDelLado(r, lado = 'centro', dx = 0, dy = 0) {
+    const x = r.x + (lado === 'derecha' ? r.ancho / 2 : lado === 'izquierda' ? -r.ancho / 2 : 0);
+    const y = r.y + (lado === 'abajo' ? r.alto / 2 : lado === 'arriba' ? -r.alto / 2 : 0);
+    return { x: x + dx, y: y + dy };
 }
 
 function adentro(r, contenedor, ctx) {
