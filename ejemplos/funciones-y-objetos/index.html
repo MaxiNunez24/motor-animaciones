@@ -28,6 +28,10 @@
             font-size: clamp(1.15rem, 3.6vw, 1.5rem);
             margin: 2em 0 0.3em;
         }
+        /* Del ancho de la columna de una clase, para ver la lupa en una pantalla grande. */
+        .columna {
+            max-width: 650px;
+        }
         motor-leccion {
             margin-top: 0.8em;
         }
@@ -48,6 +52,16 @@
         <h2>Una función que se llama a sí misma</h2>
         <motor-leccion escena="recursion"></motor-leccion>
 
+        <h2>Una función que llama a otra, que llama a otra</h2>
+        <p>
+            Un programa de 20 líneas no entra legible en una columna angosta. Esta lección tiene la lupa
+            prendida para cuando se ve en menos de 900 px: el código se agranda y la cámara sigue a la línea
+            que está corriendo.
+        </p>
+        <div class="columna">
+            <motor-leccion escena="pila"></motor-leccion>
+        </div>
+
         <h2>Dos nombres, una sola lista</h2>
         <motor-leccion escena="referencias"></motor-leccion>
 
@@ -58,6 +72,7 @@
     <script src="../../dist/motor.min.js"></script>
     <script src="funciones.traza.js"></script>
     <script src="recursion.traza.js"></script>
+    <script src="pila.traza.js"></script>
     <script src="referencias.traza.js"></script>
     <script src="objetos.traza.js"></script>
     <script src="lecciones.js"></script>

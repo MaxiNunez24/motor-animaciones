@@ -3,7 +3,7 @@
 Animaciones web **deterministas**: el estado en el instante *t* depende solo de *t*. Por eso la
 misma escena se ve igual en vivo, paso a paso y grabada a video, y se puede probar con tests.
 
-Sin dependencias. 34 KB con gzip con todo (16 KB sin la capa pedagógica, en `motor-base.min.js`).
+Sin dependencias. 38 KB con gzip con todo (19 KB sin la capa pedagógica, en `motor-base.min.js`).
 
 **Ejemplos en vivo:** <https://maxinunez24.github.io/motor-animaciones/>
 
@@ -37,12 +37,12 @@ Sin dependencias. 34 KB con gzip con todo (16 KB sin la capa pedagógica, en `mo
 
 `motor.min.js` es un script clásico a propósito: anda abriendo el `.html` con doble clic
 (`file://`), donde los módulos no cargan. Con internet también se puede usar desde jsDelivr:
-`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.7.0/dist/motor.min.js`.
+`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.8.0/dist/motor.min.js`.
 
 ## Desde otro proyecto (Astro, Vite…)
 
 ```bash
-pnpm add github:MaxiNunez24/motor-animaciones#v0.7.0
+pnpm add github:MaxiNunez24/motor-animaciones#v0.8.0
 ```
 
 ```js
@@ -71,7 +71,9 @@ la plataforma del curso, con un componente de Astro listo: [docs/usar-en-el-curs
 - **colores**: por papel, no por valor: `fondo`, `superficie`, `texto`, `suave`, `borde`, `acento`,
   `acento2`, `exito`, `alerta`, `error`, `papel`, `marco`. Así anda en claro y en oscuro.
 - **disposiciones**: si la escena es una función `(disposicion) => ({...})`, en angosto (menos de
-  600px, o una pantalla parada) se arma con `disposicion.nombre === 'angosta'`.
+  600px, o una pantalla parada) se arma con `disposicion.nombre === 'angosta'`. De 600 a 900px es
+  `'media'` (la columna de una clase): una escena que no la usa la trata como ancha.
+  `disposicion.ancho` dice cuántos píxeles mide el lugar.
 - **azar con semilla**: `Motor.azar('semilla')`, nunca `Math.random()`.
 
 ## El componente
@@ -83,6 +85,16 @@ la plataforma del curso, con un componente de Astro listo: [docs/usar-en-el-curs
 | `tema="claro\|oscuro"` | sin él, sigue a `<html data-theme>` (Starlight) o al sistema |
 | `movimiento="reducido\|completo"` | sin él, respeta `prefers-reduced-motion` |
 | `sin-controles`, `sin-subtitulos`, `pantalla` | para una pantalla que solo muestra |
+| `controles-fijos` | los controles van siempre abajo, sin esconderse |
+
+Con mouse (y siempre en pantalla completa) los controles flotan sobre la parte de abajo del dibujo
+y se esconden mientras la animación corre; vuelven al mover el mouse, al pausar o al llegar con el
+teclado. En pantalla completa el subtítulo va encima del dibujo, como en el cine, así que el
+dibujo ocupa toda la pantalla.
+
+**Zoom**: Ctrl + rueda (o pellizcar el touchpad o la pantalla), los botones + y − de arriba a la
+derecha, o las teclas `+` `-` `0`. Con zoom, arrastrar mueve la vista. Es solo de la vista: no
+cambia la escena.
 
 Desde JavaScript: `.escena = {...}`, `.reproducir()`, `.pausar()`, `.irA(t)`, `.t`, `.duracion`.
 Teclado: espacio reproduce y pausa, ← → saltan de capítulo, `,` `.` van cuadro por cuadro.
@@ -107,6 +119,11 @@ Está encima del motor, y el motor no sabe que existe (vive en `src/pedagogico/`
   partir de la traza de un programa (qué línea corrió y cuánto valía cada variable). La traza se
   saca de un programa de verdad con `python herramientas/trazar.py programa.py`, o se escribe a
   mano en el mismo formato (ver `ejemplos/conceptos/`).
+  - **Lupa** (`lupa: true`, o el zoom: `lupa: 1.6`): un programa largo se achica hasta entrar
+    entero, y en una columna angosta queda ilegible. Con la lupa, el código va dentro de una
+    `camara` que lo agranda y sigue a la línea marcada como un editor: baja suave cuando la marca
+    se acerca al borde, dejando `contexto` líneas (3) arriba y abajo. El zoom nunca corta la línea
+    más larga. Con `lupaDebajoDe: 900` se usa solo si el lugar mide menos de 900px.
 
 ```html
 <motor-leccion escena="bucle-for"></motor-leccion>
@@ -169,7 +186,7 @@ exporta una página lista para abrir o publicar.
 
 ## Matemática
 
-`dist/motor-mate.min.js` (aparte, 20 KB con gzip; global `MotorMate`, junto con `motor.min.js`) trae
+`dist/motor-mate.min.js` (aparte, 32 KB con gzip; global `MotorMate`, junto con `motor.min.js`) trae
 un **plano cartesiano** y lo que va encima. Cada cosa es una pieza que dice `plano: 'p'` y se ubica
 con coordenadas de la matemática (`mx`, `my`), así que se anima por su cuenta: el punto camina sobre
 la curva, la recta gira hasta ser tangente, y si el plano hace zoom todo lo sigue.
@@ -186,8 +203,9 @@ linea: [{ pieza: 'f', a: { trazo: 1 }, dur: 2 }, { pieza: 't', a: { progreso: 1 
 ```
 
 Piezas: `plano`, `grafica` (una función, unos datos o una curva paramétrica), `punto`, `vector`,
-`recta`, `segmento`, `curvasNivel` (de una función de dos variables) y `campo` (su gradiente, o
-cualquier campo de vectores). Y escenas que se arman solas a partir de los datos, con preguntas:
+`recta`, `segmento`, `area` (entre una curva y el eje, o entre dos curvas: una probabilidad, las
+colas de un test, una banda), `curvasNivel` (de una función de dos variables) y `campo` (su
+gradiente, o cualquier campo de vectores). Y escenas que se arman solas a partir de los datos, con preguntas:
 
 | | |
 |---|---|
@@ -197,10 +215,22 @@ cualquier campo de vectores). Y escenas que se arman solas a partir de los datos
 | `desdeEuclides({ a, b })` | el mcd, con la tabla de divisiones y el rectángulo que se llena de cuadrados |
 | `desdeRelacion({ conjunto, pares })` | dígrafo, matriz, y qué propiedades cumple, con el contraejemplo |
 | `desdeModulo({ n, cuentas })` | aritmética modular como un reloj de n horas |
+| `desdeIntervalo({ datos, confianza })` | un intervalo de confianza para la media: error estándar, valor crítico de la t, margen |
+| `desdeCobertura({ media, desvio, n, muestras })` | qué quiere decir 95 %: muchas muestras, cada una con su intervalo |
+| `desdeTest({ media, desvio, n, mu0, h0, h1 })` o `({ estadistico, gl, ... })` | un test de hipótesis con la campana: región de rechazo, estadístico, p-valor y la conclusión en el idioma del problema |
+| `desdeVariabilidad({ datos })` | STC = SCR + SCE, con un punto y con todos; R², σ̂² y lo que R² no dice |
+| `desdeBandas({ datos, xEstrella })` | el intervalo para la respuesta media y el de predicción, en x* y como bandas |
+| `desdeTasas({ f, inicio, tasas })` | el descenso del gradiente con varias tasas a la vez, y f según la iteración |
 
 Las cuentas (`derivada`, `gradiente`, `descensoGradiente`, `regresionLineal`, `curvaDeNivel`,
 `euclides`, `propiedadesRelacion`...) se exportan también, y tienen tests contra resultados conocidos.
-Ejemplos: [matemática](ejemplos/matematica/) y [en 3D](ejemplos/matematica-3d/).
+Las de estadística también: la normal y la t de Student (densidad, área, inversa), `valorCritico`,
+`intervaloMedia`, `decidir` (el p-valor y la decisión de un test, en cualquier cola), `testMedia`,
+`inferenciaRegresion` (STC, SCR, SCE, σ̂², el test de la pendiente, ICM e IP) y `minimosCuadrados`
+(varias variables, con las ecuaciones normales y el R² ajustado). Sin tablas: los valores críticos
+se calculan, y coinciden con los de las tablas.
+Ejemplos: [matemática](ejemplos/matematica/), [en 3D](ejemplos/matematica-3d/),
+[intervalos y tests](ejemplos/estadistica/) y [regresión de punta a punta](ejemplos/regresion/).
 
 ## Redes
 

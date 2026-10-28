@@ -21,7 +21,7 @@ La ruta lleva el `base` adelante, como los demás scripts de `public/`: sin él,
 1. Instalarlo, fijado a una versión (un tag del repo):
 
    ```bash
-   pnpm add github:MaxiNunez24/motor-animaciones#v0.7.0
+   pnpm add github:MaxiNunez24/motor-animaciones#v0.8.0
    ```
 
    `dist/` está subido al repo, así que no hace falta compilar nada al instalar (pnpm no corre
@@ -176,5 +176,17 @@ registrar('subred', desdeSubred({ direccion: '192.168.10.77/26' }));
 ```
 
 Y en una página suelta, con `motor-mate.min.js` o `motor-redes.min.js` después de `motor.min.js`
-(globales `MotorMate` y `MotorRedes`). Ejemplos: `ejemplos/matematica/`, `ejemplos/matematica-3d/`
-y `ejemplos/redes/`.
+(globales `MotorMate` y `MotorRedes`). Ejemplos: `ejemplos/matematica/`, `ejemplos/matematica-3d/`,
+`ejemplos/estadistica/`, `ejemplos/regresion/` y `ejemplos/redes/`.
+
+## Un programa largo en la columna de una clase
+
+En la columna de una página del curso (unos 650px), un programa de 20 líneas se achica hasta que
+la letra queda de 7px. Para eso está la lupa de `desdeTraza`:
+
+```js
+desdeTraza({ ...traza, lupa: true, lupaDebajoDe: 900 })
+```
+
+Entre 600 y 900px la escena usa además la disposición media (1200 de ancho en vez de 1600), y el
+código va dentro de una cámara que se acerca y sigue a la línea que corre.

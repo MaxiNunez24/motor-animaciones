@@ -12,7 +12,7 @@ async function abrir(page, url) {
     return errores;
 }
 
-for (const [pagina, cuantas] of [['/ejemplos/funciones-y-objetos/', 4], ['/ejemplos/sql/', 2], ['/ejemplos/tests/', 1]]) {
+for (const [pagina, cuantas] of [['/ejemplos/funciones-y-objetos/', 5], ['/ejemplos/sql/', 2], ['/ejemplos/tests/', 1]]) {
     test(`${pagina}: las lecciones se arman y se recorren sin errores`, async ({ page }) => {
         const errores = await abrir(page, pagina);
         const n = await page.evaluate(() => {
@@ -40,6 +40,25 @@ test('la recursión: la pila llega a cuatro llamadas y se vacía al final', asyn
     });
     expect(maximo).toBe(4);
     expect(alFinal).toBe(0);
+});
+
+test('la lupa: en la columna de 650 px el código va en una cámara que acerca y lo sigue', async ({ page }) => {
+    await abrir(page, '/ejemplos/funciones-y-objetos/');
+    const r = await page.locator('motor-leccion[escena="pila"]').evaluate((m) => {
+        const c = m.compilada;
+        const posiciones = new Set();
+        let marcos = 0;
+        for (let t = 0; t <= c.duracion; t += 0.25) {
+            const p = c.estado(t).piezas;
+            posiciones.add(Math.round(p.lupa.mirarY));
+            marcos = Math.max(marcos, p.pila.marcos.length);
+        }
+        return { disposicion: c.disposicion, zoom: c.estado(0).piezas.lupa.zoom, posiciones: posiciones.size, marcos };
+    });
+    expect(r.disposicion).toBe('media');
+    expect(r.zoom).toBeGreaterThan(1.1);
+    expect(r.posiciones).toBeGreaterThan(2);
+    expect(r.marcos).toBe(3);
 });
 
 test('la tabla del resultado de SQL termina con lo que devuelve la consulta', async ({ page }) => {

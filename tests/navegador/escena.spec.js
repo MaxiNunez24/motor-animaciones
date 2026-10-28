@@ -36,7 +36,12 @@ test('se dibuja sin errores', async ({ page }) => {
 
 test('el mismo instante se ve exactamente igual, llegue como llegue', async ({ page }) => {
     const escena = await abrirEn(page, 9);
-    const directo = await escena.screenshot();
+    // Los controles flotantes aparecen y se esconden según el mouse y un
+    // temporizador: acá se los deja fijos, porque lo que se compara es el dibujo.
+    await escena.evaluate((m) => m.setAttribute('controles-fijos', ''));
+    // Las transiciones (los controles que aparecen al pausar) se dan por
+    // terminadas: lo que se compara es el dibujo, no un fundido a medias.
+    const directo = await escena.screenshot({ animations: 'disabled' });
 
     // Ahora se llega al mismo instante después de reproducir un rato y de
     // saltar para adelante y para atrás.
@@ -53,7 +58,7 @@ test('el mismo instante se ve exactamente igual, llegue como llegue', async ({ p
         m.irA(2);
         m.irA(9);
     });
-    const despues = await escena.screenshot();
+    const despues = await escena.screenshot({ animations: 'disabled' });
     expect(despues.equals(directo)).toBe(true);
 });
 
@@ -114,6 +119,58 @@ test('con el teclado: espacio reproduce, la coma y el punto van cuadro por cuadr
     expect(await page.evaluate(() => document.querySelector('motor-escena').t)).toBeCloseTo(5 + 1 / 30, 5);
     await page.keyboard.press('Space');
     expect(await page.evaluate(() => document.querySelector('motor-escena').corriendo)).toBe(true);
+});
+
+test('el zoom: los botones acercan y vuelven, y arrastrar mueve la vista sin pausar', async ({ page }) => {
+    const escena = await abrirEn(page, 5);
+    const vista = () => escena.evaluate((m) => m.shadowRoot.querySelector('svg').getAttribute('viewBox'));
+    expect(await vista()).toBe('0 0 1600 900');
+    await escena.getByRole('button', { name: 'Acercar' }).click();
+    const [vx, vy, vw, vh] = (await vista()).split(' ').map(Number);
+    expect(vw).toBeCloseTo(1600 / 1.5, 1);
+    expect(vh).toBeCloseTo(900 / 1.5, 1);
+    expect(vx).toBeCloseTo((1600 - 1600 / 1.5) / 2, 1);
+    expect(vy).toBeCloseTo((900 - 900 / 1.5) / 2, 1);
+    await expect(escena.getByRole('button', { name: 'Volver al tamaño normal' })).toHaveText('1,5×');
+    const caja = await escena.boundingBox();
+    await page.mouse.move(caja.x + caja.width / 2, caja.y + caja.height / 3);
+    await page.mouse.down();
+    await page.mouse.move(caja.x + caja.width / 2 - 120, caja.y + caja.height / 3, { steps: 6 });
+    await page.mouse.up();
+    const [x] = (await vista()).split(' ').map(Number);
+    expect(x).toBeGreaterThan((1600 - 1600 / 1.5) / 2);
+    expect(await page.evaluate(() => document.querySelector('motor-escena').corriendo)).toBe(false);
+    await escena.getByRole('button', { name: 'Volver al tamaño normal' }).click();
+    expect(await vista()).toBe('0 0 1600 900');
+});
+
+test('los controles flotan y se esconden mientras corre, y vuelven al mover el mouse', async ({ page }) => {
+    const escena = await abrirEn(page, 0);
+    const clases = () => escena.evaluate((m) => m.shadowRoot.querySelector('.ma-raiz').className);
+    expect(await clases()).toContain('flotantes');
+    await escena.evaluate((m) => m.reproducir());
+    await page.mouse.move(1, 1);
+    await expect.poll(clases, { timeout: 5000 }).not.toContain('ver-controles');
+    const caja = await escena.boundingBox();
+    await page.mouse.move(caja.x + caja.width / 2, caja.y + caja.height / 2);
+    await expect.poll(clases).toContain('ver-controles');
+    await escena.evaluate((m) => m.setAttribute('controles-fijos', ''));
+    expect(await clases()).not.toContain('flotantes');
+});
+
+test('en pantalla completa, el subtítulo va encima del dibujo y no lo achica', async ({ page }) => {
+    const escena = await abrirEn(page, 2);
+    await escena.evaluate((m) => m.setAttribute('pantalla', ''));
+    const medidas = await escena.evaluate((m) => {
+        const r = m.shadowRoot;
+        return {
+            lienzo: r.querySelector('.ma-lienzo').getBoundingClientRect().height,
+            alto: innerHeight,
+            encuadre: r.querySelector('svg').getAttribute('preserveAspectRatio'),
+        };
+    });
+    expect(medidas.lienzo).toBeCloseTo(medidas.alto, 0);
+    expect(medidas.encuadre).toBe('xMidYMin meet');
 });
 
 test('anda abriendo el archivo con doble clic (file://)', async ({ page }) => {

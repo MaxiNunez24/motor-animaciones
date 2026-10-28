@@ -1,4 +1,4 @@
-// Las páginas de matemática (2D y 3D) y de redes, en un navegador de verdad:
+// Las páginas de matemática (2D y 3D), estadística, regresión y redes, en un navegador de verdad:
 // que todas las lecciones se dibujen y se recorran enteras sin errores.
 
 import { test, expect } from '@playwright/test';
@@ -13,7 +13,10 @@ async function abrir(page, url) {
     return errores;
 }
 
-for (const [pagina, cuantas] of [['/ejemplos/matematica/', 9], ['/ejemplos/matematica-3d/', 4], ['/ejemplos/redes/', 9]]) {
+for (const [pagina, cuantas] of [
+    ['/ejemplos/matematica/', 9], ['/ejemplos/matematica-3d/', 4], ['/ejemplos/redes/', 9],
+    ['/ejemplos/estadistica/', 4], ['/ejemplos/regresion/', 6],
+]) {
     test(`${pagina}: las lecciones se dibujan y se recorren sin errores`, async ({ page }) => {
         test.setTimeout(90000);
         const errores = await abrir(page, pagina);
@@ -79,4 +82,14 @@ test('Go-Back-N: el paquete perdido lleva su cruz, y al final la ventana confirm
     }));
     expect(cruces).toBe(1);
     expect(base).toBe(7);
+});
+
+test('el test que rechaza: al final dice que se rechaza H₀ y el p-valor es chico', async ({ page }) => {
+    await abrir(page, '/ejemplos/estadistica/');
+    const textos = await page.locator('motor-leccion').nth(3).evaluate((m) => {
+        const fin = m.compilada.estado(m.duracion).piezas;
+        return [fin.decision.texto, fin.pvalor.texto];
+    });
+    expect(textos[0]).toBe('Se rechaza H₀');
+    expect(textos[1]).toMatch(/p-valor = 0,00/);
 });

@@ -18,7 +18,7 @@ import {
 // vaya arriba y las cuentas abajo, en vez de achicar todo.
 
 /** Las medidas de la escena según la disposición. */
-function lienzo(disposicion, titulo) {
+export function lienzo(disposicion, titulo) {
     const angosta = disposicion.nombre === 'angosta';
     const W = angosta ? 640 : 1600;
     const H = angosta ? 1140 : 900;
@@ -26,12 +26,12 @@ function lienzo(disposicion, titulo) {
     return { angosta, W, H, arriba };
 }
 
-function piezaTitulo(titulo, W, angosta) {
+export function piezaTitulo(titulo, W, angosta) {
     return texto({ x: W / 2, y: angosta ? 48 : 52, texto: titulo, tamano: angosta ? 30 : 40, peso: 800, anchoMax: W - 40 });
 }
 
 /** Una columna de renglones de texto (el panel de las cuentas), que se pueden ir cambiando. */
-function panel(piezas, nombres, { x, y, ancho, tamano, interlineado = 1.9 }) {
+export function panel(piezas, nombres, { x, y, ancho, tamano, interlineado = 1.9 }) {
     nombres.forEach((nombre, i) => {
         piezas[nombre] = texto({
             x, y: y + i * tamano * interlineado, texto: '', tamano, alineacion: 'inicio', anchoMax: ancho, opacidad: 0,
@@ -43,7 +43,7 @@ function panel(piezas, nombres, { x, y, ancho, tamano, interlineado = 1.9 }) {
 // camina sobre una curva, una recta que gira y arrastra a los residuos):
 // se agregan cuadros clave cada `cada` segundos, y el motor interpola entre
 // ellos. Con 0,1 s no se nota que entre cuadro y cuadro va en línea recta.
-function muestrear(n, duracion, cada, alPaso) {
+export function muestrear(n, duracion, cada, alPaso) {
     const cuantos = Math.max(1, Math.round(duracion / cada));
     for (let i = 1; i <= cuantos; i++) alPaso(i / cuantos, n.tiempo + ((i - 1) * duracion) / cuantos, duracion / cuantos);
 }
@@ -148,7 +148,7 @@ export function desdeDerivada(opciones) {
 }
 
 // Una animación lineal entre cuadros clave muestreados.
-function linea(n, en, dur, pieza, a) {
+export function linea(n, en, dur, pieza, a) {
     n.linea.push({ pieza, a, dur, en, curva: 'lineal' });
 }
 
@@ -330,7 +330,7 @@ function rangoCuadrado(puntos) {
 // Los niveles se eligen por percentiles de los valores de f en el rango: así
 // hay más curvas cerca del mínimo, donde pasa lo interesante, y no quedan
 // todas amontonadas en un borde.
-function nivelesAutomaticos(f, rango) {
+export function nivelesAutomaticos(f, rango) {
     const valores = [];
     for (let j = 0; j <= 30; j++) {
         for (let i = 0; i <= 30; i++) {
@@ -454,7 +454,7 @@ export function desdeRegresion(opciones) {
     };
 }
 
-function rangoDatos(datos) {
+export function rangoDatos(datos) {
     const xs = datos.map(([x]) => x);
     const ys = datos.map(([, y]) => y);
     const ax = (Math.max(...xs) - Math.min(...xs)) * 0.12 || 1;

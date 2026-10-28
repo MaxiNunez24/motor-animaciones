@@ -42,6 +42,11 @@ const ESTILOS = `
     right: 4%;
     bottom: 4%;
 }
+/* Si los controles flotan sobre el dibujo, la pregunta va arriba de ellos. */
+.flotantes .ma-pregunta {
+    bottom: calc(var(--ma-alto-controles, 0px) + 12px);
+    max-height: calc(100% - var(--ma-alto-controles, 0px) - 24px);
+}
 .ma-pregunta[hidden] {
     display: none;
 }

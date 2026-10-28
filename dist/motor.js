@@ -814,6 +814,9 @@ ${CSS_TEMA}
     display: none;
 }
 
+/* Una grilla de tres renglones: el dibujo, los subt\xEDtulos y los controles.
+   Cuando los controles flotan (o los subt\xEDtulos, en pantalla completa), van
+   en el mismo rengl\xF3n que el dibujo, encima de \xE9l. */
 .ma-raiz {
     container-type: inline-size;
     font-family: var(--ma-fuente);
@@ -821,11 +824,26 @@ ${CSS_TEMA}
     background: var(--ma-fondo);
     border-radius: 12px;
     overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "escena" "subtitulo" "controles";
 }
 
 .ma-lienzo {
+    grid-area: escena;
     position: relative;
     outline: none;
+    overflow: hidden;
+    /* Con el dedo se puede seguir bajando por la p\xE1gina; el pellizco para
+       el zoom lo maneja el componente. Con zoom, arrastrar mueve el dibujo. */
+    touch-action: pan-y;
+}
+.ma-raiz.con-zoom .ma-lienzo {
+    touch-action: none;
+    cursor: grab;
+}
+.ma-raiz.con-zoom.arrastrando .ma-lienzo {
+    cursor: grabbing;
 }
 .ma-lienzo:focus-visible {
     box-shadow: inset 0 0 0 3px var(--ma-acento);
@@ -842,6 +860,7 @@ ${CSS_TEMA}
    encima tapar\xEDan la mitad de la escena. El alto m\xEDnimo es para que la p\xE1gina
    no salte cada vez que aparece o desaparece uno. */
 .ma-subtitulo {
+    grid-area: subtitulo;
     min-height: 2.8em;
     padding: 0.35em 1em;
     display: flex;
@@ -858,6 +877,7 @@ ${CSS_TEMA}
 
 /* ---- Controles ---- */
 .ma-controles {
+    grid-area: controles;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -866,7 +886,71 @@ ${CSS_TEMA}
     border-top: 1px solid var(--ma-borde);
     background: var(--ma-superficie);
 }
-.ma-raiz.sin-controles .ma-controles {
+.ma-raiz.sin-controles .ma-controles,
+.ma-raiz.sin-controles .ma-zoom {
+    display: none;
+}
+
+/* Con mouse (y siempre en pantalla completa), los controles flotan sobre la
+   parte de abajo del dibujo y se esconden mientras corre la animaci\xF3n: as\xED
+   el dibujo usa todo el lugar. Vuelven al mover el mouse, al tocar, al llegar
+   con el teclado o al pausar. En un celular, fuera de la pantalla completa,
+   quedan fijos abajo: no hay un mouse que pase por encima para mostrarlos. */
+.ma-raiz.flotantes .ma-controles {
+    grid-area: escena;
+    align-self: end;
+    z-index: 3;
+    border-top: 0;
+    padding-top: 22px;
+    background: linear-gradient(transparent, color-mix(in srgb, var(--ma-superficie) 94%, transparent) 22px);
+    transition: opacity 0.25s;
+}
+.ma-raiz.flotantes:not(.ver-controles) .ma-controles,
+.ma-raiz.flotantes:not(.ver-controles) .ma-zoom {
+    opacity: 0;
+}
+.ma-raiz.flotantes.sin-cursor {
+    cursor: none;
+}
+
+/* ---- Zoom ---- */
+.ma-zoom {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 3;
+    display: flex;
+    gap: 6px;
+    transition: opacity 0.25s;
+}
+.ma-zoom button {
+    min-width: 40px;
+    height: 40px;
+    padding: 0 8px;
+    border: 1px solid var(--ma-borde);
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--ma-superficie) 92%, transparent);
+    color: var(--ma-texto);
+    font: 700 18px/1 var(--ma-fuente);
+    cursor: pointer;
+}
+.ma-zoom button:hover {
+    border-color: var(--ma-acento);
+}
+.ma-zoom button:focus-visible {
+    outline: 3px solid var(--ma-acento);
+    outline-offset: 1px;
+}
+.ma-zoom [data-zoom="normal"] {
+    font-size: 15px;
+}
+.ma-raiz:not(.con-zoom) .ma-zoom [data-zoom="normal"] {
+    display: none;
+}
+/* Con el dedo se hace zoom pellizcando: los botones de + y \u2212 sobran y
+   tapar\xEDan el dibujo de un celular. Queda solo el de volver al tama\xF1o normal. */
+.ma-raiz:not(.flotantes) .ma-zoom [data-zoom="acercar"],
+.ma-raiz:not(.flotantes) .ma-zoom [data-zoom="alejar"] {
     display: none;
 }
 .ma-controles button {
@@ -993,27 +1077,52 @@ ${CSS_TEMA}
     inset: 0;
     z-index: 1000;
 }
+/* Todo va en un solo rengl\xF3n: el dibujo ocupa la pantalla entera, y los
+   subt\xEDtulos y los controles van encima. Si los subt\xEDtulos fueran en un
+   rengl\xF3n propio, el dibujo quedar\xEDa m\xE1s chico en pantalla completa que en la
+   p\xE1gina. */
 :host([pantalla]) .ma-raiz,
 :host(:fullscreen) .ma-raiz {
     height: 100%;
     border-radius: 0;
-    display: flex;
-    flex-direction: column;
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "escena";
 }
 :host([pantalla]) .ma-lienzo,
 :host(:fullscreen) .ma-lienzo {
-    flex: 1 1 auto;
     min-height: 0;
 }
 :host([pantalla]) .ma-lienzo svg,
 :host(:fullscreen) .ma-lienzo svg {
     height: 100%;
 }
-/* En una pantalla grande los subt\xEDtulos se leen desde lejos. */
+/* El subt\xEDtulo, como en el cine: un rengl\xF3n sobre la parte de abajo. El
+   dibujo se pega arriba (preserveAspectRatio), as\xED que si la pantalla es m\xE1s
+   alta que la escena el subt\xEDtulo cae en el lugar que sobra, sin tapar nada. */
 :host([pantalla]) .ma-subtitulo,
 :host(:fullscreen) .ma-subtitulo {
-    font-size: clamp(18px, 2.8cqi, 52px);
-    padding: 0.4em 1em 0.6em;
+    grid-area: escena;
+    align-self: end;
+    justify-self: center;
+    z-index: 2;
+    min-height: 0;
+    max-width: min(92%, 64ch);
+    margin-bottom: max(12px, 2.5vh);
+    padding: 0.25em 0.8em;
+    border-radius: 0.4em;
+    background: color-mix(in srgb, var(--ma-fondo) 85%, transparent);
+    font-size: clamp(18px, 2.2cqi, 46px);
+    pointer-events: none;
+    transition: transform 0.25s;
+}
+:host([pantalla]) .ma-subtitulo:empty,
+:host(:fullscreen) .ma-subtitulo:empty {
+    display: none;
+}
+/* Cuando aparecen los controles, el subt\xEDtulo sube para no quedar abajo de ellos. */
+:host([pantalla]) .ver-controles .ma-subtitulo,
+:host(:fullscreen) .ver-controles .ma-subtitulo {
+    transform: translateY(calc(-1 * var(--ma-alto-controles, 0px)));
 }
 /* Sin controles no hay nada que apuntar: que el mouse no quede en el medio
    de la pantalla de la Expo. */
@@ -1045,8 +1154,9 @@ var Base = (
   }
 );
 var ANCHO_ANGOSTO = 600;
+var ANCHO_MEDIO = 900;
 var MotorEscena = class extends Base {
-  static observedAttributes = ["escena", "tema", "movimiento", "velocidad", "loop", "sin-controles", "sin-subtitulos"];
+  static observedAttributes = ["escena", "tema", "movimiento", "velocidad", "loop", "sin-controles", "sin-subtitulos", "controles-fijos", "pantalla"];
   constructor() {
     super();
     const sombra = this.attachShadow({ mode: "open" });
@@ -1055,6 +1165,11 @@ var MotorEscena = class extends Base {
             <div class="ma-raiz con-subtitulos" part="raiz">
                 <div class="ma-lienzo" tabindex="0">
                     <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="ma-titulo" aria-describedby="ma-descripcion"></svg>
+                    <div class="ma-zoom" role="group" aria-label="Zoom">
+                        <button type="button" data-zoom="alejar" aria-label="Alejar">\u2212</button>
+                        <button type="button" data-zoom="acercar" aria-label="Acercar">+</button>
+                        <button type="button" data-zoom="normal" aria-label="Volver al tama\xF1o normal">1\xD7</button>
+                    </div>
                 </div>
                 <div class="ma-subtitulo" part="subtitulo" aria-live="off"></div>
                 <div class="ma-controles" role="group" aria-label="Controles de la animaci\xF3n"></div>
@@ -1073,6 +1188,8 @@ var MotorEscena = class extends Base {
     sombra.querySelector("#ma-titulo");
     this._descripcion = /** @type {HTMLElement} */
     sombra.querySelector("#ma-descripcion");
+    this._controles = /** @type {HTMLElement} */
+    sombra.querySelector(".ma-controles");
     this._definicion = null;
     this._compilada = null;
     this._pintor = null;
@@ -1082,24 +1199,85 @@ var MotorEscena = class extends Base {
     this._reloj = new Reloj({
       duracion: 0,
       alCambiar: (t) => this._pintar(t),
-      alCambiarEstado: (corriendo) => this._barra.corriendo(corriendo),
+      alCambiarEstado: (corriendo) => {
+        this._barra.corriendo(corriendo);
+        this._actualizarVista();
+      },
       alParar: (t) => this._alParar(t)
     });
-    this._barra = crearBarra(
-      /** @type {HTMLElement} */
-      sombra.querySelector(".ma-controles"),
-      {
-        alternar: () => this._alternarPorUsuario(),
-        anterior: () => this.capituloAnterior(),
-        siguiente: () => this.capituloSiguiente(),
-        irA: (t) => this.irA(t),
-        velocidad: (v) => this._cambiarVelocidad(v),
-        subtitulos: (prendidos) => this._subtitulos(prendidos),
-        pantalla: () => this._pantallaCompleta()
-      }
-    );
+    this._barra = crearBarra(this._controles, {
+      alternar: () => this._alternarPorUsuario(),
+      anterior: () => this.capituloAnterior(),
+      siguiente: () => this.capituloSiguiente(),
+      irA: (t) => this.irA(t),
+      velocidad: (v) => this._cambiarVelocidad(v),
+      subtitulos: (prendidos) => this._subtitulos(prendidos),
+      pantalla: () => this._pantallaCompleta()
+    });
     this._lienzo.addEventListener("keydown", (e) => this._tecla(e));
-    this._lienzo.addEventListener("click", () => this._alternarPorUsuario());
+    this._lienzo.addEventListener("click", () => {
+      if (this._arrastro) this._arrastro = false;
+      else this._alternarPorUsuario();
+    });
+    this._zoom = { escala: 1, x: 0, y: 0 };
+    this._dedos = /* @__PURE__ */ new Map();
+    this._pellizco = null;
+    this._movido = 0;
+    this._arrastro = false;
+    const zoom = (
+      /** @type {HTMLElement} */
+      sombra.querySelector(".ma-zoom")
+    );
+    zoom.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const boton = (
+        /** @type {HTMLElement} */
+        e.target.closest("button")
+      );
+      if (boton) this._accionZoom(boton.dataset.zoom);
+    });
+    zoom.addEventListener("pointerdown", (e) => e.stopPropagation());
+    this._lienzo.addEventListener("wheel", (e) => this._rueda(e), { passive: false });
+    this._lienzo.addEventListener("pointerdown", (e) => this._dedoAbajo(e));
+    this._lienzo.addEventListener("pointermove", (e) => this._dedoMueve(e));
+    for (const fin of ["pointerup", "pointercancel"]) this._lienzo.addEventListener(fin, (e) => this._dedoArriba(e));
+    this._vista = { dentro: false, reciente: false, sobreControles: false, foco: false, tactil: false, tocado: false };
+    this._temporizador = void 0;
+    const moverse = (e) => {
+      if (e.pointerType) this._vista.tactil = e.pointerType === "touch";
+      this._vista.tocado = true;
+      this._vista.reciente = true;
+      clearTimeout(this._temporizador);
+      this._temporizador = setTimeout(() => {
+        this._vista.reciente = false;
+        this._actualizarVista();
+      }, 2500);
+      this._actualizarVista();
+    };
+    this.addEventListener("pointermove", moverse);
+    this.addEventListener("pointerdown", moverse);
+    this._lienzo.addEventListener("keydown", moverse);
+    this.addEventListener("pointerenter", () => {
+      this._vista.dentro = true;
+      this._actualizarVista();
+    });
+    this.addEventListener("pointerleave", (e) => {
+      if (e.pointerType === "mouse") this._vista.dentro = false;
+      this._actualizarVista();
+    });
+    this._controles.addEventListener("pointerenter", () => {
+      this._vista.sobreControles = true;
+      this._actualizarVista();
+    });
+    this._controles.addEventListener("pointerleave", () => {
+      this._vista.sobreControles = false;
+      this._actualizarVista();
+    });
+    sombra.addEventListener("focusin", () => this._mirarFoco());
+    sombra.addEventListener("focusout", () => queueMicrotask(() => this._mirarFoco()));
+    new ResizeObserver(() => {
+      this._raiz.style.setProperty("--ma-alto-controles", `${this._controles.offsetHeight}px`);
+    }).observe(this._controles);
   }
   // ---------------- API ----------------
   /** La definición de la escena (un objeto, o una función de la disposición). */
@@ -1107,6 +1285,7 @@ var MotorEscena = class extends Base {
     return this._definicion;
   }
   set escena(definicion) {
+    if (definicion !== this._definicion) this._zoom = { escala: 1, x: 0, y: 0 };
     this._definicion = definicion;
     this._disposicion = null;
     this._armar();
@@ -1166,6 +1345,7 @@ var MotorEscena = class extends Base {
     this._limpiar.push(() => visor.disconnect());
     this._escuchar(document, "visibilitychange", () => this._visible(!document.hidden));
     this._escuchar(this, "fullscreenchange", () => this._armar());
+    this._escuchar(matchMedia("(hover: hover) and (pointer: fine)"), "change", () => this._actualizarVista());
     this._aplicarAtributos();
     if (!this._definicion) this._buscarEscena();
     else this._armar();
@@ -1178,7 +1358,7 @@ var MotorEscena = class extends Base {
   attributeChangedCallback(nombre, viejo, nuevo) {
     if (!this.isConnected) return;
     if (nombre === "escena") this._buscarEscena();
-    else if (nombre === "movimiento" || nombre === "tema") this._armar();
+    else if (nombre === "movimiento" || nombre === "tema" || nombre === "pantalla") this._armar();
     else this._aplicarAtributos();
   }
   // ---------------- Para las capas de arriba ----------------
@@ -1221,14 +1401,19 @@ var MotorEscena = class extends Base {
     if (v > 0) this._cambiarVelocidad(v);
     this._raiz.classList.toggle("sin-controles", this.hasAttribute("sin-controles"));
     this._subtitulos(!this.hasAttribute("sin-subtitulos"));
+    this._actualizarVista();
   }
   _calcularDisposicion() {
     const caja2 = this.getBoundingClientRect();
     const ancho = caja2.width || ANCHO_ANGOSTO;
     const alto = caja2.height || 0;
-    const llena = this.hasAttribute("pantalla") || document.fullscreenElement === this;
+    const llena = this._llena();
     const angosta = llena ? alto > ancho : ancho < ANCHO_ANGOSTO;
-    return { nombre: angosta ? "angosta" : "ancha", ancho, alto };
+    const media = !llena && !angosta && ancho < ANCHO_MEDIO;
+    return { nombre: angosta ? "angosta" : media ? "media" : "ancha", ancho, alto };
+  }
+  _llena() {
+    return this.hasAttribute("pantalla") || document.fullscreenElement === this;
   }
   _movimiento() {
     const forzado = this.getAttribute("movimiento");
@@ -1261,6 +1446,9 @@ var MotorEscena = class extends Base {
     this._compilada = compilada;
     this._disposicion = disposicion.nombre;
     this._pintor = crearPintor(this._svg, compilada);
+    this._encuadre();
+    this._aplicarZoom();
+    this._actualizarVista();
     this._reloj.duracion = compilada.duracion;
     this._titulo.textContent = compilada.titulo || "Animaci\xF3n";
     this._descripcion.textContent = textoAlternativo(compilada);
@@ -1304,6 +1492,133 @@ var MotorEscena = class extends Base {
   _subtitulos(prendidos) {
     this._raiz.classList.toggle("con-subtitulos", prendidos);
     this._barra.subtitulos(prendidos);
+    this._encuadre();
+  }
+  // En pantalla completa y con subtítulos, el dibujo se pega arriba: lo que
+  // sobra de alto queda abajo, donde va el subtítulo. Si no, va centrado.
+  _encuadre() {
+    if (!this._compilada) return;
+    const arriba = this._llena() && this._raiz.classList.contains("con-subtitulos");
+    this._svg.setAttribute("preserveAspectRatio", arriba ? "xMidYMin meet" : "xMidYMid meet");
+  }
+  // ---------------- Los controles que se esconden ----------------
+  _mirarFoco() {
+    const activo = (
+      /** @type {HTMLElement | null} */
+      this.shadowRoot.activeElement
+    );
+    this._vista.foco = !!activo && !!activo.closest(".ma-controles, .ma-zoom");
+    this._actualizarVista();
+  }
+  _actualizarVista() {
+    if (!this.isConnected) return;
+    const llena = this._llena();
+    const flotantes = !this.hasAttribute("sin-controles") && (llena || !this.hasAttribute("controles-fijos") && matchMedia("(hover: hover) and (pointer: fine)").matches);
+    const v = this._vista;
+    const ver = v.foco || v.sobreControles || v.reciente || !this._reloj.corriendo && (v.dentro || v.tactil || !v.tocado);
+    this._raiz.classList.toggle("flotantes", flotantes);
+    this._raiz.classList.toggle("ver-controles", ver);
+    this._raiz.classList.toggle("sin-cursor", llena && !ver);
+  }
+  // ---------------- Zoom ----------------
+  _accionZoom(accion) {
+    if (accion === "acercar") this._zoomEn(1.5);
+    else if (accion === "alejar") this._zoomEn(1 / 1.5);
+    else this._zoomEn(0);
+  }
+  /**
+   * Agranda (factor > 1) o achica la vista, dejando quieto el punto de la
+   * escena que está debajo de (clienteX, clienteY); sin punto, el centro de
+   * lo que se ve. Con factor 0 vuelve al tamaño normal.
+   * @param {number} factor
+   * @param {number} [clienteX]
+   * @param {number} [clienteY]
+   */
+  _zoomEn(factor, clienteX, clienteY) {
+    const c = this._compilada;
+    if (!c) return;
+    const z = this._zoom;
+    const escala = factor === 0 ? 1 : Math.min(8, Math.max(1, z.escala * factor));
+    let px = z.x + c.ancho / z.escala / 2;
+    let py = z.y + c.alto / z.escala / 2;
+    if (clienteX != null) {
+      const p = this._aEscena(clienteX, clienteY);
+      if (p) [px, py] = [p.x, p.y];
+    }
+    const k = z.escala / escala;
+    this._zoom = { escala, x: px - (px - z.x) * k, y: py - (py - z.y) * k };
+    this._aplicarZoom();
+  }
+  /** De un punto de la pantalla a coordenadas de la escena (con el zoom de ahora). */
+  _aEscena(clienteX, clienteY) {
+    const m = this._svg.getScreenCTM();
+    if (!m) return null;
+    const p = new DOMPoint(clienteX, clienteY).matrixTransform(m.inverse());
+    return { x: p.x, y: p.y };
+  }
+  _aplicarZoom() {
+    const c = this._compilada;
+    if (!c) return;
+    const z = this._zoom;
+    const ancho = c.ancho / z.escala;
+    const alto = c.alto / z.escala;
+    z.x = Math.min(Math.max(z.x, 0), c.ancho - ancho);
+    z.y = Math.min(Math.max(z.y, 0), c.alto - alto);
+    const r3 = (v) => Math.round(v * 100) / 100;
+    this._svg.setAttribute("viewBox", `${r3(z.x)} ${r3(z.y)} ${r3(ancho)} ${r3(alto)}`);
+    this._raiz.classList.toggle("con-zoom", z.escala > 1.001);
+    const normal = this.shadowRoot.querySelector('[data-zoom="normal"]');
+    normal.textContent = `${String(Math.round(z.escala * 10) / 10).replace(".", ",")}\xD7`;
+  }
+  _rueda(e) {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    this._zoomEn(Math.exp(-e.deltaY * 25e-4), e.clientX, e.clientY);
+  }
+  _dedoAbajo(e) {
+    if (
+      /** @type {HTMLElement} */
+      e.target.closest(".ma-pregunta, .ma-zoom")
+    ) return;
+    this._dedos.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    this._movido = 0;
+    if (this._dedos.size === 2) {
+      const [a, b] = [...this._dedos.values()];
+      this._pellizco = { distancia: Math.hypot(a.x - b.x, a.y - b.y), escala: this._zoom.escala };
+    }
+    if (this._zoom.escala > 1 || this._dedos.size === 2) this._lienzo.setPointerCapture(e.pointerId);
+  }
+  _dedoMueve(e) {
+    const antes = this._dedos.get(e.pointerId);
+    if (!antes) return;
+    const ahora = { x: e.clientX, y: e.clientY };
+    this._dedos.set(e.pointerId, ahora);
+    if (this._dedos.size === 2 && this._pellizco) {
+      const [a, b] = [...this._dedos.values()];
+      const distancia = Math.hypot(a.x - b.x, a.y - b.y);
+      const objetivo = this._pellizco.escala * (distancia / Math.max(this._pellizco.distancia, 1));
+      this._zoomEn(objetivo / this._zoom.escala, (a.x + b.x) / 2, (a.y + b.y) / 2);
+      this._arrastro = true;
+      return;
+    }
+    if (this._zoom.escala <= 1) return;
+    this._movido += Math.abs(ahora.x - antes.x) + Math.abs(ahora.y - antes.y);
+    if (this._movido < 5) return;
+    const m = this._svg.getScreenCTM();
+    if (!m) return;
+    this._zoom.x -= (ahora.x - antes.x) / m.a;
+    this._zoom.y -= (ahora.y - antes.y) / m.d;
+    this._aplicarZoom();
+    this._arrastro = true;
+    this._raiz.classList.add("arrastrando");
+  }
+  _dedoArriba(e) {
+    this._dedos.delete(e.pointerId);
+    if (this._dedos.size < 2) this._pellizco = null;
+    this._raiz.classList.remove("arrastrando");
+    if (this._arrastro) setTimeout(() => {
+      this._arrastro = false;
+    }, 0);
   }
   _pantallaCompleta() {
     if (document.fullscreenElement === this) document.exitFullscreen();
@@ -1336,7 +1651,11 @@ var MotorEscena = class extends Base {
         this.irA(this.t - paso);
       },
       Home: () => this.irA(0),
-      End: () => this.irA(this.duracion)
+      End: () => this.irA(this.duracion),
+      "+": () => this._zoomEn(1.5),
+      "=": () => this._zoomEn(1.5),
+      "-": () => this._zoomEn(1 / 1.5),
+      0: () => this._zoomEn(0)
     };
     const accion = acciones[e.key];
     if (!accion) return;
@@ -1388,6 +1707,11 @@ var ESTILOS2 = `
     left: 4%;
     right: 4%;
     bottom: 4%;
+}
+/* Si los controles flotan sobre el dibujo, la pregunta va arriba de ellos. */
+.flotantes .ma-pregunta {
+    bottom: calc(var(--ma-alto-controles, 0px) + 12px);
+    max-height: calc(100% - var(--ma-alto-controles, 0px) - 24px);
 }
 .ma-pregunta[hidden] {
     display: none;
@@ -3266,7 +3590,10 @@ function desdeTraza(opciones) {
     explicaciones = {},
     preguntas = {},
     capitulos = {},
-    explicar = false
+    explicar = false,
+    lupa = false,
+    lupaDebajoDe = null,
+    contexto = 3
   } = opciones;
   const punteros = opciones.punteros === "auto" ? detectarPunteros(opciones.traza ?? []) : opciones.punteros ?? {};
   const programa = String(opciones.codigo).replace(/\s+$/, "");
@@ -3312,12 +3639,14 @@ function desdeTraza(opciones) {
   const conRef = (nombre, v) => v?.ref !== void 0 && compartidas.has(v.ref) ? `${nombre} \xB7 #${v.ref}` : nombre;
   return function(disposicion) {
     const angosta = disposicion.nombre === "angosta";
-    const W = angosta ? 640 : 1600;
+    const media = disposicion.nombre === "media";
+    const W = angosta ? 640 : media ? 1200 : 1600;
     const H = angosta ? 1140 : 900;
     const arriba = titulo ? angosta ? 100 : 100 : 30;
-    const cod = angosta ? { x: 320, ancho: 610, tamano: 22 } : { x: 440, ancho: 820, tamano: 36 };
+    const cod = angosta ? { x: 320, ancho: 610, tamano: 22 } : media ? { x: 345, ancho: 650, tamano: 36 } : { x: 440, ancho: 820, tamano: 36 };
     const necesario = Math.max(...programa.split("\n").map((l) => l.length));
     cod.tamano = Math.min(cod.tamano, cod.tamano * caracteresPorLinea(cod) / necesario);
+    const tamanoPorAncho = cod.tamano;
     const lineasCodigo = programa.split("\n").length;
     const disponible = angosta ? H * 0.42 : H - arriba - 30 - (conSalida ? 230 : 0);
     cod.tamano = Math.min(cod.tamano, disponible / (lineasCodigo * 1.6 + (archivo ? 2.6 : 1)));
@@ -3339,7 +3668,7 @@ function desdeTraza(opciones) {
       piezas.titulo = texto2({ x: W / 2, y: angosta ? 50 : 52, texto: titulo, tamano: angosta ? 32 : 40, peso: 800, anchoMax: W - 40 });
     }
     piezas.codigo = piezaCodigo;
-    const con = angosta ? { x: 320, ancho: 610, renglones: 3, tamano: 20 } : { x: 440, ancho: 820, renglones: 3, tamano: 30 };
+    const con = angosta ? { x: 320, ancho: 610, renglones: 3, tamano: 20 } : { x: cod.x, ancho: cod.ancho, renglones: 3, tamano: 30 };
     const piezaConsola = consola({ ...con, opacidad: 0 });
     const altoConsola = piezaConsola.tipo.tamano(piezaConsola.props).alto;
     piezaConsola.props.y = angosta ? H - 20 - altoConsola / 2 : arriba + altoCodigo + 40 + altoConsola / 2;
@@ -3359,7 +3688,7 @@ function desdeTraza(opciones) {
         opacidad: 0
       });
     }
-    const col = angosta ? { x: 320, ancho: 560, y: arriba + altoCodigo + 70 } : { x: 1250, ancho: 620, y: arriba + 50 };
+    const col = angosta ? { x: 320, ancho: 560, y: arriba + altoCodigo + 70 } : media ? { x: 925, ancho: 500, y: arriba + 50 } : { x: 1250, ancho: 620, y: arriba + 50 };
     let y = col.y;
     const lugarVariable = {};
     for (const v of variables2) {
@@ -3410,7 +3739,7 @@ function desdeTraza(opciones) {
       }
     }
     if (conPila) {
-      piezas.pila = pila({ x: col.x, y: y - (angosta ? 10 : 20), ancho: Math.min(col.ancho, angosta ? 560 : 600), tamano: angosta ? 22 : 32 });
+      piezas.pila = pila({ x: col.x, y: y - (angosta ? 10 : 20), ancho: Math.min(col.ancho, angosta ? 560 : 600), tamano: angosta ? 22 : media ? 25 : 32 });
     }
     const costado = (id) => {
       const { tipo, props } = piezas[id];
@@ -3445,6 +3774,55 @@ function desdeTraza(opciones) {
       const corrimiento = Math.max(0, (arriba + H) / 2 - (minimo + maximo) / 2);
       for (const [id, pieza] of Object.entries(piezas)) if (id !== "titulo") pieza.props.y += corrimiento;
     }
+    const pedida = lupa === true ? 1.8 : Number(lupa) || 0;
+    const conLupa = pedida > 1 && (lupaDebajoDe == null || (disposicion.ancho ?? Infinity) < lupaDebajoDe);
+    const geo = (
+      /** @type {any} */
+      piezaCodigo.props
+    );
+    const altoLinea = geo.tamano * geo.interlineado;
+    const izqCodigo = geo.x - geo.ancho / 2;
+    const usado = 16 + 2 * geo.tamano * ANCHO_MONO + geo.tamano * 0.9 + necesario * geo.tamano * ANCHO_MONO + 16;
+    const zoom = conLupa ? Math.min(pedida, geo.ancho / usado, tamanoPorAncho / geo.tamano * 1.15) : 1;
+    const arribaCodigo = geo.y - altoCodigo / 2;
+    const yLinea = (k) => arribaCodigo + (archivo ? geo.tamano * 1.6 : 0) + geo.tamano * 0.5 + (k - 0.5) * altoLinea;
+    const medioVisible = altoCodigo / (2 * zoom);
+    const encuadrar = (y2) => Math.min(Math.max(y2, arribaCodigo + medioVisible), arribaCodigo + altoCodigo - medioVisible);
+    let mirarY = encuadrar(arribaCodigo);
+    if (zoom > 1.05) {
+      const ordenadas = {};
+      for (const [id, pieza] of Object.entries(piezas)) {
+        if (id === "codigo") {
+          ordenadas.lupa = camara({
+            x: geo.x,
+            y: geo.y,
+            ancho: geo.ancho + 6,
+            alto: altoCodigo + 6,
+            zoom,
+            // A lo ancho, pegada al borde izquierdo del código: el zoom ya
+            // está limitado para que lo escrito entre; lo que se pierde es
+            // lo que sobraba a la derecha de la línea más larga.
+            mirarX: izqCodigo + geo.ancho / (2 * zoom),
+            mirarY
+          });
+          pieza.props.dentro = "lupa";
+        }
+        ordenadas[id] = pieza;
+      }
+      for (const id of Object.keys(piezas)) delete piezas[id];
+      Object.assign(piezas, ordenadas);
+    }
+    const seguir = (k) => {
+      if (zoom <= 1.05 || !(k > 0)) return null;
+      const margen = (contexto + 0.5) * altoLinea;
+      let nuevo = mirarY;
+      if (yLinea(k) - margen < mirarY - medioVisible) nuevo = yLinea(k) - margen + medioVisible;
+      if (yLinea(k) + margen > mirarY + medioVisible) nuevo = yLinea(k) + margen - medioVisible;
+      nuevo = encuadrar(nuevo);
+      if (Math.abs(nuevo - mirarY) < 0.5) return null;
+      mirarY = nuevo;
+      return nuevo;
+    };
     const linea = [{ pieza: "codigo", a: { marca: 1 }, dur: 0.4, en: 0.2 }];
     const anterior = {};
     const indiceSenalado = {};
@@ -3536,6 +3914,8 @@ function desdeTraza(opciones) {
       }
       if (paso.linea > 0) {
         linea.push({ pieza: "codigo", a: { linea: paso.linea, marca: 1 }, dur: i === 0 ? 0 : 0.35, en: t + 0.45 });
+        const y2 = seguir(paso.linea);
+        if (y2 != null) linea.push({ pieza: "lupa", a: { mirarY: y2 }, dur: i === 0 ? 0 : 0.6, en: t + 0.4 });
       } else if (!paso.excepcion) {
         linea.push({ pieza: "codigo", a: { marca: 0 }, dur: 0.4, en: t + 0.45 });
       }
@@ -3951,8 +4331,63 @@ function desdeTests(opciones) {
   };
 }
 
+// src/pedagogico/narrar.js
+function crearNarrador(opciones = {}) {
+  const ritmo = opciones.ritmo ?? 1;
+  const lectura = opciones.lectura ?? 13;
+  const preguntas = opciones.preguntas ?? {};
+  const linea = [];
+  let respuestaPendiente = "";
+  const n2 = {
+    linea,
+    tiempo: opciones.inicio ?? 0.3,
+    ritmo,
+    lectura,
+    /** Agrega una animación (o varias) que arranca ahora, o `demora` segundos después. */
+    animar(item, demora = 0) {
+      for (const i of [item].flat()) linea.push({ en: n2.tiempo + demora, ...i });
+      return n2;
+    },
+    /**
+     * Un subtítulo. Dura lo que se tarda en leerlo (nunca menos de dos
+     * ritmos) y el tiempo avanza hasta que termina, más `extra`. Si antes
+     * hubo una pregunta, su respuesta se dice primero.
+     */
+    decir(texto3, extra = 0.4) {
+      const subtitulo = respuestaPendiente + texto3;
+      respuestaPendiente = "";
+      const dur = Math.max(ritmo * 2, duracionLectura(subtitulo, lectura));
+      linea.push({ subtitulo, en: n2.tiempo, dur });
+      n2.tiempo += dur + extra;
+      return dur;
+    },
+    /** Deja pasar un rato sin decir nada (para mirar algo que se mueve). */
+    esperar(segundos) {
+      n2.tiempo += segundos * ritmo;
+    },
+    capitulo(nombre) {
+      linea.push({ capitulo: nombre, en: n2.tiempo });
+    },
+    /**
+     * Si hay una pregunta con esa clave, la hace (frena la lección) y
+     * guarda la respuesta para el próximo `decir`.
+     */
+    preguntar(clave) {
+      const p = preguntas[clave];
+      if (!p) return false;
+      const enunciado = `${p.pregunta} Paus\xE1 y pensalo.`;
+      const dur = Math.max(p.dur ?? 4, duracionLectura(enunciado, lectura) + 1.5);
+      linea.push({ marca: "pregunta", datos: p, en: n2.tiempo, dur }, { subtitulo: enunciado, en: n2.tiempo, dur });
+      n2.tiempo += dur + 0.2;
+      respuestaPendiente = p.opciones && p.correcta !== void 0 ? `Respuesta: ${p.opciones[p.correcta]}. ${p.explicacion ? `${p.explicacion} ` : ""}` : "";
+      return true;
+    }
+  };
+  return n2;
+}
+
 // src/index.js
-var version = "0.7.0";
+var version = "0.8.0";
 definirComponente();
 definirLeccion();
 export {
@@ -3978,6 +4413,7 @@ export {
   compilar,
   consola,
   contador2 as contador,
+  crearNarrador,
   crearPintor,
   curva,
   curvas,

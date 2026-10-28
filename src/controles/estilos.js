@@ -16,6 +16,9 @@ ${CSS_TEMA}
     display: none;
 }
 
+/* Una grilla de tres renglones: el dibujo, los subtítulos y los controles.
+   Cuando los controles flotan (o los subtítulos, en pantalla completa), van
+   en el mismo renglón que el dibujo, encima de él. */
 .ma-raiz {
     container-type: inline-size;
     font-family: var(--ma-fuente);
@@ -23,11 +26,26 @@ ${CSS_TEMA}
     background: var(--ma-fondo);
     border-radius: 12px;
     overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "escena" "subtitulo" "controles";
 }
 
 .ma-lienzo {
+    grid-area: escena;
     position: relative;
     outline: none;
+    overflow: hidden;
+    /* Con el dedo se puede seguir bajando por la página; el pellizco para
+       el zoom lo maneja el componente. Con zoom, arrastrar mueve el dibujo. */
+    touch-action: pan-y;
+}
+.ma-raiz.con-zoom .ma-lienzo {
+    touch-action: none;
+    cursor: grab;
+}
+.ma-raiz.con-zoom.arrastrando .ma-lienzo {
+    cursor: grabbing;
 }
 .ma-lienzo:focus-visible {
     box-shadow: inset 0 0 0 3px var(--ma-acento);
@@ -44,6 +62,7 @@ ${CSS_TEMA}
    encima taparían la mitad de la escena. El alto mínimo es para que la página
    no salte cada vez que aparece o desaparece uno. */
 .ma-subtitulo {
+    grid-area: subtitulo;
     min-height: 2.8em;
     padding: 0.35em 1em;
     display: flex;
@@ -60,6 +79,7 @@ ${CSS_TEMA}
 
 /* ---- Controles ---- */
 .ma-controles {
+    grid-area: controles;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -68,7 +88,71 @@ ${CSS_TEMA}
     border-top: 1px solid var(--ma-borde);
     background: var(--ma-superficie);
 }
-.ma-raiz.sin-controles .ma-controles {
+.ma-raiz.sin-controles .ma-controles,
+.ma-raiz.sin-controles .ma-zoom {
+    display: none;
+}
+
+/* Con mouse (y siempre en pantalla completa), los controles flotan sobre la
+   parte de abajo del dibujo y se esconden mientras corre la animación: así
+   el dibujo usa todo el lugar. Vuelven al mover el mouse, al tocar, al llegar
+   con el teclado o al pausar. En un celular, fuera de la pantalla completa,
+   quedan fijos abajo: no hay un mouse que pase por encima para mostrarlos. */
+.ma-raiz.flotantes .ma-controles {
+    grid-area: escena;
+    align-self: end;
+    z-index: 3;
+    border-top: 0;
+    padding-top: 22px;
+    background: linear-gradient(transparent, color-mix(in srgb, var(--ma-superficie) 94%, transparent) 22px);
+    transition: opacity 0.25s;
+}
+.ma-raiz.flotantes:not(.ver-controles) .ma-controles,
+.ma-raiz.flotantes:not(.ver-controles) .ma-zoom {
+    opacity: 0;
+}
+.ma-raiz.flotantes.sin-cursor {
+    cursor: none;
+}
+
+/* ---- Zoom ---- */
+.ma-zoom {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 3;
+    display: flex;
+    gap: 6px;
+    transition: opacity 0.25s;
+}
+.ma-zoom button {
+    min-width: 40px;
+    height: 40px;
+    padding: 0 8px;
+    border: 1px solid var(--ma-borde);
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--ma-superficie) 92%, transparent);
+    color: var(--ma-texto);
+    font: 700 18px/1 var(--ma-fuente);
+    cursor: pointer;
+}
+.ma-zoom button:hover {
+    border-color: var(--ma-acento);
+}
+.ma-zoom button:focus-visible {
+    outline: 3px solid var(--ma-acento);
+    outline-offset: 1px;
+}
+.ma-zoom [data-zoom="normal"] {
+    font-size: 15px;
+}
+.ma-raiz:not(.con-zoom) .ma-zoom [data-zoom="normal"] {
+    display: none;
+}
+/* Con el dedo se hace zoom pellizcando: los botones de + y − sobran y
+   taparían el dibujo de un celular. Queda solo el de volver al tamaño normal. */
+.ma-raiz:not(.flotantes) .ma-zoom [data-zoom="acercar"],
+.ma-raiz:not(.flotantes) .ma-zoom [data-zoom="alejar"] {
     display: none;
 }
 .ma-controles button {
@@ -195,27 +279,52 @@ ${CSS_TEMA}
     inset: 0;
     z-index: 1000;
 }
+/* Todo va en un solo renglón: el dibujo ocupa la pantalla entera, y los
+   subtítulos y los controles van encima. Si los subtítulos fueran en un
+   renglón propio, el dibujo quedaría más chico en pantalla completa que en la
+   página. */
 :host([pantalla]) .ma-raiz,
 :host(:fullscreen) .ma-raiz {
     height: 100%;
     border-radius: 0;
-    display: flex;
-    flex-direction: column;
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "escena";
 }
 :host([pantalla]) .ma-lienzo,
 :host(:fullscreen) .ma-lienzo {
-    flex: 1 1 auto;
     min-height: 0;
 }
 :host([pantalla]) .ma-lienzo svg,
 :host(:fullscreen) .ma-lienzo svg {
     height: 100%;
 }
-/* En una pantalla grande los subtítulos se leen desde lejos. */
+/* El subtítulo, como en el cine: un renglón sobre la parte de abajo. El
+   dibujo se pega arriba (preserveAspectRatio), así que si la pantalla es más
+   alta que la escena el subtítulo cae en el lugar que sobra, sin tapar nada. */
 :host([pantalla]) .ma-subtitulo,
 :host(:fullscreen) .ma-subtitulo {
-    font-size: clamp(18px, 2.8cqi, 52px);
-    padding: 0.4em 1em 0.6em;
+    grid-area: escena;
+    align-self: end;
+    justify-self: center;
+    z-index: 2;
+    min-height: 0;
+    max-width: min(92%, 64ch);
+    margin-bottom: max(12px, 2.5vh);
+    padding: 0.25em 0.8em;
+    border-radius: 0.4em;
+    background: color-mix(in srgb, var(--ma-fondo) 85%, transparent);
+    font-size: clamp(18px, 2.2cqi, 46px);
+    pointer-events: none;
+    transition: transform 0.25s;
+}
+:host([pantalla]) .ma-subtitulo:empty,
+:host(:fullscreen) .ma-subtitulo:empty {
+    display: none;
+}
+/* Cuando aparecen los controles, el subtítulo sube para no quedar abajo de ellos. */
+:host([pantalla]) .ver-controles .ma-subtitulo,
+:host(:fullscreen) .ver-controles .ma-subtitulo {
+    transform: translateY(calc(-1 * var(--ma-alto-controles, 0px)));
 }
 /* Sin controles no hay nada que apuntar: que el mouse no quede en el medio
    de la pantalla de la Expo. */

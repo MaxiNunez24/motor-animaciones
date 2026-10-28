@@ -615,6 +615,83 @@ export const segmento = sobrePlano({
 });
 
 /**
+ * La región entre la gráfica de f y la de g (o el eje x, si no hay g), de x =
+ * desde a x = hasta: el área bajo una campana (una probabilidad), las colas de
+ * un test, una banda de confianza. `desde` y `hasta` se animan: la región
+ * crece o se corre.
+ */
+export const area = sobrePlano({
+    nombre: 'area',
+    articulo: 'a',
+    predeterminados: {
+        f: null,
+        g: null,
+        desde: 0,
+        hasta: 1,
+        color: 'acento',
+        relleno: 0.3,
+        // Un borde arriba (sobre f), para que la región se lea aunque el relleno sea claro.
+        borde: true,
+        muestras: 160,
+        etiqueta: '',
+        tamanoEtiqueta: 22,
+        // Dónde va el rótulo, en coordenadas del plano. null: en el medio de la región.
+        etiquetaX: null,
+        etiquetaY: null,
+    },
+    colores: ['color'],
+    validar(p) {
+        if (typeof p.f !== 'function') throw new Error('Un área necesita la curva de arriba: f: (x) => ...');
+    },
+    crear(grupo, libre) {
+        return {
+            relleno: el('path', { stroke: 'none' }, grupo),
+            borde: el('path', { fill: 'none', 'stroke-width': 3, 'stroke-linejoin': 'round' }, grupo),
+            etiqueta: el('text', { 'font-weight': 700, 'text-anchor': 'middle', 'dominant-baseline': 'central', ...HALO }, libre),
+        };
+    },
+    actualizar(partes, p, c) {
+        const pl = c.plano;
+        // Lo que no entra en el plano no se calcula (las colas de una campana van hasta el infinito).
+        const x0 = Math.max(Math.min(p.desde, p.hasta), pl.xmin - (pl.xmax - pl.xmin) * 0.02);
+        const x1 = Math.min(Math.max(p.desde, p.hasta), pl.xmax + (pl.xmax - pl.xmin) * 0.02);
+        const lim = (y) => limitar(y, pl.ymin - (pl.ymax - pl.ymin), pl.ymax + (pl.ymax - pl.ymin));
+        const vacia = !(x1 > x0);
+        let arriba = '';
+        let abajo = '';
+        if (!vacia) {
+            const n = Math.max(2, Math.ceil(p.muestras * ((x1 - x0) / (pl.xmax - pl.xmin))));
+            const xs = Array.from({ length: n + 1 }, (_, i) => x0 + ((x1 - x0) * i) / n);
+            arriba = xs.map((x, i) => {
+                const q = c.a(x, lim(p.f(x)));
+                return `${i ? 'L' : 'M'}${r(q.x)} ${r(q.y)}`;
+            }).join('');
+            abajo = xs.reverse().map((x) => {
+                const q = c.a(x, lim(p.g ? p.g(x) : 0));
+                return `L${r(q.x)} ${r(q.y)}`;
+            }).join('');
+        }
+        poner(partes.relleno, {
+            d: vacia ? 'M0 0' : `${arriba}${abajo}Z`,
+            fill: aCss(p.color), 'fill-opacity': p.relleno,
+            visibility: vacia ? 'hidden' : null,
+        });
+        poner(partes.borde, {
+            d: vacia ? 'M0 0' : arriba, stroke: aCss(p.color),
+            visibility: vacia || !p.borde ? 'hidden' : null,
+        });
+        const xm = p.etiquetaX ?? (x0 + x1) / 2;
+        const ym = p.etiquetaY ?? ((p.g ? p.g(xm) : 0) + p.f(xm)) / 2;
+        const e = c.a(xm, ym);
+        poner(partes.etiqueta, {
+            x: e.x, y: e.y, 'font-size': p.tamanoEtiqueta, fill: aCss(p.color),
+            visibility: p.etiqueta && !vacia ? null : 'hidden',
+        });
+        ponerTexto(partes.etiqueta, p.etiqueta);
+    },
+});
+
+/**
  * Las curvas de nivel de f(x, y): para cada altura c, los puntos donde
  * f(x, y) = c. Con `progreso` aparecen de a una, en el orden de `niveles`;
  * con `resaltar` se destaca una (su índice).

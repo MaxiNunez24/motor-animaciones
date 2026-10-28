@@ -14,3 +14,4 @@ export { explicarPaso, detectarPunteros } from './explicar.js';
 export { pila } from './piezas/pila.js';
 export { desdeConsulta, ejecutarConsulta } from './consulta.js';
 export { desdeTests } from './tests-animados.js';
+export { crearNarrador } from './narrar.js';

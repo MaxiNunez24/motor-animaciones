@@ -1,6 +1,7 @@
 import { duracionLectura } from '../nucleo/linea.js';
 import { caja, texto, tabla, flecha } from '../piezas/index.js';
-import { codigo, caracteresPorLinea } from './piezas/codigo.js';
+import { codigo, caracteresPorLinea, ANCHO_MONO } from './piezas/codigo.js';
+import { camara } from '../piezas/camara.js';
 import { variable } from './piezas/variable.js';
 import { lista } from './piezas/lista.js';
 import { consola } from './piezas/consola.js';
@@ -63,6 +64,9 @@ function queEs(v) {
  *     explicar?: boolean,
  *     capitulos?: Record<number, string>,
  *     piezas?: (d: any, lugar: any) => Record<string, any>,
+ *     lupa?: boolean | number,
+ *     lupaDebajoDe?: number,
+ *     contexto?: number,
  * }} opciones
  *     `explicaciones`, `preguntas` y `capitulos` van por número de paso (desde 0).
  *     Una pregunta frena ANTES de mostrar lo que hace la línea marcada.
@@ -71,11 +75,20 @@ function queEs(v) {
  *     Con 'auto', se deduce de la traza.
  *     `explicar`: los pasos sin explicación escrita se explican solos.
  *     `piezas` agrega piezas propias (un botón, una página) para los `animar`.
+ *     `lupa` (true, o cuánto acercar: 1.8 si es true): para cuando la escena
+ *     se ve chica. Un programa largo se achica hasta entrar entero, y en la
+ *     columna de una clase queda ilegible; con la lupa, el código va dentro
+ *     de una cámara que lo agranda y sigue a la línea marcada, como un editor:
+ *     baja suave cuando la marca se acerca al borde, dejando `contexto` líneas
+ *     (3) arriba y abajo. El zoom nunca es tanto que corte una línea a lo ancho.
+ *     `lupaDebajoDe` (en píxeles): la lupa se usa solo si el lugar donde se ve
+ *     la escena es más angosto que eso (por ejemplo, 900).
  */
 export function desdeTraza(opciones) {
     const {
         traza, lenguaje = 'python', titulo = '', descripcion = '', archivo = '',
         ritmo = 1.4, lectura = 13, explicaciones = {}, preguntas = {}, capitulos = {}, explicar = false,
+        lupa = false, lupaDebajoDe = null, contexto = 3,
     } = opciones;
     const punteros = opciones.punteros === 'auto' ? detectarPunteros(opciones.traza ?? []) : opciones.punteros ?? {};
     const programa = String(opciones.codigo).replace(/\s+$/, '');
@@ -130,17 +143,21 @@ export function desdeTraza(opciones) {
 
     return function (disposicion) {
         const angosta = disposicion.nombre === 'angosta';
-        const W = angosta ? 640 : 1600;
+        // La media (de 600 a 900 px) es una ancha más angosta: con 1200 de
+        // ancho en vez de 1600, todo se ve un tercio más grande.
+        const media = disposicion.nombre === 'media';
+        const W = angosta ? 640 : media ? 1200 : 1600;
         const H = angosta ? 1140 : 900;
         const arriba = titulo ? (angosta ? 100 : 100) : 30;
 
         // ---- Dónde va cada cosa ----
         const cod = angosta
             ? { x: 320, ancho: 610, tamano: 22 }
-            : { x: 440, ancho: 820, tamano: 36 };
+            : media ? { x: 345, ancho: 650, tamano: 36 } : { x: 440, ancho: 820, tamano: 36 };
         const necesario = Math.max(...programa.split('\n').map((l) => l.length));
         // Si una línea no entra, se achica la letra: cortar código es peor.
         cod.tamano = Math.min(cod.tamano, cod.tamano * caracteresPorLinea(cod) / necesario);
+        const tamanoPorAncho = cod.tamano;
         // Y si el programa es largo, también por alto: que entre entero, con la
         // consola abajo en ancho. Un código cortado no se puede seguir.
         const lineasCodigo = programa.split('\n').length;
@@ -161,7 +178,7 @@ export function desdeTraza(opciones) {
 
         const con = angosta
             ? { x: 320, ancho: 610, renglones: 3, tamano: 20 }
-            : { x: 440, ancho: 820, renglones: 3, tamano: 30 };
+            : { x: cod.x, ancho: cod.ancho, renglones: 3, tamano: 30 };
         const piezaConsola = consola({ ...con, opacidad: 0 });
         const altoConsola = piezaConsola.tipo.tamano(piezaConsola.props).alto;
         piezaConsola.props.y = angosta ? H - 20 - altoConsola / 2 : arriba + altoCodigo + 40 + altoConsola / 2;
@@ -179,7 +196,7 @@ export function desdeTraza(opciones) {
         // Las variables, en columna: a la derecha en ancho, debajo del código en angosto.
         const col = angosta
             ? { x: 320, ancho: 560, y: arriba + altoCodigo + 70 }
-            : { x: 1250, ancho: 620, y: arriba + 50 };
+            : media ? { x: 925, ancho: 500, y: arriba + 50 } : { x: 1250, ancho: 620, y: arriba + 50 };
         let y = col.y;
         const lugarVariable = {};
         for (const v of variables) {
@@ -217,7 +234,7 @@ export function desdeTraza(opciones) {
         }
         // La pila de llamadas, debajo de las variables. Crece para abajo.
         if (conPila) {
-            piezas.pila = pila({ x: col.x, y: y - (angosta ? 10 : 20), ancho: Math.min(col.ancho, angosta ? 560 : 600), tamano: angosta ? 22 : 32 });
+            piezas.pila = pila({ x: col.x, y: y - (angosta ? 10 : 20), ancho: Math.min(col.ancho, angosta ? 560 : 600), tamano: angosta ? 22 : media ? 25 : 32 });
         }
         // Las flechas entre dos variables que son lo mismo. Van por afuera, por
         // el costado izquierdo de las dos: entre una y otra no hay lugar, y una
@@ -254,6 +271,56 @@ export function desdeTraza(opciones) {
             const corrimiento = Math.max(0, (arriba + H) / 2 - (minimo + maximo) / 2);
             for (const [id, pieza] of Object.entries(piezas)) if (id !== 'titulo') pieza.props.y += corrimiento;
         }
+
+        // ---- La lupa ----
+        // Cuánto se puede acercar sin cortar la línea más larga: lo que mide
+        // de ancho lo escrito (con los números de línea), contra la ventana.
+        const pedida = lupa === true ? 1.8 : Number(lupa) || 0;
+        const conLupa = pedida > 1 && (lupaDebajoDe == null || (disposicion.ancho ?? Infinity) < lupaDebajoDe);
+        const geo = /** @type {any} */ (piezaCodigo.props);
+        const altoLinea = geo.tamano * geo.interlineado;
+        const izqCodigo = geo.x - geo.ancho / 2;
+        const usado = 16 + 2 * geo.tamano * ANCHO_MONO + geo.tamano * 0.9 + necesario * geo.tamano * ANCHO_MONO + 16;
+        const zoom = conLupa ? Math.min(pedida, geo.ancho / usado, (tamanoPorAncho / geo.tamano) * 1.15) : 1;
+        // La y (en la escena) del centro de la línea k, contando desde 1.
+        const arribaCodigo = geo.y - altoCodigo / 2;
+        const yLinea = (k) => arribaCodigo + (archivo ? geo.tamano * 1.6 : 0) + geo.tamano * 0.5 + (k - 0.5) * altoLinea;
+        const medioVisible = altoCodigo / (2 * zoom);
+        const encuadrar = (y) => Math.min(Math.max(y, arribaCodigo + medioVisible), arribaCodigo + altoCodigo - medioVisible);
+        let mirarY = encuadrar(arribaCodigo);
+        if (zoom > 1.05) {
+            // La cámara va antes que el código en `piezas`: el pintor arma
+            // primero el contenedor y después lo de adentro.
+            const ordenadas = {};
+            for (const [id, pieza] of Object.entries(piezas)) {
+                if (id === 'codigo') {
+                    ordenadas.lupa = camara({
+                        x: geo.x, y: geo.y, ancho: geo.ancho + 6, alto: altoCodigo + 6, zoom,
+                        // A lo ancho, pegada al borde izquierdo del código: el zoom ya
+                        // está limitado para que lo escrito entre; lo que se pierde es
+                        // lo que sobraba a la derecha de la línea más larga.
+                        mirarX: izqCodigo + geo.ancho / (2 * zoom),
+                        mirarY,
+                    });
+                    pieza.props.dentro = 'lupa';
+                }
+                ordenadas[id] = pieza;
+            }
+            for (const id of Object.keys(piezas)) delete piezas[id];
+            Object.assign(piezas, ordenadas);
+        }
+        /** Si la línea k quedó cerca del borde de lo que se ve, la cámara baja (o sube) hasta dejarle `contexto` líneas. */
+        const seguir = (k) => {
+            if (zoom <= 1.05 || !(k > 0)) return null;
+            const margen = (contexto + 0.5) * altoLinea;
+            let nuevo = mirarY;
+            if (yLinea(k) - margen < mirarY - medioVisible) nuevo = yLinea(k) - margen + medioVisible;
+            if (yLinea(k) + margen > mirarY + medioVisible) nuevo = yLinea(k) + margen - medioVisible;
+            nuevo = encuadrar(nuevo);
+            if (Math.abs(nuevo - mirarY) < 0.5) return null;
+            mirarY = nuevo;
+            return nuevo;
+        };
 
         // ---- La línea de tiempo: un paso atrás del otro ----
         /** @type {any[]} */
@@ -363,6 +430,8 @@ export function desdeTraza(opciones) {
             // Después, la marca baja a la línea que sigue.
             if (paso.linea > 0) {
                 linea.push({ pieza: 'codigo', a: { linea: paso.linea, marca: 1 }, dur: i === 0 ? 0 : 0.35, en: t + 0.45 });
+                const y = seguir(paso.linea);
+                if (y != null) linea.push({ pieza: 'lupa', a: { mirarY: y }, dur: i === 0 ? 0 : 0.6, en: t + 0.4 });
             } else if (!paso.excepcion) {
                 linea.push({ pieza: 'codigo', a: { marca: 0 }, dur: 0.4, en: t + 0.45 });
             }

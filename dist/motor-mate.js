@@ -831,6 +831,80 @@ var segmento = sobrePlano({
     texto(partes.etiqueta, p.etiqueta);
   }
 });
+var area = sobrePlano({
+  nombre: "area",
+  articulo: "a",
+  predeterminados: {
+    f: null,
+    g: null,
+    desde: 0,
+    hasta: 1,
+    color: "acento",
+    relleno: 0.3,
+    // Un borde arriba (sobre f), para que la región se lea aunque el relleno sea claro.
+    borde: true,
+    muestras: 160,
+    etiqueta: "",
+    tamanoEtiqueta: 22,
+    // Dónde va el rótulo, en coordenadas del plano. null: en el medio de la región.
+    etiquetaX: null,
+    etiquetaY: null
+  },
+  colores: ["color"],
+  validar(p) {
+    if (typeof p.f !== "function") throw new Error("Un \xE1rea necesita la curva de arriba: f: (x) => ...");
+  },
+  crear(grupo, libre) {
+    return {
+      relleno: el("path", { stroke: "none" }, grupo),
+      borde: el("path", { fill: "none", "stroke-width": 3, "stroke-linejoin": "round" }, grupo),
+      etiqueta: el("text", { "font-weight": 700, "text-anchor": "middle", "dominant-baseline": "central", ...HALO }, libre)
+    };
+  },
+  actualizar(partes, p, c) {
+    const pl = c.plano;
+    const x0 = Math.max(Math.min(p.desde, p.hasta), pl.xmin - (pl.xmax - pl.xmin) * 0.02);
+    const x1 = Math.min(Math.max(p.desde, p.hasta), pl.xmax + (pl.xmax - pl.xmin) * 0.02);
+    const lim = (y) => limitar(y, pl.ymin - (pl.ymax - pl.ymin), pl.ymax + (pl.ymax - pl.ymin));
+    const vacia = !(x1 > x0);
+    let arriba = "";
+    let abajo = "";
+    if (!vacia) {
+      const n = Math.max(2, Math.ceil(p.muestras * ((x1 - x0) / (pl.xmax - pl.xmin))));
+      const xs = Array.from({ length: n + 1 }, (_, i) => x0 + (x1 - x0) * i / n);
+      arriba = xs.map((x, i) => {
+        const q = c.a(x, lim(p.f(x)));
+        return `${i ? "L" : "M"}${r(q.x)} ${r(q.y)}`;
+      }).join("");
+      abajo = xs.reverse().map((x) => {
+        const q = c.a(x, lim(p.g ? p.g(x) : 0));
+        return `L${r(q.x)} ${r(q.y)}`;
+      }).join("");
+    }
+    poner(partes.relleno, {
+      d: vacia ? "M0 0" : `${arriba}${abajo}Z`,
+      fill: aCss(p.color),
+      "fill-opacity": p.relleno,
+      visibility: vacia ? "hidden" : null
+    });
+    poner(partes.borde, {
+      d: vacia ? "M0 0" : arriba,
+      stroke: aCss(p.color),
+      visibility: vacia || !p.borde ? "hidden" : null
+    });
+    const xm = p.etiquetaX ?? (x0 + x1) / 2;
+    const ym = p.etiquetaY ?? ((p.g ? p.g(xm) : 0) + p.f(xm)) / 2;
+    const e = c.a(xm, ym);
+    poner(partes.etiqueta, {
+      x: e.x,
+      y: e.y,
+      "font-size": p.tamanoEtiqueta,
+      fill: aCss(p.color),
+      visibility: p.etiqueta && !vacia ? null : "hidden"
+    });
+    texto(partes.etiqueta, p.etiqueta);
+  }
+});
 var curvasNivel = sobrePlano({
   nombre: "curvasNivel",
   articulo: "as",
@@ -983,6 +1057,300 @@ var campo = sobrePlano({
   }
 });
 
+// src/nucleo/azar.js
+function azar(semilla = 1) {
+  let a = typeof semilla === "string" ? hashTexto(semilla) : semilla >>> 0;
+  function siguiente() {
+    a = a + 1831565813 >>> 0;
+    let t = a;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+  return {
+    siguiente,
+    /** Un número con coma entre min y max. */
+    entre: (min, max) => min + siguiente() * (max - min),
+    /** Un entero entre min y max, los dos incluidos. */
+    entero: (min, max) => min + Math.floor(siguiente() * (max - min + 1)),
+    /** Un elemento cualquiera de una lista. */
+    elegir: (lista) => lista[Math.floor(siguiente() * lista.length)]
+  };
+}
+function hashTexto(texto3) {
+  let h = 2166136261;
+  for (let i = 0; i < texto3.length; i++) {
+    h ^= texto3.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+// src/mate/estadistica.js
+function normal(x, media = 0, desvio = 1) {
+  const z = (x - media) / desvio;
+  return Math.exp(-0.5 * z * z) / (desvio * Math.sqrt(2 * Math.PI));
+}
+function normalAcumulada(x, media = 0, desvio = 1) {
+  const z = (x - media) / desvio;
+  if (z < 0) return 0.5 * erfc(-z / Math.SQRT2);
+  return 1 - 0.5 * erfc(z / Math.SQRT2);
+}
+function erfc(x) {
+  if (x < 2) {
+    let termino = x;
+    let suma = x;
+    for (let n = 1; n < 100; n++) {
+      termino *= -x * x / n;
+      const s = termino / (2 * n + 1);
+      suma += s;
+      if (Math.abs(s) < 1e-17 * Math.abs(suma)) break;
+    }
+    return 1 - 2 / Math.sqrt(Math.PI) * suma;
+  }
+  let f = x;
+  let C = x;
+  let D = 0;
+  for (let n = 1; n < 300; n++) {
+    const a = n / 2;
+    D = x + a * D;
+    D = D === 0 ? 1e-300 : 1 / D;
+    C = x + a / C;
+    if (C === 0) C = 1e-300;
+    const delta = C * D;
+    f *= delta;
+    if (Math.abs(delta - 1) < 1e-16) break;
+  }
+  return Math.exp(-x * x) / Math.sqrt(Math.PI) / f;
+}
+function normalInversa(p) {
+  if (!(p > 0 && p < 1)) throw new Error("La inversa de la normal necesita un \xE1rea entre 0 y 1 (sin incluirlos).");
+  const a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.357751867269, -30.66479806614716, 2.506628277459239];
+  const b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572];
+  const c = [-0.007784894002430293, -0.3223964580411365, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+  const d = [0.007784695709041462, 0.3224671290700398, 2.445134137142996, 3.754408661907416];
+  const bajo = 0.02425;
+  let z;
+  if (p < bajo) {
+    const q = Math.sqrt(-2 * Math.log(p));
+    z = (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+  } else if (p <= 1 - bajo) {
+    const q = p - 0.5;
+    const r3 = q * q;
+    z = (((((a[0] * r3 + a[1]) * r3 + a[2]) * r3 + a[3]) * r3 + a[4]) * r3 + a[5]) * q / (((((b[0] * r3 + b[1]) * r3 + b[2]) * r3 + b[3]) * r3 + b[4]) * r3 + 1);
+  } else {
+    const q = Math.sqrt(-2 * Math.log(1 - p));
+    z = -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+  }
+  const e = normalAcumulada(z) - p;
+  return z - e / normal(z);
+}
+function logGamma(x) {
+  const g = [
+    0.9999999999998099,
+    676.5203681218851,
+    -1259.1392167224028,
+    771.3234287776531,
+    -176.6150291621406,
+    12.507343278686905,
+    -0.13857109526572012,
+    9984369578019572e-21,
+    15056327351493116e-23
+  ];
+  if (x < 0.5) return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * x))) - logGamma(1 - x);
+  x -= 1;
+  let s = g[0];
+  for (let i = 1; i < 9; i++) s += g[i] / (x + i);
+  const t = x + 7.5;
+  return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(s);
+}
+function betaIncompleta(x, a, b) {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const frente = Math.exp(logGamma(a + b) - logGamma(a) - logGamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+  if (x > (a + 1) / (a + b + 2)) return 1 - betaIncompleta(1 - x, b, a);
+  const chico = 1e-300;
+  let c = 1;
+  let d = 1 - (a + b) * x / (a + 1);
+  d = Math.abs(d) < chico ? 1 / chico : 1 / d;
+  let h = d;
+  for (let m = 1; m <= 300; m++) {
+    const m2 = 2 * m;
+    let aa = m * (b - m) * x / ((a + m2 - 1) * (a + m2));
+    d = 1 + aa * d;
+    d = Math.abs(d) < chico ? 1 / chico : 1 / d;
+    c = 1 + aa / c;
+    if (Math.abs(c) < chico) c = chico;
+    h *= d * c;
+    aa = -(a + m) * (a + b + m) * x / ((a + m2) * (a + m2 + 1));
+    d = 1 + aa * d;
+    d = Math.abs(d) < chico ? 1 / chico : 1 / d;
+    c = 1 + aa / c;
+    if (Math.abs(c) < chico) c = chico;
+    const delta = d * c;
+    h *= delta;
+    if (Math.abs(delta - 1) < 1e-15) break;
+  }
+  return frente * h / a;
+}
+function student(x, gl) {
+  if (gl > 1e6) return normal(x);
+  return Math.exp(logGamma((gl + 1) / 2) - logGamma(gl / 2) - 0.5 * Math.log(gl * Math.PI) - (gl + 1) / 2 * Math.log(1 + x * x / gl));
+}
+function studentAcumulada(x, gl) {
+  if (!(gl > 0)) throw new Error("La t de Student necesita grados de libertad positivos.");
+  if (gl > 1e6) return normalAcumulada(x);
+  const cola = 0.5 * betaIncompleta(gl / (gl + x * x), gl / 2, 0.5);
+  return x >= 0 ? 1 - cola : cola;
+}
+function studentInversa(p, gl) {
+  if (!(p > 0 && p < 1)) throw new Error("La inversa de la t necesita un \xE1rea entre 0 y 1 (sin incluirlos).");
+  if (gl > 1e6) return normalInversa(p);
+  let t = normalInversa(p);
+  for (let i = 0; i < 60; i++) {
+    const e = studentAcumulada(t, gl) - p;
+    const paso = e / Math.max(student(t, gl), 1e-300);
+    t -= Math.max(-2, Math.min(2, paso));
+    if (Math.abs(paso) < 1e-12 * Math.max(1, Math.abs(t))) break;
+  }
+  return t;
+}
+function valorCritico(alfa, gl = Infinity) {
+  return Number.isFinite(gl) ? studentInversa(1 - alfa / 2, gl) : normalInversa(1 - alfa / 2);
+}
+function resumen(datos) {
+  const n = datos.length;
+  if (n < 2) throw new Error("Para estimar la varianza hacen falta al menos dos datos.");
+  const media = datos.reduce((s, x) => s + x, 0) / n;
+  const varianza = datos.reduce((s, x) => s + (x - media) ** 2, 0) / (n - 1);
+  return { n, media, varianza, desvio: Math.sqrt(varianza) };
+}
+function muestraNormal({ n, media = 0, desvio = 1, semilla = 1 }) {
+  const r3 = azar(semilla);
+  const datos = [];
+  while (datos.length < n) {
+    const u = 1 - r3.siguiente();
+    const v = r3.siguiente();
+    const radio = Math.sqrt(-2 * Math.log(u));
+    datos.push(media + desvio * radio * Math.cos(2 * Math.PI * v));
+    if (datos.length < n) datos.push(media + desvio * radio * Math.sin(2 * Math.PI * v));
+  }
+  return datos;
+}
+function intervaloMedia({ media, desvio, sigma, n, confianza = 0.95 }) {
+  if (!(confianza > 0 && confianza < 1)) throw new Error("La confianza va entre 0 y 1: 0.95 es el 95 %.");
+  const conocido = sigma != null;
+  const s = conocido ? sigma : desvio;
+  if (!(s >= 0)) throw new Error("Para el intervalo hace falta el desv\xEDo: desvio (de la muestra) o sigma (de la poblaci\xF3n).");
+  const gl = conocido ? Infinity : n - 1;
+  const alfa = 1 - confianza;
+  const critico = valorCritico(alfa, gl);
+  const error = s / Math.sqrt(n);
+  const margen = critico * error;
+  return { centro: media, error, critico, margen, desde: media - margen, hasta: media + margen, gl, alfa, distribucion: conocido ? "normal" : "t" };
+}
+function decidir({ estadistico, gl = Infinity, alfa = 0.05, cola = "dos" }) {
+  if (!["dos", "derecha", "izquierda"].includes(cola)) throw new Error("La cola de un test es 'dos', 'derecha' o 'izquierda'.");
+  const F = (x) => Number.isFinite(gl) ? studentAcumulada(x, gl) : normalAcumulada(x);
+  const inversa = (p) => Number.isFinite(gl) ? studentInversa(p, gl) : normalInversa(p);
+  let critico;
+  let pValor2;
+  let rechaza;
+  if (cola === "dos") {
+    critico = inversa(1 - alfa / 2);
+    pValor2 = 2 * Math.min(F(estadistico), 1 - F(estadistico));
+    rechaza = Math.abs(estadistico) > critico;
+  } else if (cola === "derecha") {
+    critico = inversa(1 - alfa);
+    pValor2 = 1 - F(estadistico);
+    rechaza = estadistico > critico;
+  } else {
+    critico = inversa(alfa);
+    pValor2 = F(estadistico);
+    rechaza = estadistico < critico;
+  }
+  return { estadistico, gl, alfa, cola, critico, pValor: Math.min(1, Math.max(0, pValor2)), rechaza };
+}
+function testMedia({ media, desvio, n, mu0, alfa = 0.05, cola = "dos" }) {
+  const error = desvio / Math.sqrt(n);
+  const estadistico = (media - mu0) / error;
+  return { ...decidir({ estadistico, gl: n - 1, alfa, cola }), error, media, mu0, n };
+}
+function inferenciaRegresion(datos, { confianza = 0.95 } = {}) {
+  const r3 = regresionLineal(datos);
+  if (r3.n < 3) throw new Error("Para hacer inferencia sobre la recta hacen falta al menos tres puntos.");
+  const gl = r3.n - 2;
+  const stc = r3.syy;
+  const sce = r3.ssr;
+  const scr = stc - sce;
+  const sigma2 = sce / gl;
+  const eeB1 = Math.sqrt(sigma2 / r3.sxx);
+  const eeB0 = Math.sqrt(sigma2 * (1 / r3.n + r3.mediaX ** 2 / r3.sxx));
+  const alfa = 1 - confianza;
+  const critico = studentInversa(1 - alfa / 2, gl);
+  const test = decidir({ estadistico: r3.b1 / eeB1, gl, alfa });
+  const intervalo = (centro, ee) => ({ centro, margen: critico * ee, desde: centro - critico * ee, hasta: centro + critico * ee });
+  return {
+    ...r3,
+    gl,
+    stc,
+    scr,
+    sce,
+    sigma2,
+    sigma: Math.sqrt(sigma2),
+    eeB1,
+    eeB0,
+    confianza,
+    critico,
+    t: test.estadistico,
+    pValor: test.pValor,
+    rechaza: test.rechaza,
+    icB1: intervalo(r3.b1, eeB1),
+    icB0: intervalo(r3.b0, eeB0),
+    /** Lo que predice la recta en x. */
+    prediccion: (x) => r3.b0 + r3.b1 * x,
+    /** El intervalo de confianza para la respuesta media en x: dónde está la recta verdadera. */
+    icm: (x) => intervalo(r3.b0 + r3.b1 * x, Math.sqrt(sigma2 * (1 / r3.n + (x - r3.mediaX) ** 2 / r3.sxx))),
+    /** El intervalo de predicción en x: dónde va a caer UNA observación nueva. */
+    ip: (x) => intervalo(r3.b0 + r3.b1 * x, Math.sqrt(sigma2 * (1 + 1 / r3.n + (x - r3.mediaX) ** 2 / r3.sxx)))
+  };
+}
+function minimosCuadrados(filas, y) {
+  const n = filas.length;
+  if (n !== y.length) throw new Error("Tiene que haber un y por cada fila de X.");
+  const X = filas.map((f) => [1, ...f]);
+  const p = X[0].length;
+  if (n <= p) throw new Error(`Con ${p - 1} variables hacen falta m\xE1s de ${p} filas.`);
+  const XtX = Array.from({ length: p }, (_, i) => Array.from({ length: p }, (_2, j) => X.reduce((s, f) => s + f[i] * f[j], 0)));
+  const Xty = Array.from({ length: p }, (_, i) => X.reduce((s, f, k2) => s + f[i] * y[k2], 0));
+  const coeficientes = resolverSistema(XtX, Xty);
+  const ajustados = X.map((f) => f.reduce((s, v, i) => s + v * coeficientes[i], 0));
+  const media = y.reduce((s, v) => s + v, 0) / n;
+  const stc = y.reduce((s, v) => s + (v - media) ** 2, 0);
+  const sce = y.reduce((s, v, i) => s + (v - ajustados[i]) ** 2, 0);
+  const r22 = stc === 0 ? 1 : 1 - sce / stc;
+  const k = p - 1;
+  return { coeficientes, ajustados, stc, sce, scr: stc - sce, r2: r22, r2Ajustado: 1 - (1 - r22) * (n - 1) / (n - k - 1), n, k };
+}
+function resolverSistema(A, b) {
+  const n = b.length;
+  const M = A.map((fila, i) => [...fila, b[i]]);
+  for (let col = 0; col < n; col++) {
+    let mejor = col;
+    for (let f = col + 1; f < n; f++) if (Math.abs(M[f][col]) > Math.abs(M[mejor][col])) mejor = f;
+    if (Math.abs(M[mejor][col]) < 1e-12 * Math.max(1, Math.abs(M[col][col]))) {
+      throw new Error("Las ecuaciones normales no tienen soluci\xF3n \xFAnica: hay variables que son combinaci\xF3n de otras.");
+    }
+    [M[col], M[mejor]] = [M[mejor], M[col]];
+    for (let f = 0; f < n; f++) {
+      if (f === col) continue;
+      const k = M[f][col] / M[col][col];
+      for (let c = col; c <= n; c++) M[f][c] -= k * M[col][c];
+    }
+  }
+  return M.map((fila, i) => fila[n] / fila[i]);
+}
+
 // src/piezas/geometria.js
 function caminoFlecha(a, b, curvatura = 0, separacion = 0) {
   const dx = b.x - a.x;
@@ -1057,55 +1425,6 @@ function largo(texto3) {
 }
 var ANCHO_LETRA = 0.55;
 
-// src/piezas/texto.js
-var ANCLAS = { inicio: "start", centro: "middle", fin: "end" };
-var texto2 = definirPieza({
-  nombre: "texto",
-  predeterminados: {
-    texto: "",
-    tamano: 32,
-    peso: 400,
-    color: "texto",
-    // Respecto de x: 'inicio' (x es el borde izquierdo), 'centro' o 'fin'.
-    alineacion: "centro",
-    // En unidades de la escena. 0: no partir (salvo donde el texto trae \n).
-    anchoMax: 0,
-    interlineado: 1.25,
-    escrito: 1,
-    // 'normal' o 'mono' (para código).
-    fuente: "normal"
-  },
-  colores: ["color"],
-  validar(p) {
-    if (!(p.alineacion in ANCLAS)) {
-      throw new Error(`La alineaci\xF3n de un texto es 'inicio', 'centro' o 'fin', no "${p.alineacion}".`);
-    }
-  },
-  crear(grupo) {
-    return { texto: el("text", { "dominant-baseline": "central" }, grupo) };
-  },
-  actualizar(partes, p) {
-    poner(partes.texto, {
-      fill: aCss(p.color),
-      "font-size": p.tamano,
-      "font-weight": p.peso,
-      "text-anchor": ANCLAS[p.alineacion],
-      "font-family": p.fuente === "mono" ? "var(--ma-fuente-mono)" : null
-    });
-    const lineas = partirLineas(p.texto, anchoEnLetras(p));
-    renglones(partes.texto, revelar(lineas, p.escrito), { tamano: p.tamano, interlineado: p.interlineado });
-  },
-  // Estimado, no medido: ver por qué en partirLineas.
-  tamano(p) {
-    const lineas = partirLineas(p.texto, anchoEnLetras(p));
-    const letras = Math.max(0, ...lineas.map((l) => Array.from(l).length));
-    return { ancho: letras * p.tamano * ANCHO_LETRA, alto: lineas.length * p.tamano * p.interlineado };
-  }
-});
-function anchoEnLetras(p) {
-  return p.anchoMax > 0 ? Math.floor(p.anchoMax / (p.tamano * ANCHO_LETRA)) : 0;
-}
-
 // src/piezas/caja.js
 var caja = definirPieza({
   nombre: "caja",
@@ -1179,6 +1498,119 @@ var caja = definirPieza({
   },
   tamano: (p) => ({ ancho: p.ancho, alto: p.alto })
 });
+
+// src/nucleo/curvas.js
+var C1 = 1.70158;
+var C3 = C1 + 1;
+
+// src/nucleo/linea.js
+function duracionLectura(texto3, caracteresPorSegundo = 15) {
+  return Math.max(1.5, String(texto3).length / caracteresPorSegundo);
+}
+
+// src/pedagogico/narrar.js
+function crearNarrador(opciones = {}) {
+  const ritmo = opciones.ritmo ?? 1;
+  const lectura = opciones.lectura ?? 13;
+  const preguntas = opciones.preguntas ?? {};
+  const linea2 = [];
+  let respuestaPendiente = "";
+  const n = {
+    linea: linea2,
+    tiempo: opciones.inicio ?? 0.3,
+    ritmo,
+    lectura,
+    /** Agrega una animación (o varias) que arranca ahora, o `demora` segundos después. */
+    animar(item, demora = 0) {
+      for (const i of [item].flat()) linea2.push({ en: n.tiempo + demora, ...i });
+      return n;
+    },
+    /**
+     * Un subtítulo. Dura lo que se tarda en leerlo (nunca menos de dos
+     * ritmos) y el tiempo avanza hasta que termina, más `extra`. Si antes
+     * hubo una pregunta, su respuesta se dice primero.
+     */
+    decir(texto3, extra = 0.4) {
+      const subtitulo = respuestaPendiente + texto3;
+      respuestaPendiente = "";
+      const dur = Math.max(ritmo * 2, duracionLectura(subtitulo, lectura));
+      linea2.push({ subtitulo, en: n.tiempo, dur });
+      n.tiempo += dur + extra;
+      return dur;
+    },
+    /** Deja pasar un rato sin decir nada (para mirar algo que se mueve). */
+    esperar(segundos) {
+      n.tiempo += segundos * ritmo;
+    },
+    capitulo(nombre) {
+      linea2.push({ capitulo: nombre, en: n.tiempo });
+    },
+    /**
+     * Si hay una pregunta con esa clave, la hace (frena la lección) y
+     * guarda la respuesta para el próximo `decir`.
+     */
+    preguntar(clave) {
+      const p = preguntas[clave];
+      if (!p) return false;
+      const enunciado = `${p.pregunta} Paus\xE1 y pensalo.`;
+      const dur = Math.max(p.dur ?? 4, duracionLectura(enunciado, lectura) + 1.5);
+      linea2.push({ marca: "pregunta", datos: p, en: n.tiempo, dur }, { subtitulo: enunciado, en: n.tiempo, dur });
+      n.tiempo += dur + 0.2;
+      respuestaPendiente = p.opciones && p.correcta !== void 0 ? `Respuesta: ${p.opciones[p.correcta]}. ${p.explicacion ? `${p.explicacion} ` : ""}` : "";
+      return true;
+    }
+  };
+  return n;
+}
+
+// src/piezas/texto.js
+var ANCLAS = { inicio: "start", centro: "middle", fin: "end" };
+var texto2 = definirPieza({
+  nombre: "texto",
+  predeterminados: {
+    texto: "",
+    tamano: 32,
+    peso: 400,
+    color: "texto",
+    // Respecto de x: 'inicio' (x es el borde izquierdo), 'centro' o 'fin'.
+    alineacion: "centro",
+    // En unidades de la escena. 0: no partir (salvo donde el texto trae \n).
+    anchoMax: 0,
+    interlineado: 1.25,
+    escrito: 1,
+    // 'normal' o 'mono' (para código).
+    fuente: "normal"
+  },
+  colores: ["color"],
+  validar(p) {
+    if (!(p.alineacion in ANCLAS)) {
+      throw new Error(`La alineaci\xF3n de un texto es 'inicio', 'centro' o 'fin', no "${p.alineacion}".`);
+    }
+  },
+  crear(grupo) {
+    return { texto: el("text", { "dominant-baseline": "central" }, grupo) };
+  },
+  actualizar(partes, p) {
+    poner(partes.texto, {
+      fill: aCss(p.color),
+      "font-size": p.tamano,
+      "font-weight": p.peso,
+      "text-anchor": ANCLAS[p.alineacion],
+      "font-family": p.fuente === "mono" ? "var(--ma-fuente-mono)" : null
+    });
+    const lineas = partirLineas(p.texto, anchoEnLetras(p));
+    renglones(partes.texto, revelar(lineas, p.escrito), { tamano: p.tamano, interlineado: p.interlineado });
+  },
+  // Estimado, no medido: ver por qué en partirLineas.
+  tamano(p) {
+    const lineas = partirLineas(p.texto, anchoEnLetras(p));
+    const letras = Math.max(0, ...lineas.map((l) => Array.from(l).length));
+    return { ancho: letras * p.tamano * ANCHO_LETRA, alto: lineas.length * p.tamano * p.interlineado };
+  }
+});
+function anchoEnLetras(p) {
+  return p.anchoMax > 0 ? Math.floor(p.anchoMax / (p.tamano * ANCHO_LETRA)) : 0;
+}
 
 // src/piezas/tabla.js
 var tabla = definirPieza({
@@ -1468,70 +1900,6 @@ function reusar(grupo, cuantos, armar) {
 }
 function r2(v) {
   return Math.round(v * 100) / 100;
-}
-
-// src/nucleo/curvas.js
-var C1 = 1.70158;
-var C3 = C1 + 1;
-
-// src/nucleo/linea.js
-function duracionLectura(texto3, caracteresPorSegundo = 15) {
-  return Math.max(1.5, String(texto3).length / caracteresPorSegundo);
-}
-
-// src/pedagogico/narrar.js
-function crearNarrador(opciones = {}) {
-  const ritmo = opciones.ritmo ?? 1;
-  const lectura = opciones.lectura ?? 13;
-  const preguntas = opciones.preguntas ?? {};
-  const linea2 = [];
-  let respuestaPendiente = "";
-  const n = {
-    linea: linea2,
-    tiempo: opciones.inicio ?? 0.3,
-    ritmo,
-    lectura,
-    /** Agrega una animación (o varias) que arranca ahora, o `demora` segundos después. */
-    animar(item, demora = 0) {
-      for (const i of [item].flat()) linea2.push({ en: n.tiempo + demora, ...i });
-      return n;
-    },
-    /**
-     * Un subtítulo. Dura lo que se tarda en leerlo (nunca menos de dos
-     * ritmos) y el tiempo avanza hasta que termina, más `extra`. Si antes
-     * hubo una pregunta, su respuesta se dice primero.
-     */
-    decir(texto3, extra = 0.4) {
-      const subtitulo = respuestaPendiente + texto3;
-      respuestaPendiente = "";
-      const dur = Math.max(ritmo * 2, duracionLectura(subtitulo, lectura));
-      linea2.push({ subtitulo, en: n.tiempo, dur });
-      n.tiempo += dur + extra;
-      return dur;
-    },
-    /** Deja pasar un rato sin decir nada (para mirar algo que se mueve). */
-    esperar(segundos) {
-      n.tiempo += segundos * ritmo;
-    },
-    capitulo(nombre) {
-      linea2.push({ capitulo: nombre, en: n.tiempo });
-    },
-    /**
-     * Si hay una pregunta con esa clave, la hace (frena la lección) y
-     * guarda la respuesta para el próximo `decir`.
-     */
-    preguntar(clave) {
-      const p = preguntas[clave];
-      if (!p) return false;
-      const enunciado = `${p.pregunta} Paus\xE1 y pensalo.`;
-      const dur = Math.max(p.dur ?? 4, duracionLectura(enunciado, lectura) + 1.5);
-      linea2.push({ marca: "pregunta", datos: p, en: n.tiempo, dur }, { subtitulo: enunciado, en: n.tiempo, dur });
-      n.tiempo += dur + 0.2;
-      respuestaPendiente = p.opciones && p.correcta !== void 0 ? `Respuesta: ${p.opciones[p.correcta]}. ${p.explicacion ? `${p.explicacion} ` : ""}` : "";
-      return true;
-    }
-  };
-  return n;
 }
 
 // src/mate/escenas.js
@@ -2219,26 +2587,647 @@ function analizarCuenta(cuenta) {
   if (m) return { a: Number(m[1]), op: null, b: 0, valor: Number(m[1]), texto: m[1] };
   throw new Error(`No entiendo la cuenta "${cuenta}": tiene que ser "a + b", "a - b", "a * b" o un n\xFAmero solo.`);
 }
+
+// src/mate/escenas-estadistica.js
+var pct = (p) => `${numero(p * 100, 1)} %`;
+function pValor(p) {
+  return p < 1e-4 ? "menos de 0,0001" : numero(p, 4);
+}
+function campana(piezas, id, { gl, limite, x, y, ancho, alto, angosta }) {
+  const f = Number.isFinite(gl) ? (v) => student(v, gl) : (v) => normal(v);
+  piezas[id] = plano({
+    x,
+    y,
+    ancho,
+    alto,
+    xmin: -limite,
+    xmax: limite,
+    ymin: -0.04,
+    ymax: 0.46,
+    pasoY: 10,
+    pasoX: limite > 5 ? 2 : 1,
+    etiquetaX: Number.isFinite(gl) ? "t" : "z",
+    etiquetaY: "",
+    tamano: angosta ? 15 : 19,
+    grilla: false
+  });
+  piezas[`${id}Curva`] = grafica({ plano: id, f, trazo: 0, color: "texto", grosor: 3.5 });
+  return f;
+}
+function desdeIntervalo(opciones) {
+  const { datos, confianza = 0.95, otraConfianza = 0.99, etiqueta = "x", unidad = "", titulo = "", descripcion = "", ritmo = 1, lectura = 13, preguntas = {} } = opciones;
+  const m = resumen(datos);
+  const ic = intervaloMedia({ media: m.media, desvio: m.desvio, n: m.n, confianza });
+  const otro = otraConfianza ? intervaloMedia({ media: m.media, desvio: m.desvio, n: m.n, confianza: otraConfianza }) : null;
+  const u = unidad ? ` ${unidad}` : "";
+  const lo = Math.min(...datos);
+  const hi = Math.max(...datos);
+  const holgura = Math.max((hi - lo) * 0.12, (otro ?? ic).margen * 1.3);
+  const rango = { xmin: Math.min(lo, (otro ?? ic).desde) - holgura, xmax: Math.max(hi, (otro ?? ic).hasta) + holgura };
+  return function(disposicion) {
+    const { angosta, W, H: H2, arriba } = lienzo(disposicion, titulo);
+    const recta1 = angosta ? { x: 320, y: arriba + 140, ancho: 600, alto: 230 } : { x: 540, y: arriba + 170, ancho: 1e3, alto: 290 };
+    const camp = angosta ? { x: 320, y: arriba + 430, ancho: 600, alto: 300 } : { x: 540, y: arriba + 530, ancho: 1e3, alto: 360 };
+    const pan = angosta ? { x: 24, y: arriba + 620, ancho: 600, tamano: 23 } : { x: 1090, y: arriba + 90, ancho: 490, tamano: 27 };
+    const piezas = {};
+    if (titulo) piezas.titulo = piezaTitulo(titulo, W, angosta);
+    piezas.linea = plano({ ...recta1, ...rango, ymin: 0, ymax: 1, pasoY: 10, etiquetaX: etiqueta, etiquetaY: "", tamano: angosta ? 15 : 19, grilla: false });
+    datos.forEach((v, i) => {
+      piezas[`d${i}`] = punto({ plano: "linea", mx: v, my: 0.2 + 0.5 * (i * 0.618034 % 1), radio: angosta ? 6 : 8, color: "acento", opacidad: 0 });
+    });
+    piezas.intervalo = segmento({ plano: "linea", x1: m.media, y1: 0.12, x2: m.media, y2: 0.12, color: "exito", grosor: 9, opacidad: 0 });
+    piezas.media = punto({ plano: "linea", mx: m.media, my: 0.12, radio: 11, color: "acento2", etiqueta: "x\u0304", lado: "arriba", opacidad: 0 });
+    const f = campana(piezas, "campana", { gl: m.n - 1, limite: 4.2, ...camp, angosta });
+    piezas.centro = area({ plano: "campana", f, desde: 0, hasta: 0, color: "exito", relleno: 0.35, etiqueta: pct(confianza), etiquetaY: 0.12 });
+    piezas.colaIzq = area({ plano: "campana", f, desde: -4.3, hasta: -ic.critico, color: "error", relleno: 0.35, opacidad: 0 });
+    piezas.colaDer = area({ plano: "campana", f, desde: ic.critico, hasta: 4.3, color: "error", relleno: 0.35, opacidad: 0 });
+    piezas.critIzq = punto({ plano: "campana", mx: -ic.critico, my: 0, radio: 7, color: "error", etiqueta: `\u2212${numero(ic.critico, 3)}`, lado: "abajo", opacidad: 0 });
+    piezas.critDer = punto({ plano: "campana", mx: ic.critico, my: 0, radio: 7, color: "error", etiqueta: numero(ic.critico, 3), lado: "abajo", opacidad: 0 });
+    panel(piezas, ["cantidad", "promedio", "desvio", "error", "critico", "margen", "resultado"], pan);
+    const n = crearNarrador({ ritmo, lectura, preguntas });
+    const ids = datos.map((_, i) => `d${i}`);
+    n.capitulo("La muestra");
+    n.animar([
+      { pieza: ids, a: { opacidad: 1 }, dur: 0.3, escalonar: Math.min(0.1, 1.6 / datos.length) },
+      { pieza: "cantidad", a: { texto: `n = ${m.n} mediciones`, opacidad: 1 }, dur: 0.4 }
+    ]);
+    n.decir(`Tenemos una muestra de ${m.n} mediciones de ${etiqueta}. Queremos estimar la media \u03BC de TODA la poblaci\xF3n, que no conocemos.`);
+    n.animar([
+      { pieza: "media", a: { opacidad: 1 }, dur: 0.5 },
+      { pieza: "promedio", a: { texto: `x\u0304 = ${numero(m.media, 2)}${u}`, opacidad: 1, color: "acento2", peso: 700 }, dur: 0.4 },
+      { pieza: "desvio", a: { texto: `s = ${numero(m.desvio, 2)}${u}`, opacidad: 1 }, dur: 0.4 }
+    ]);
+    n.decir(`El promedio de la muestra es x\u0304 = ${numero(m.media, 2)}${u}. Es nuestra mejor estimaci\xF3n de \u03BC, pero con otras ${m.n} mediciones dar\xEDa otro n\xFAmero.`);
+    n.capitulo("El error est\xE1ndar");
+    n.animar({ pieza: "error", a: { texto: `EE = s / \u221An = ${numero(ic.error, 3)}`, opacidad: 1 }, dur: 0.4 });
+    n.decir(`Cu\xE1nto cambia x\u0304 de una muestra a otra lo mide el error est\xE1ndar: s / \u221An = ${numero(ic.error, 3)}. Con m\xE1s datos, x\u0304 var\xEDa menos.`);
+    n.capitulo("El valor cr\xEDtico");
+    n.animar({ pieza: "campanaCurva", a: { trazo: 1 }, dur: 1.2 });
+    n.decir(`Como s tambi\xE9n es una estimaci\xF3n, no se usa la normal sino la t de Student, con n \u2212 1 = ${m.n - 1} grados de libertad. Se parece a la normal, con colas un poco m\xE1s gordas.`);
+    n.animar([
+      { pieza: "centro", a: { desde: -ic.critico, hasta: ic.critico }, dur: 1.2 },
+      { pieza: ["colaIzq", "colaDer"], a: { opacidad: 1 }, dur: 0.5, en: n.tiempo + 1 },
+      { pieza: ["critIzq", "critDer"], a: { opacidad: 1 }, dur: 0.4, en: n.tiempo + 1 },
+      { pieza: "critico", a: { texto: `t = ${numero(ic.critico, 3)} (deja ${pct(ic.alfa / 2)} en cada cola)`, opacidad: 1 }, dur: 0.4, en: n.tiempo + 1 }
+    ]);
+    n.decir(`Buscamos el valor t que deja el ${pct(confianza)} del \xE1rea en el medio: ${numero(ic.critico, 3)}. Lo que queda, ${pct(ic.alfa)}, se reparte entre las dos colas.`);
+    n.capitulo("El intervalo");
+    n.animar([
+      { pieza: "margen", a: { texto: `margen = t \xB7 EE = ${numero(ic.margen, 3)}`, opacidad: 1 }, dur: 0.4 },
+      { pieza: "intervalo", a: { x1: ic.desde, x2: ic.hasta, opacidad: 1 }, dur: 1 },
+      { pieza: "resultado", a: { texto: `IC ${pct(confianza)}: [${numero(ic.desde, 2)} ; ${numero(ic.hasta, 2)}]`, opacidad: 1, color: "exito", peso: 800 }, dur: 0.4 }
+    ]);
+    n.decir(`El margen es t por el error est\xE1ndar: ${numero(ic.margen, 3)}. El intervalo es x\u0304 \xB1 margen: de ${numero(ic.desde, 2)} a ${numero(ic.hasta, 2)}${u}.`);
+    n.decir(`Ojo con c\xF3mo se dice: \u03BC no "tiene un ${pct(confianza)} de probabilidad" de estar ah\xED. \u03BC es un n\xFAmero fijo; lo que var\xEDa es el intervalo. El ${pct(confianza)} habla del m\xE9todo: de cada 100 muestras, unos ${numero(confianza * 100, 0)} intervalos atrapan a \u03BC.`);
+    if (otro) {
+      n.preguntar("confianza");
+      n.capitulo(`Con ${pct(otraConfianza)}`);
+      n.animar([
+        { pieza: "centro", a: { desde: -otro.critico, hasta: otro.critico, etiqueta: pct(otraConfianza) }, dur: 1 },
+        { pieza: "colaIzq", a: { hasta: -otro.critico }, dur: 1 },
+        { pieza: "colaDer", a: { desde: otro.critico }, dur: 1 },
+        { pieza: "critIzq", a: { mx: -otro.critico, etiqueta: `\u2212${numero(otro.critico, 3)}` }, dur: 1 },
+        { pieza: "critDer", a: { mx: otro.critico, etiqueta: numero(otro.critico, 3) }, dur: 1 },
+        { pieza: "critico", a: { texto: `t = ${numero(otro.critico, 3)} (deja ${pct(otro.alfa / 2)} en cada cola)` }, dur: 0.3 },
+        { pieza: "margen", a: { texto: `margen = t \xB7 EE = ${numero(otro.margen, 3)}` }, dur: 0.3 },
+        { pieza: "intervalo", a: { x1: otro.desde, x2: otro.hasta }, dur: 1 },
+        { pieza: "resultado", a: { texto: `IC ${pct(otraConfianza)}: [${numero(otro.desde, 2)} ; ${numero(otro.hasta, 2)}]` }, dur: 0.3 }
+      ]);
+      n.decir(`Para estar m\xE1s seguros hay que abrir m\xE1s la red: con ${pct(otraConfianza)} el valor cr\xEDtico sube a ${numero(otro.critico, 3)} y el intervalo se estira, de ${numero(otro.desde, 2)} a ${numero(otro.hasta, 2)}. M\xE1s confianza, menos precisi\xF3n.`);
+      n.decir("La \xFAnica forma de tener las dos cosas es juntar m\xE1s datos: el error est\xE1ndar se achica con \u221An.");
+    }
+    return {
+      titulo: titulo || "Un intervalo de confianza",
+      descripcion: descripcion || `El intervalo de confianza del ${pct(confianza)} para la media, con n = ${m.n}: de ${numero(ic.desde, 2)} a ${numero(ic.hasta, 2)}.`,
+      ancho: W,
+      alto: H2,
+      lectura,
+      pausaFinal: 1.5,
+      piezas,
+      linea: n.linea
+    };
+  };
+}
+function desdeCobertura(opciones) {
+  const {
+    media,
+    desvio,
+    n: tam,
+    muestras = 20,
+    confianza = 0.95,
+    otraConfianza = null,
+    semilla = 7,
+    etiqueta = "x",
+    unidad = "",
+    titulo = "",
+    descripcion = "",
+    ritmo = 1,
+    lectura = 13,
+    preguntas = {}
+  } = opciones;
+  const u = unidad ? ` ${unidad}` : "";
+  const calcular = (conf) => Array.from({ length: muestras }, (_, i) => {
+    const r3 = resumen(muestraNormal({ n: tam, media, desvio, semilla: semilla * 1e3 + i }));
+    const ic = intervaloMedia({ media: r3.media, desvio: r3.desvio, n: tam, confianza: conf });
+    return { ...ic, atrapa: ic.desde <= media && media <= ic.hasta };
+  });
+  const ics = calcular(confianza);
+  const otros = otraConfianza ? calcular(otraConfianza) : null;
+  const aciertos = (lista) => lista.filter((i) => i.atrapa).length;
+  const ancho = Math.max(...(otros ?? ics).map((i) => Math.max(media - i.desde, i.hasta - media)));
+  return function(disposicion) {
+    const { angosta, W, H: H2, arriba } = lienzo(disposicion, titulo);
+    const pl = angosta ? { x: 320, y: arriba + 330, ancho: 600, alto: 640 } : { x: 560, y: arriba + 385, ancho: 1040, alto: 740 };
+    const pan = angosta ? { x: 24, y: arriba + 700, ancho: 600, tamano: 23 } : { x: 1120, y: arriba + 110, ancho: 460, tamano: 28 };
+    const piezas = {};
+    if (titulo) piezas.titulo = piezaTitulo(titulo, W, angosta);
+    piezas.plano = plano({
+      ...pl,
+      xmin: media - ancho * 1.15,
+      xmax: media + ancho * 1.15,
+      ymin: 0,
+      ymax: muestras + 1.5,
+      pasoY: 1e3,
+      etiquetaX: etiqueta,
+      etiquetaY: "",
+      tamano: angosta ? 15 : 19,
+      grilla: false
+    });
+    piezas.mu = recta({ plano: "plano", mx: media, my: 0, vertical: true, color: "acento2", progreso: 0, etiqueta: `\u03BC = ${numero(media)}`, grosor: 3 });
+    ics.forEach((ic, i) => {
+      const y = muestras - i;
+      piezas[`i${i}`] = segmento({ plano: "plano", x1: ic.desde, y1: y, x2: ic.hasta, y2: y, progreso: 0, grosor: angosta ? 5 : 6, color: ic.atrapa ? "exito" : "error" });
+      piezas[`m${i}`] = punto({ plano: "plano", mx: ic.centro, my: y, radio: angosta ? 5 : 6, color: "texto", opacidad: 0 });
+    });
+    panel(piezas, ["poblacion", "muestra", "cuenta", "otra"], pan);
+    const n = crearNarrador({ ritmo, lectura, preguntas });
+    n.capitulo("La media de verdad");
+    n.animar([
+      { pieza: "mu", a: { progreso: 1 }, dur: 0.8 },
+      { pieza: "poblacion", a: { texto: `Poblaci\xF3n: \u03BC = ${numero(media)}${u}`, opacidad: 1, color: "acento2", peso: 700 }, dur: 0.4 }
+    ]);
+    n.decir(`Hagamos trampa: imaginemos que conocemos la media de toda la poblaci\xF3n, \u03BC = ${numero(media)}${u}. En la vida real nunca la conocemos: por eso estimamos.`);
+    n.capitulo("Una muestra, un intervalo");
+    n.animar([
+      { pieza: "m0", a: { opacidad: 1 }, dur: 0.3 },
+      { pieza: "i0", a: { progreso: 1 }, dur: 0.8 },
+      { pieza: "muestra", a: { texto: `n = ${tam} por muestra \xB7 IC ${pct(confianza)}`, opacidad: 1 }, dur: 0.4 }
+    ]);
+    n.decir(`Sacamos una muestra de ${tam} y armamos su intervalo del ${pct(confianza)}: de ${numero(ics[0].desde, 1)} a ${numero(ics[0].hasta, 1)}. ${ics[0].atrapa ? "Este atrap\xF3 a \u03BC." : "Este no atrap\xF3 a \u03BC: pasa."}`);
+    n.preguntar("cuantos");
+    n.capitulo("Muchas muestras");
+    const cada = Math.min(0.35, 7 / muestras);
+    let llevados = 0;
+    ics.forEach((ic, i) => {
+      if (i === 0) {
+        llevados += ic.atrapa ? 1 : 0;
+        return;
+      }
+      const en = n.tiempo + (i - 1) * cada;
+      n.linea.push({ pieza: `i${i}`, a: { progreso: 1 }, dur: 0.4, en }, { pieza: `m${i}`, a: { opacidad: 1 }, dur: 0.2, en: en + 0.2 });
+      llevados += ic.atrapa ? 1 : 0;
+      n.linea.push({ pieza: "cuenta", a: { texto: `Atraparon a \u03BC: ${llevados} de ${i + 1}`, opacidad: 1 }, dur: 0, en: en + 0.4 });
+    });
+    n.decir(`Repetimos con otras ${muestras - 1} muestras. Cada una da otro x\u0304 y otro intervalo: los verdes atrapan a \u03BC, los rojos no.`, 0);
+    n.tiempo = Math.max(n.tiempo, n.linea.at(-1).en + 0.6);
+    const k = aciertos(ics);
+    n.animar({ pieza: "cuenta", a: { texto: `Atraparon a \u03BC: ${k} de ${muestras} (${pct(k / muestras)})`, color: "exito", peso: 800 }, dur: 0.4 });
+    n.capitulo(`Qu\xE9 quiere decir ${pct(confianza)}`);
+    n.decir(`${k} de ${muestras}. Eso es el ${pct(confianza)}: no habla de UN intervalo, habla del m\xE9todo. Si lo repetimos much\xEDsimas veces, el ${pct(confianza)} de los intervalos atrapa a \u03BC.`);
+    n.decir("Con una sola muestra, que es lo que pasa en la realidad, no sabemos si nos toc\xF3 uno verde o uno rojo. Confiamos en el m\xE9todo.");
+    if (otros) {
+      const k2 = aciertos(otros);
+      n.capitulo(`Con ${pct(otraConfianza)}`);
+      n.animar(otros.flatMap((ic, i) => [
+        { pieza: `i${i}`, a: { x1: ic.desde, x2: ic.hasta, color: ic.atrapa ? "exito" : "error" }, dur: 1 }
+      ]));
+      n.animar({ pieza: "otra", a: { texto: `Con ${pct(otraConfianza)}: ${k2} de ${muestras}`, opacidad: 1, peso: 700 }, dur: 0.4 }, 1);
+      n.decir(`Con ${pct(otraConfianza)} los mismos intervalos se estiran: ahora atrapan ${k2} de ${muestras}. M\xE1s seguridad, a cambio de intervalos m\xE1s anchos.`);
+    }
+    return {
+      titulo: titulo || `Qu\xE9 quiere decir ${pct(confianza)}`,
+      descripcion: descripcion || `${muestras} muestras de tama\xF1o ${tam}, cada una con su intervalo del ${pct(confianza)}: ${k} atrapan a la media verdadera.`,
+      ancho: W,
+      alto: H2,
+      lectura,
+      pausaFinal: 1.5,
+      piezas,
+      linea: n.linea
+    };
+  };
+}
+function desdeTest(opciones) {
+  const { alfa = 0.05, cola = "dos", h0, h1, siRechaza, siNoRechaza, notas = [], titulo = "", descripcion = "", ritmo = 1, lectura = 13, preguntas = {} } = opciones;
+  if (!h0 || !h1) throw new Error('desdeTest necesita las dos hip\xF3tesis: h0: "\u03BC = 50", h1: "\u03BC \u2260 50".');
+  let test;
+  let formula = opciones.formula;
+  let cuenta = opciones.cuenta;
+  if (opciones.estadistico != null) {
+    test = decidir({ estadistico: opciones.estadistico, gl: opciones.gl ?? Infinity, alfa, cola });
+    formula ??= "T";
+    cuenta ??= `T = ${numero(test.estadistico, 3)}`;
+  } else {
+    const { media, desvio, n, mu0 } = opciones;
+    if ([media, desvio, n, mu0].some((v) => v == null)) {
+      throw new Error("desdeTest necesita la muestra (media, desvio, n, mu0) o el estad\xEDstico (estadistico, gl).");
+    }
+    test = testMedia({ media, desvio, n, mu0, alfa, cola });
+    formula ??= "T = (x\u0304 \u2212 \u03BC\u2080) / (s / \u221An)";
+    cuenta ??= `T = (${numero(media, 2)} \u2212 ${numero(mu0, 2)}) / (${numero(desvio, 2)} / \u221A${n}) = ${numero(test.estadistico, 3)}`;
+  }
+  const T = test.estadistico;
+  const gl = test.gl;
+  const limite = Math.min(7, Math.max(4.5, Math.abs(T) * 1.2, Math.abs(test.critico) * 1.4));
+  const afuera = Math.abs(T) > limite * 0.94;
+  const marca = afuera ? Math.sign(T) * limite * 0.94 : T;
+  const nombreDist = Number.isFinite(gl) ? `t con ${numero(gl, 0)} grados de libertad` : "normal est\xE1ndar";
+  return function(disposicion) {
+    const { angosta, W, H: H2, arriba } = lienzo(disposicion, titulo);
+    const camp = angosta ? { x: 320, y: arriba + 230, ancho: 600, alto: 420 } : { x: 520, y: arriba + 360, ancho: 960, alto: 600 };
+    const pan = angosta ? { x: 24, y: arriba + 500, ancho: 600, tamano: 22 } : { x: 1050, y: arriba + 90, ancho: 530, tamano: 26 };
+    const piezas = {};
+    if (titulo) piezas.titulo = piezaTitulo(titulo, W, angosta);
+    const f = campana(piezas, "campana", { gl, limite, ...camp, angosta });
+    const fuera = limite + 0.2;
+    const c = Math.abs(test.critico);
+    const zonas = cola === "dos" ? [[-fuera, -c], [c, fuera]] : cola === "derecha" ? [[c, fuera]] : [[-fuera, -c]];
+    zonas.forEach(([a, b], i) => {
+      piezas[`rechazo${i}`] = area({ plano: "campana", f, desde: a, hasta: b, color: "error", relleno: 0.3, opacidad: 0 });
+    });
+    const criticos = cola === "dos" ? [-c, c] : [test.critico];
+    criticos.forEach((v, i) => {
+      piezas[`crit${i}`] = punto({ plano: "campana", mx: v, my: 0, radio: 7, color: "error", etiqueta: numero(v, 3), lado: "abajo", opacidad: 0 });
+    });
+    const aT = Math.abs(T);
+    const colasP = cola === "dos" ? [[-fuera, -aT], [aT, fuera]] : cola === "derecha" ? [[T, fuera]] : [[-fuera, T]];
+    colasP.forEach(([a, b], i) => {
+      piezas[`p${i}`] = area({ plano: "campana", f, desde: a, hasta: b, color: "acento2", relleno: 0.55, opacidad: 0 });
+    });
+    piezas.guia = segmento({ plano: "campana", x1: 0, y1: 0, x2: 0, y2: 0.42, color: "acento2", grosor: 3, punteada: true, opacidad: 0 });
+    piezas.T = punto({
+      plano: "campana",
+      mx: 0,
+      my: 0,
+      radio: 11,
+      color: "acento2",
+      lado: "arriba",
+      opacidad: 0,
+      etiqueta: afuera ? `T = ${numero(T, 2)} ${T > 0 ? "\u2192" : "\u2190"}` : `T = ${numero(T, 2)}`
+    });
+    panel(piezas, ["h0", "h1", "regla", "formula", "cuenta", "pvalor", "decision"], pan);
+    const n = crearNarrador({ ritmo, lectura, preguntas });
+    n.capitulo("Las hip\xF3tesis");
+    n.animar([
+      { pieza: "h0", a: { texto: `H\u2080: ${h0}`, opacidad: 1, peso: 700 }, dur: 0.4 },
+      { pieza: "h1", a: { texto: `H\u2081: ${h1}`, opacidad: 1, peso: 700 }, dur: 0.4, en: n.tiempo + 0.6 }
+    ]);
+    n.decir(`H\u2080 es la hip\xF3tesis de "no pasa nada": ${h0}. H\u2081 es lo que queremos ver si hay evidencia para afirmar: ${h1}.`);
+    n.decir("El test funciona como un juicio: se supone H\u2080 y solo se la rechaza si los datos son muy dif\xEDciles de explicar con ella.");
+    n.capitulo("Si H\u2080 fuera cierta");
+    n.animar({ pieza: "campanaCurva", a: { trazo: 1 }, dur: 1.2 });
+    n.decir(`Si H\u2080 es cierta, el estad\xEDstico sigue una ${nombreDist}: casi siempre cae cerca de 0.`);
+    n.animar([
+      { pieza: zonas.map((_, i) => `rechazo${i}`), a: { opacidad: 1 }, dur: 0.6 },
+      { pieza: criticos.map((_, i) => `crit${i}`), a: { opacidad: 1 }, dur: 0.4 },
+      {
+        pieza: "regla",
+        a: { texto: cola === "dos" ? `\u03B1 = ${numero(alfa, 3)}: rechazo si |T| > ${numero(c, 3)}` : `\u03B1 = ${numero(alfa, 3)}: rechazo si T ${cola === "derecha" ? ">" : "<"} ${numero(test.critico, 3)}`, opacidad: 1, color: "error" },
+        dur: 0.4
+      }
+    ]);
+    n.decir(cola === "dos" ? `Las zonas rojas suman \u03B1 = ${numero(alfa, 3)}: ${pct(alfa / 2)} en cada cola. Si H\u2080 es cierta, caer ah\xED es muy raro. Los bordes son \xB1${numero(c, 3)}, el valor cr\xEDtico de la tabla.` : `La zona roja tiene \xE1rea \u03B1 = ${numero(alfa, 3)}. Si H\u2080 es cierta, caer ah\xED es muy raro. Su borde, ${numero(test.critico, 3)}, es el valor cr\xEDtico.`);
+    n.preguntar("decision");
+    n.capitulo("El estad\xEDstico");
+    n.animar([
+      { pieza: "formula", a: { texto: formula, opacidad: 1 }, dur: 0.4 },
+      { pieza: "cuenta", a: { texto: cuenta, opacidad: 1, color: "acento2", peso: 700 }, dur: 0.4, en: n.tiempo + 0.5 },
+      { pieza: ["T", "guia"], a: { opacidad: 1 }, dur: 0.3, en: n.tiempo + 1 },
+      { pieza: "T", a: { mx: marca }, dur: 1.4, en: n.tiempo + 1.3 },
+      { pieza: "guia", a: { x1: marca, x2: marca }, dur: 1.4, en: n.tiempo + 1.3 }
+    ]);
+    n.decir(afuera ? `Con los datos, T = ${numero(T, 2)}. Est\xE1 tan lejos que ni entra en el dibujo: la campana, a esa distancia, es pr\xE1cticamente cero.` : `Con los datos, T = ${numero(T, 2)}. ${test.rechaza ? "Cay\xF3 en la zona roja." : "Cay\xF3 en la zona blanca, la de lo esperable."}`);
+    n.capitulo("El p-valor");
+    n.animar([
+      { pieza: colasP.map((_, i) => `p${i}`), a: { opacidad: 1 }, dur: 0.6 },
+      { pieza: "pvalor", a: { texto: `p-valor = ${pValor(test.pValor)}`, opacidad: 1, color: "acento2", peso: 700 }, dur: 0.4 }
+    ]);
+    n.decir(`El p-valor es el \xE1rea ${cola === "dos" ? "de las dos colas" : "de la cola"} m\xE1s all\xE1 de T: la probabilidad de ver algo tan extremo como esto, o m\xE1s, si H\u2080 fuera cierta. Da ${pValor(test.pValor)}.`);
+    n.decir(test.rechaza ? `Como es menor que \u03B1 = ${numero(alfa, 3)}, llegamos a lo mismo que con la zona roja: los dos caminos siempre coinciden.` : `Como es mayor que \u03B1 = ${numero(alfa, 3)}, llegamos a lo mismo que con la zona roja: los dos caminos siempre coinciden.`);
+    n.capitulo("La decisi\xF3n");
+    n.animar({
+      pieza: "decision",
+      a: { texto: test.rechaza ? "Se rechaza H\u2080" : "No se rechaza H\u2080", opacidad: 1, color: test.rechaza ? "exito" : "alerta", peso: 800 },
+      dur: 0.4
+    });
+    n.decir(test.rechaza ? siRechaza : siNoRechaza);
+    if (!test.rechaza) n.decir("No rechazar H\u2080 no prueba que sea cierta: solo dice que estos datos no alcanzan para descartarla.");
+    for (const nota of notas) n.decir(nota);
+    return {
+      titulo: titulo || "Un test de hip\xF3tesis",
+      descripcion: descripcion || `H\u2080: ${h0} contra H\u2081: ${h1}. T = ${numero(T, 3)}, p-valor ${pValor(test.pValor)}: ${test.rechaza ? "se rechaza" : "no se rechaza"} H\u2080 con \u03B1 = ${numero(alfa, 3)}.`,
+      ancho: W,
+      alto: H2,
+      lectura,
+      pausaFinal: 1.5,
+      piezas,
+      linea: n.linea
+    };
+  };
+}
+function desdeVariabilidad(opciones) {
+  const { datos, etiquetaX = "x", etiquetaY = "y", titulo = "", descripcion = "", ritmo = 1, lectura = 13, preguntas = {} } = opciones;
+  const r3 = inferenciaRegresion(datos);
+  const rango = opciones.rango ?? rangoDatos(datos);
+  const destacar = opciones.destacar ?? datos.reduce((mejor, [, y], i) => Math.abs(y - r3.mediaY) > Math.abs(datos[mejor][1] - r3.mediaY) ? i : mejor, 0);
+  const [xd, yd] = datos[destacar];
+  const yhat = r3.prediccion(xd);
+  const corrida = (rango.xmax - rango.xmin) * 0.012;
+  return function(disposicion) {
+    const { angosta, W, H: H2, arriba } = lienzo(disposicion, titulo);
+    const pl = angosta ? { x: 320, y: arriba + 280, ancho: 600, alto: 540 } : { x: 500, y: arriba + 380, ancho: 900, alto: 730 };
+    const pan = angosta ? { x: 24, y: arriba + 600, ancho: 600, tamano: 22 } : { x: 1e3, y: arriba + 90, ancho: 580, tamano: 27 };
+    const barra = angosta ? { x: 24, y: arriba + 990, ancho: 592, alto: 44 } : { x: 1e3, y: arriba + 640, ancho: 560, alto: 56 };
+    const piezas = {};
+    if (titulo) piezas.titulo = piezaTitulo(titulo, W, angosta);
+    piezas.plano = plano({ ...pl, ...rango, etiquetaX, etiquetaY, tamano: angosta ? 15 : 19 });
+    piezas.promedio = recta({ plano: "plano", mx: r3.mediaX, my: r3.mediaY, pendiente: 0, color: "suave", punteada: true, progreso: 0, etiqueta: "\u0233" });
+    piezas.recta = recta({ plano: "plano", mx: r3.mediaX, my: r3.mediaY, pendiente: r3.b1, color: "acento2", progreso: 0, etiqueta: "\u0177" });
+    datos.forEach(([x, y], i) => {
+      const yh = r3.prediccion(x);
+      piezas[`exp${i}`] = segmento({ plano: "plano", x1: x, y1: r3.mediaY, x2: x, y2: yh, color: "exito", grosor: 2.5, opacidad: 0 });
+      piezas[`res${i}`] = segmento({ plano: "plano", x1: x, y1: yh, x2: x, y2: y, color: "error", grosor: 2.5, opacidad: 0 });
+    });
+    datos.forEach(([x, y], i) => {
+      piezas[`d${i}`] = punto({ plano: "plano", mx: x, my: y, radio: angosta ? 5 : 7, color: "acento", opacidad: 0 });
+    });
+    piezas.total = segmento({ plano: "plano", x1: xd - corrida * 2.5, y1: r3.mediaY, x2: xd - corrida * 2.5, y2: yd, color: "texto", grosor: 5, progreso: 0, etiqueta: "" });
+    piezas.expD = segmento({ plano: "plano", x1: xd + corrida * 2.5, y1: r3.mediaY, x2: xd + corrida * 2.5, y2: yhat, color: "exito", grosor: 5, progreso: 0 });
+    piezas.resD = segmento({ plano: "plano", x1: xd + corrida * 2.5, y1: yhat, x2: xd + corrida * 2.5, y2: yd, color: "error", grosor: 5, progreso: 0 });
+    piezas.destacado = punto({ plano: "plano", mx: xd, my: yd, radio: 10, color: "acento", resaltado: 0, opacidad: 0 });
+    panel(piezas, ["identidad", "stc", "scr", "sce", "suma", "r2", "sigma"], pan);
+    const parte = r3.scr / r3.stc;
+    piezas.barraExp = caja({ x: barra.x, y: barra.y + barra.alto / 2, ancho: 1, alto: barra.alto, radio: 6, relleno: "exito", borde: "exito", grosorBorde: 0, opacidad: 0 });
+    piezas.barraErr = caja({ x: barra.x + barra.ancho, y: barra.y + barra.alto / 2, ancho: 1, alto: barra.alto, radio: 6, relleno: "error", borde: "error", grosorBorde: 0, opacidad: 0 });
+    const n = crearNarrador({ ritmo, lectura, preguntas });
+    const ids = datos.map((_, i) => `d${i}`);
+    n.capitulo("Los datos y la recta");
+    n.animar([
+      { pieza: ids, a: { opacidad: 1 }, dur: 0.3, escalonar: Math.min(0.08, 1.5 / datos.length) },
+      { pieza: "promedio", a: { progreso: 1 }, dur: 0.8, en: n.tiempo + 0.8 },
+      { pieza: "recta", a: { progreso: 1 }, dur: 0.8, en: n.tiempo + 1.4 }
+    ]);
+    n.decir(`La l\xEDnea punteada es el promedio \u0233 = ${numero(r3.mediaY, 2)}; la otra, la recta de m\xEDnimos cuadrados. La pregunta es cu\xE1nto mejor que el promedio predice la recta.`);
+    n.capitulo("Un punto");
+    n.animar([
+      { pieza: "destacado", a: { opacidad: 1, resaltado: 1 }, dur: 0.5 },
+      { pieza: "total", a: { progreso: 1 }, dur: 0.8, en: n.tiempo + 0.4 },
+      { pieza: "identidad", a: { texto: "y \u2212 \u0233 = (\u0177 \u2212 \u0233) + (y \u2212 \u0177)", opacidad: 1, peso: 700 }, dur: 0.4 }
+    ]);
+    n.decir(`Este punto est\xE1 a ${numero(yd - r3.mediaY, 2)} del promedio: es la desviaci\xF3n total, y \u2212 \u0233.`);
+    n.animar([
+      { pieza: "expD", a: { progreso: 1 }, dur: 0.7 },
+      { pieza: "resD", a: { progreso: 1 }, dur: 0.7, en: n.tiempo + 0.8 }
+    ]);
+    n.decir(`Se parte en dos: lo que la recta explica, \u0177 \u2212 \u0233 = ${numero(yhat - r3.mediaY, 2)} (verde), y lo que queda sin explicar, el residuo y \u2212 \u0177 = ${numero(yd - yhat, 2)} (rojo).`);
+    n.capitulo("Todos los puntos");
+    n.animar([
+      { pieza: ["total", "expD", "resD"], a: { opacidad: 0 }, dur: 0.4 },
+      { pieza: "destacado", a: { resaltado: 0 }, dur: 0.4 },
+      { pieza: datos.map((_, i) => `exp${i}`), a: { opacidad: 0.8 }, dur: 0.4, escalonar: 0.02 },
+      { pieza: datos.map((_, i) => `res${i}`), a: { opacidad: 0.8 }, dur: 0.4, escalonar: 0.02, en: n.tiempo + 0.8 }
+    ]);
+    n.decir("Hacemos lo mismo con todos, elevamos al cuadrado y sumamos. Lo bueno es que la cuenta cierra tambi\xE9n con los cuadrados.");
+    n.animar([
+      { pieza: "stc", a: { texto: `STC = \u03A3(y \u2212 \u0233)\xB2 = ${numero(r3.stc, 2)}`, opacidad: 1 }, dur: 0.4 },
+      { pieza: "scr", a: { texto: `SCR = \u03A3(\u0177 \u2212 \u0233)\xB2 = ${numero(r3.scr, 2)}`, opacidad: 1, color: "exito" }, dur: 0.4, en: n.tiempo + 0.6 },
+      { pieza: "sce", a: { texto: `SCE = \u03A3(y \u2212 \u0177)\xB2 = ${numero(r3.sce, 2)}`, opacidad: 1, color: "error" }, dur: 0.4, en: n.tiempo + 1.2 },
+      { pieza: "suma", a: { texto: `${numero(r3.scr, 2)} + ${numero(r3.sce, 2)} = ${numero(r3.scr + r3.sce, 2)} \u2713`, opacidad: 1, color: "exito" }, dur: 0.4, en: n.tiempo + 1.8 },
+      { pieza: ["barraExp", "barraErr"], a: { opacidad: 1 }, dur: 0.3, en: n.tiempo + 2.2 },
+      { pieza: "barraExp", a: { ancho: barra.ancho * parte, x: barra.x + barra.ancho * parte / 2 }, dur: 1, en: n.tiempo + 2.2 },
+      { pieza: "barraErr", a: { ancho: barra.ancho * (1 - parte), x: barra.x + barra.ancho * parte + barra.ancho * (1 - parte) / 2 }, dur: 1, en: n.tiempo + 2.2 }
+    ]);
+    n.decir(`STC = SCR + SCE: la variabilidad total es la que explica la regresi\xF3n m\xE1s la que queda en los errores. Ac\xE1, ${numero(r3.stc, 2)} = ${numero(r3.scr, 2)} + ${numero(r3.sce, 2)}.`);
+    n.decir("Que cierre no es casualidad: pasa porque los residuos de m\xEDnimos cuadrados suman cero y no tienen relaci\xF3n con x. Por eso al verificarlo con los datos tiene que dar exacto, salvo redondeo.");
+    n.preguntar("r2");
+    n.capitulo("R\xB2 y la varianza");
+    n.animar({ pieza: "r2", a: { texto: `R\xB2 = 1 \u2212 SCE/STC = ${numero(r3.r2, 4)}`, opacidad: 1, peso: 800, color: "acento2" }, dur: 0.4 });
+    n.decir(`R\xB2 es la parte verde de la barra: 1 \u2212 SCE/STC = ${numero(r3.r2, 4)}. La recta explica el ${pct(r3.r2)} de la variabilidad de ${etiquetaY}.`);
+    n.animar({ pieza: "sigma", a: { texto: `\u03C3\u0302\xB2 = SCE / (n \u2212 2) = ${numero(r3.sigma2, 3)}`, opacidad: 1 }, dur: 0.4 });
+    n.decir(`Y con lo que queda en los errores se estima la varianza del modelo: \u03C3\u0302\xB2 = SCE / (n \u2212 2) = ${numero(r3.sigma2, 3)}. Se divide por n \u2212 2 porque para calcular los residuos ya se estimaron dos n\xFAmeros, b\u2080 y b\u2081.`);
+    n.capitulo("Lo que R\xB2 NO dice");
+    n.decir(`R\xB2 no dice que ${etiquetaX} cause ${etiquetaY}: una correlaci\xF3n alta puede venir de una tercera variable que mueve a las dos.`);
+    n.decir("Tampoco dice que la recta sea el modelo correcto: una curva clar\xEDsima puede dar un R\xB2 alto igual. Para eso hay que mirar el gr\xE1fico de los residuos.");
+    n.decir("Y no dice qu\xE9 tan precisa es una predicci\xF3n en las unidades del problema: eso lo dice \u03C3\u0302, o el intervalo de predicci\xF3n.");
+    return {
+      titulo: titulo || "STC = SCR + SCE",
+      descripcion: descripcion || `La descomposici\xF3n de la variabilidad de una regresi\xF3n con ${r3.n} puntos: STC = ${numero(r3.stc, 2)}, SCR = ${numero(r3.scr, 2)}, SCE = ${numero(r3.sce, 2)}, R\xB2 = ${numero(r3.r2, 4)}.`,
+      ancho: W,
+      alto: H2,
+      lectura,
+      pausaFinal: 1.5,
+      piezas,
+      linea: n.linea
+    };
+  };
+}
+function desdeBandas(opciones) {
+  const { datos, xEstrella, confianza = 0.95, etiquetaX = "x", etiquetaY = "y", unidadY = "", titulo = "", descripcion = "", ritmo = 1, lectura = 13, preguntas = {} } = opciones;
+  const r3 = inferenciaRegresion(datos, { confianza });
+  const rango = opciones.rango ?? rangoDatos(datos);
+  const icm = r3.icm(xEstrella);
+  const ip = r3.ip(xEstrella);
+  const u = unidadY ? ` ${unidadY}` : "";
+  const xs = datos.map(([x]) => x);
+  const x0 = Math.min(...xs);
+  const x1 = Math.max(...xs);
+  const intervalo = (i) => `[${numero(i.desde, 2)} ; ${numero(i.hasta, 2)}]`;
+  return function(disposicion) {
+    const { angosta, W, H: H2, arriba } = lienzo(disposicion, titulo);
+    const pl = angosta ? { x: 320, y: arriba + 280, ancho: 600, alto: 540 } : { x: 500, y: arriba + 380, ancho: 900, alto: 730 };
+    const pan = angosta ? { x: 24, y: arriba + 600, ancho: 600, tamano: 21 } : { x: 990, y: arriba + 90, ancho: 590, tamano: 25 };
+    const piezas = {};
+    if (titulo) piezas.titulo = piezaTitulo(titulo, W, angosta);
+    piezas.plano = plano({ ...pl, ...rango, etiquetaX, etiquetaY, tamano: angosta ? 15 : 19 });
+    piezas.bandaIP = area({ plano: "plano", f: (x) => r3.ip(x).hasta, g: (x) => r3.ip(x).desde, desde: x0, hasta: x0, color: "alerta", relleno: 0.16, borde: false });
+    piezas.bandaICM = area({ plano: "plano", f: (x) => r3.icm(x).hasta, g: (x) => r3.icm(x).desde, desde: x0, hasta: x0, color: "acento2", relleno: 0.4, borde: false });
+    datos.forEach(([x, y], i) => {
+      piezas[`d${i}`] = punto({ plano: "plano", mx: x, my: y, radio: angosta ? 5 : 7, color: "acento", opacidad: 0 });
+    });
+    piezas.recta = recta({ plano: "plano", mx: r3.mediaX, my: r3.mediaY, pendiente: r3.b1, color: "acento2", progreso: 0 });
+    piezas.vertical = recta({ plano: "plano", mx: xEstrella, my: 0, vertical: true, color: "suave", punteada: true, progreso: 0, grosor: 2, etiqueta: `x* = ${numero(xEstrella)}` });
+    piezas.ip = segmento({ plano: "plano", x1: xEstrella, y1: ip.centro, x2: xEstrella, y2: ip.centro, color: "alerta", grosor: 7, opacidad: 0 });
+    piezas.icm = segmento({ plano: "plano", x1: xEstrella, y1: icm.centro, x2: xEstrella, y2: icm.centro, color: "acento2", grosor: 13, opacidad: 0 });
+    piezas.yhat = punto({ plano: "plano", mx: xEstrella, my: icm.centro, radio: 8, color: "texto", opacidad: 0, etiqueta: "\u0177*", lado: "izquierda" });
+    panel(piezas, ["estimacion", "formulaICM", "textoICM", "formulaIP", "textoIP", "limite"], pan);
+    const n = crearNarrador({ ritmo, lectura, preguntas });
+    const t0 = () => n.tiempo;
+    n.capitulo("La recta en x*");
+    n.animar([
+      { pieza: datos.map((_, i) => `d${i}`), a: { opacidad: 1 }, dur: 0.3, escalonar: Math.min(0.06, 1.2 / datos.length) },
+      { pieza: "recta", a: { progreso: 1 }, dur: 0.8, en: t0() + 0.8 },
+      { pieza: "vertical", a: { progreso: 1 }, dur: 0.6, en: t0() + 1.4 },
+      { pieza: "yhat", a: { opacidad: 1 }, dur: 0.4, en: t0() + 1.8 },
+      {
+        pieza: "estimacion",
+        a: { texto: `\u0177* = ${numero(r3.b0, 3)} + ${numero(r3.b1, 3)} \xB7 ${numero(xEstrella)} = ${numero(icm.centro, 3)}${u}`, opacidad: 1, peso: 700 },
+        dur: 0.4,
+        en: t0() + 1.8
+      }
+    ]);
+    n.decir(`En x* = ${numero(xEstrella)} la recta da \u0177* = ${numero(icm.centro, 3)}${u}. Pero la recta sali\xF3 de una muestra: con otros datos ser\xEDa otra. \xBFQu\xE9 tan seguros estamos?`);
+    n.decir("Hay dos preguntas distintas, y cada una tiene su intervalo.");
+    n.capitulo("La respuesta media");
+    n.animar({ pieza: "formulaICM", a: { texto: "ICM: \u0177* \xB1 t \xB7 \u221A(\u03C3\u0302\xB2 (1/n + (x* \u2212 x\u0304)\xB2/Sxx))", opacidad: 1 }, dur: 0.4 });
+    n.animar({ pieza: "icm", a: { opacidad: 1, y1: icm.desde, y2: icm.hasta }, dur: 0.8 }, 0.4);
+    n.animar({ pieza: "textoICM", a: { texto: `ICM ${pct(confianza)}: ${intervalo(icm)}`, opacidad: 1, color: "acento2", peso: 700 }, dur: 0.4 }, 0.8);
+    n.decir(`La primera: \xBFd\xF3nde est\xE1 la recta VERDADERA en x*? Es decir, el consumo promedio de todos los casos con x = ${numero(xEstrella)}. Ese es el intervalo de confianza para la respuesta media: ${intervalo(icm)}.`);
+    n.animar({ pieza: "bandaICM", a: { hasta: x1 }, dur: 1.6 });
+    n.decir("Si lo calculamos para cada x, queda una banda. Es m\xE1s angosta cerca de x\u0304 y se abre hacia los costados: lejos del centro de los datos, un error chico en la pendiente pesa m\xE1s.");
+    n.preguntar("ancho");
+    n.capitulo("Un valor nuevo");
+    n.animar({ pieza: "formulaIP", a: { texto: "IP: \u0177* \xB1 t \xB7 \u221A(\u03C3\u0302\xB2 (1 + 1/n + (x* \u2212 x\u0304)\xB2/Sxx))", opacidad: 1 }, dur: 0.4 });
+    n.animar({ pieza: "ip", a: { opacidad: 1, y1: ip.desde, y2: ip.hasta }, dur: 0.8 }, 0.4);
+    n.animar({ pieza: "textoIP", a: { texto: `IP ${pct(confianza)}: ${intervalo(ip)}`, opacidad: 1, color: "alerta", peso: 700 }, dur: 0.4 }, 0.8);
+    n.decir(`La segunda: \xBFd\xF3nde va a caer UNA observaci\xF3n nueva con x = ${numero(xEstrella)}? Es el intervalo de predicci\xF3n: ${intervalo(ip)}. Es mucho m\xE1s ancho.`);
+    n.animar({ pieza: "bandaIP", a: { hasta: x1 }, dur: 1.6 });
+    n.decir("La diferencia es el 1 de adentro de la ra\xEDz: adem\xE1s de no saber d\xF3nde est\xE1 la recta, cada valor se aparta de ella por su cuenta, con varianza \u03C3\xB2. Por eso la banda de predicci\xF3n abarca a casi todos los puntos.");
+    n.capitulo("Con much\xEDsimos datos");
+    n.animar({ pieza: "limite", a: { texto: `n \u2192 \u221E: ICM \u2192 0;  IP \u2192 \xB1 t\xB7\u03C3\u0302 \u2248 \xB1 ${numero(r3.critico * r3.sigma, 2)}`, opacidad: 1 }, dur: 0.4 });
+    n.decir("Si juntamos cada vez m\xE1s datos, 1/n y (x* \u2212 x\u0304)\xB2/Sxx se van a cero: la banda de confianza se cierra sobre la recta. La de predicci\xF3n no: le queda el 1, la variabilidad propia de cada caso.");
+    n.decir("Con miles de datos, la recta media se conoce casi exacta; un caso individual sigue siendo tan incierto como siempre.");
+    return {
+      titulo: titulo || "Intervalo de confianza y de predicci\xF3n",
+      descripcion: descripcion || `En x* = ${numero(xEstrella)}: \u0177* = ${numero(icm.centro, 3)}, ICM ${intervalo(icm)} e IP ${intervalo(ip)}, al ${pct(confianza)}.`,
+      ancho: W,
+      alto: H2,
+      lectura,
+      pausaFinal: 1.5,
+      piezas,
+      linea: n.linea
+    };
+  };
+}
+function desdeTasas(opciones) {
+  const {
+    f,
+    inicio,
+    tasas,
+    pasos = 20,
+    etiquetaX = "x",
+    etiquetaY = "y",
+    minimo = null,
+    titulo = "",
+    descripcion = "",
+    ritmo = 1,
+    lectura = 13,
+    preguntas = {}
+  } = opciones;
+  if (!Array.isArray(tasas) || !tasas.length) throw new Error('desdeTasas necesita las tasas: tasas: [{ tasa: 0.01, nombre: "chica" }, ...].');
+  const corridas = tasas.map((t) => ({ ...t, ...descensoGradiente(f, { inicio, tasa: t.tasa, pasos, gradiente: opciones.gradiente, tolerancia: 0 }) }));
+  const rango = opciones.rango ?? { xmin: -4, xmax: 4, ymin: -4, ymax: 4 };
+  const niveles = opciones.niveles ?? nivelesAutomaticos(f, rango);
+  const f0 = f(inicio[0], inicio[1]);
+  const fmin = minimo ? f(minimo[0], minimo[1]) : Math.min(...corridas.flatMap((c) => c.puntos.map((p) => p.z)));
+  const COLORES = ["suave", "exito", "error", "acento"];
+  return function(disposicion) {
+    const { angosta, W, H: H2, arriba } = lienzo(disposicion, titulo);
+    const izq = angosta ? { x: 320, y: arriba + 250, ancho: 480, alto: 480 } : { x: 400, y: arriba + 380, ancho: 700, alto: 700 };
+    const der = angosta ? { x: 320, y: arriba + 720, ancho: 600, alto: 380 } : { x: 1190, y: arriba + 300, ancho: 720, alto: 520 };
+    const pan = angosta ? { x: 24, y: arriba + 935, ancho: 600, tamano: 20, interlineado: 1.8 } : { x: 840, y: arriba + 610, ancho: 740, tamano: 24, interlineado: 1.9 };
+    const piezas = {};
+    if (titulo) piezas.titulo = piezaTitulo(titulo, W, angosta);
+    piezas.mapa = plano({ ...izq, ...rango, etiquetaX, etiquetaY, tamano: angosta ? 14 : 18 });
+    piezas.curvas = curvasNivel({ plano: "mapa", f, niveles, progreso: 0 });
+    piezas.costo = plano({ ...der, xmin: 0, xmax: pasos, ymin: 0, ymax: f0 * 1.25, etiquetaX: "k", etiquetaY: "f", tamano: angosta ? 14 : 18 });
+    piezas.inicio = punto({ plano: "mapa", mx: inicio[0], my: inicio[1], radio: 9, color: "texto", opacidad: 0, etiqueta: "inicio" });
+    if (minimo) piezas.minimo = punto({ plano: "mapa", mx: minimo[0], my: minimo[1], radio: 8, color: "acento2", opacidad: 0, etiqueta: "m\xEDnimo", lado: "abajo-derecha" });
+    corridas.forEach((c, i) => {
+      const color = COLORES[i % COLORES.length];
+      piezas[`camino${i}`] = grafica({ plano: "mapa", datos: c.puntos.map((p) => [p.x, p.y]), trazo: 0, color, grosor: 3.5 });
+      piezas[`curva${i}`] = grafica({ plano: "costo", datos: c.puntos.map((p, k) => [k, p.z]), trazo: 0, color, grosor: 4, etiqueta: `\u03B1 = ${numero(c.tasa, 4)}` });
+    });
+    panel(piezas, corridas.map((_, i) => `texto${i}`).concat("criterio"), pan);
+    const n = crearNarrador({ ritmo, lectura, preguntas });
+    n.capitulo("El terreno");
+    n.animar([
+      { pieza: "curvas", a: { progreso: niveles.length }, dur: 1.6 },
+      { pieza: "inicio", a: { opacidad: 1 }, dur: 0.4 },
+      ...minimo ? [{ pieza: "minimo", a: { opacidad: 1 }, dur: 0.4 }] : []
+    ]);
+    n.decir("A la izquierda, las curvas de nivel de la funci\xF3n que queremos minimizar. Todas las corridas arrancan del mismo punto.");
+    n.decir("Cada paso hace b \u2190 b \u2212 \u03B1 \u2207f(b): el gradiente apunta hacia donde f sube m\xE1s r\xE1pido, as\xED que restarlo es bajar por la pendiente m\xE1s empinada. \u03B1 decide qu\xE9 tan largo es el paso.");
+    corridas.forEach((c, i) => {
+      if (i === corridas.length - 1) n.preguntar("grande");
+      n.capitulo(`\u03B1 = ${numero(c.tasa, 4)} (${c.nombre})`);
+      const final = c.puntos.at(-1);
+      const durTrazo = 2.4;
+      n.animar([
+        { pieza: `camino${i}`, a: { trazo: 1 }, dur: durTrazo, curva: "lineal" },
+        { pieza: `curva${i}`, a: { trazo: 1 }, dur: durTrazo, curva: "lineal" }
+      ]);
+      const resumenTexto = c.motivo === "diverge" ? `\u03B1 = ${numero(c.tasa, 4)}: diverge (f se dispara en la iteraci\xF3n ${c.puntos.length})` : `\u03B1 = ${numero(c.tasa, 4)}: f = ${numero(final.z, 4)} en ${c.puntos.length - 1} iteraciones`;
+      n.animar({ pieza: `texto${i}`, a: { texto: resumenTexto, opacidad: 1, color: COLORES[i % COLORES.length], peso: 700 }, dur: 0.4 }, durTrazo);
+      const sube = c.puntos.length > 1 && c.puntos.at(-1).z > c.puntos[0].z;
+      if (c.motivo === "diverge" || sube) {
+        n.decir(`Con \u03B1 = ${numero(c.tasa, 4)} el paso es tan largo que se pasa del otro lado del valle, cada vez m\xE1s arriba. f crece en vez de bajar: el algoritmo diverge.`);
+      } else if (final.z - fmin > (f0 - fmin) * 0.03) {
+        n.decir(`Con \u03B1 = ${numero(c.tasa, 4)} va en la direcci\xF3n correcta, pero con pasitos tan cortos que despu\xE9s de ${c.puntos.length - 1} iteraciones sigue lejos del m\xEDnimo. Converge, pero lent\xEDsimo.`);
+      } else {
+        n.decir(`Con \u03B1 = ${numero(c.tasa, 4)} baja r\xE1pido y se acomoda en el fondo del valle: f cae casi a su m\xEDnimo en pocas iteraciones.`);
+      }
+    });
+    n.capitulo("Cu\xE1ndo parar");
+    n.animar({ pieza: "criterio", a: { texto: "Parar cuando \u2016\u2207f\u2016 < \u03B5, o cuando f casi no cambia, o al llegar a un m\xE1ximo de iteraciones.", opacidad: 1 }, dur: 0.4 });
+    n.decir("Hace falta un criterio de detenci\xF3n: cortar cuando el gradiente es casi cero (estamos en el fondo), cuando f deja de bajar, o al llegar a un tope de iteraciones por si diverge.");
+    if (minimo) n.decir(`Al final se compara con la soluci\xF3n exacta de m\xEDnimos cuadrados, (${numero(minimo[0], 3)}, ${numero(minimo[1], 3)}): con una buena tasa, tienen que coincidir en varios decimales.`);
+    n.decir("Un detalle que cambia todo: si las variables tienen escalas muy distintas (segundos contra porcentajes, por ejemplo), las curvas de nivel quedan largu\xEDsimas y no hay una tasa que sirva para todas. Por eso se suelen estandarizar antes.");
+    return {
+      titulo: titulo || "Tres tasas de aprendizaje",
+      descripcion: descripcion || `El descenso del gradiente desde el mismo punto con \u03B1 = ${corridas.map((c) => numero(c.tasa, 4)).join(", ")}, y f en funci\xF3n de la iteraci\xF3n.`,
+      ancho: W,
+      alto: H2,
+      lectura,
+      pausaFinal: 1.5,
+      piezas,
+      linea: n.linea
+    };
+  };
+}
 export {
   aPixelPlano,
   analizarCuenta,
+  area,
   campo,
   cocienteIncremental,
   curvaDeNivel,
   curvasNivel,
+  decidir,
   derivada,
   descensoGradiente,
+  desdeBandas,
+  desdeCobertura,
   desdeDerivada,
   desdeDescenso,
   desdeEuclides,
+  desdeIntervalo,
   desdeModulo,
   desdeRegresion,
   desdeRelacion,
+  desdeTasas,
+  desdeTest,
+  desdeVariabilidad,
   euclides,
   gradiente,
   grafica,
+  inferenciaRegresion,
+  intervaloMedia,
   matrizRelacion,
+  minimosCuadrados,
   modulo,
+  muestraNormal,
+  normal,
+  normalAcumulada,
+  normalInversa,
   numero,
   pasoLindo,
   plano,
@@ -2246,7 +3235,13 @@ export {
   punto,
   recta,
   regresionLineal,
+  resumen,
   segmento,
+  student,
+  studentAcumulada,
+  studentInversa,
   sumaResiduos,
+  testMedia,
+  valorCritico,
   vector
 };

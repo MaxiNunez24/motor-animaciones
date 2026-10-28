@@ -42,6 +42,16 @@
         },
     }));
 
+    Motor.registrar('pila', desdeTraza({
+        ...Motor.trazas.pila,
+        ...comun,
+        titulo: 'Tres funciones, una pila',
+        archivo: 'ticket.py',
+        descripcion: 'ticket llama a subtotal, que llama a precio_con_iva: la pila de llamadas llega a tener tres marcos, y cada uno devuelve su resultado al de abajo.',
+        lupa: true,
+        lupaDebajoDe: 900,
+    }));
+
     Motor.registrar('referencias', desdeTraza({
         ...Motor.trazas.referencias,
         ...comun,
