@@ -37,12 +37,12 @@ Sin dependencias. 42 KB con gzip con todo (22 KB sin la capa pedagógica, en `mo
 
 `motor.min.js` es un script clásico a propósito: anda abriendo el `.html` con doble clic
 (`file://`), donde los módulos no cargan. Con internet también se puede usar desde jsDelivr:
-`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.8.0/dist/motor.min.js`.
+`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.9.0/dist/motor.min.js`.
 
 ## Desde otro proyecto (Astro, Vite…)
 
 ```bash
-pnpm add github:MaxiNunez24/motor-animaciones#v0.8.0
+pnpm add github:MaxiNunez24/motor-animaciones#v0.9.0
 ```
 
 ```js

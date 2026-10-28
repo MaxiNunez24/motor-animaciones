@@ -1,6 +1,6 @@
 {
     "name": "motor-animaciones",
-    "version": "0.8.0",
+    "version": "0.9.0",
     "description": "Motor de animaciones web deterministas: escenas declarativas, controles, y una capa para explicar conceptos.",
     "type": "module",
     "license": "MIT",
