@@ -37,12 +37,12 @@ Sin dependencias. 42 KB con gzip con todo (22 KB sin la capa pedagógica, en `mo
 
 `motor.min.js` es un script clásico a propósito: anda abriendo el `.html` con doble clic
 (`file://`), donde los módulos no cargan. Con internet también se puede usar desde jsDelivr:
-`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.9.0/dist/motor.min.js`.
+`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.9.1/dist/motor.min.js`.
 
 ## Desde otro proyecto (Astro, Vite…)
 
 ```bash
-pnpm add github:MaxiNunez24/motor-animaciones#v0.9.0
+pnpm add github:MaxiNunez24/motor-animaciones#v0.9.1
 ```
 
 ```js
@@ -109,8 +109,9 @@ teclado. En pantalla completa el subtítulo va encima del dibujo, como en el cin
 dibujo ocupa toda la pantalla. En una `<motor-leccion>`, mientras hay una pregunta abierta los
 controles se esconden (vuelven si se pasa el mouse por abajo) y el subtítulo sube encima de ella.
 
-**Zoom**: Ctrl + rueda (o pellizcar el touchpad o la pantalla), los botones + y − de arriba a la
-derecha, o las teclas `+` `-` `0`. Con zoom, arrastrar mueve la vista. Es solo de la vista: no
+**Zoom**: los botones + y − de arriba a la derecha, las teclas `+` `-` `0`, pellizcar la pantalla
+del celular, y en pantalla completa la rueda del mouse. En la página la rueda no hace zoom: baja
+por la página, como siempre. En pantalla completa el mouse se esconde cuando se queda quieto. Con zoom, arrastrar mueve la vista. Es solo de la vista: no
 cambia la escena.
 
 Desde JavaScript: `.escena = {...}`, `.reproducir()`, `.pausar()`, `.irA(t)`, `.t`, `.duracion`.

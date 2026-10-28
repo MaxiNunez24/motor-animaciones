@@ -1343,9 +1343,12 @@ var MotorEscena = class extends Base {
                 <div class="ma-lienzo" tabindex="0">
                     <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="ma-titulo" aria-describedby="ma-descripcion"></svg>
                     <div class="ma-zoom" role="group" aria-label="Zoom">
+                        <!-- El de volver va primero: la botonera est\xE1 pegada a la
+                             derecha, as\xED que al aparecer (o al pasar de 1,5\xD7 a 2\xD7)
+                             crece hacia la izquierda y no corre al \u2212 ni al +. -->
+                        <button type="button" data-zoom="normal" aria-label="Volver al tama\xF1o normal">1\xD7</button>
                         <button type="button" data-zoom="alejar" aria-label="Alejar">\u2212</button>
                         <button type="button" data-zoom="acercar" aria-label="Acercar">+</button>
-                        <button type="button" data-zoom="normal" aria-label="Volver al tama\xF1o normal">1\xD7</button>
                     </div>
                 </div>
                 <div class="ma-subtitulo" part="subtitulo" aria-live="off"></div>
@@ -1703,7 +1706,7 @@ var MotorEscena = class extends Base {
     this._raiz.classList.toggle("flotantes", flotantes);
     this._raiz.classList.toggle("con-pregunta", v.pregunta);
     this._raiz.classList.toggle("ver-controles", ver);
-    this._raiz.classList.toggle("sin-cursor", llena && !ver);
+    this._raiz.classList.toggle("sin-cursor", llena && !v.reciente && !v.sobreControles && !v.foco);
   }
   // ---------------- Zoom ----------------
   _accionZoom(accion) {
@@ -1756,7 +1759,7 @@ var MotorEscena = class extends Base {
     normal.textContent = `${String(Math.round(z.escala * 10) / 10).replace(".", ",")}\xD7`;
   }
   _rueda(e) {
-    if (!e.ctrlKey && !e.metaKey) return;
+    if (!this._llena()) return;
     e.preventDefault();
     this._zoomEn(Math.exp(-e.deltaY * 25e-4), e.clientX, e.clientY);
   }
@@ -4917,7 +4920,7 @@ function crearNarrador(opciones = {}) {
 }
 
 // src/index.js
-var version = "0.9.0";
+var version = "0.9.1";
 definirComponente();
 definirLeccion();
 export {

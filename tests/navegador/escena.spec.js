@@ -173,6 +173,56 @@ test('en pantalla completa, el subtítulo va encima del dibujo y no lo achica', 
     expect(medidas.encuadre).toBe('xMidYMin meet');
 });
 
+test('al hacer zoom, el botón de volver aparece a la izquierda y no corre al − ni al +', async ({ page }) => {
+    const escena = await abrirEn(page, 2);
+    const lugares = () => escena.evaluate((m) => ['alejar', 'acercar'].map((z) => {
+        const r = m.shadowRoot.querySelector(`[data-zoom="${z}"]`).getBoundingClientRect();
+        return Math.round(r.x);
+    }));
+    await page.mouse.move(300, 200);
+    const antes = await lugares();
+    await escena.evaluate((m) => m.shadowRoot.querySelector('[data-zoom="acercar"]').click());
+    await escena.evaluate((m) => m.shadowRoot.querySelector('[data-zoom="acercar"]').click());
+    expect(await lugares()).toEqual(antes);
+    const normal = await escena.evaluate((m) => m.shadowRoot.querySelector('[data-zoom="normal"]').getBoundingClientRect().right);
+    expect(normal).toBeLessThanOrEqual(antes[0]);
+});
+
+test('la rueda hace zoom solo en pantalla completa; en la página baja por la página', async ({ page }) => {
+    await page.setViewportSize({ width: 1000, height: 500 });
+    const escena = await abrirEn(page, 2);
+    const caja = await escena.boundingBox();
+    const vista = () => escena.evaluate((m) => m.shadowRoot.querySelector('svg').getAttribute('viewBox'));
+    const antes = await vista();
+    await page.mouse.move(caja.x + caja.width / 2, caja.y + 100);
+    await page.mouse.wheel(0, 300);
+    await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(0);
+    expect(await vista()).toBe(antes);
+    // Con Ctrl tampoco: es el zoom de la página entera, no el de la escena.
+    await page.keyboard.down('Control');
+    await page.mouse.wheel(0, -200);
+    await page.keyboard.up('Control');
+    expect(await vista()).toBe(antes);
+
+    await escena.evaluate((m) => m.setAttribute('pantalla', ''));
+    await page.mouse.move(500, 250);
+    await page.mouse.wheel(0, -300);
+    await expect.poll(vista).not.toBe(antes);
+});
+
+test('en pantalla completa el mouse se esconde al quedarse quieto, aunque esté en pausa', async ({ page }) => {
+    const escena = await abrirEn(page, 2);
+    await escena.evaluate((m) => m.setAttribute('pantalla', ''));
+    const sinCursor = () => escena.evaluate((m) => m.shadowRoot.querySelector('.ma-raiz').classList.contains('sin-cursor'));
+    await page.mouse.move(400, 300);
+    await page.mouse.move(420, 310);
+    expect(await sinCursor()).toBe(false);
+    expect(await escena.evaluate((m) => m.corriendo)).toBe(false);
+    await expect.poll(sinCursor, { timeout: 5000 }).toBe(true);
+    await page.mouse.move(430, 320);
+    expect(await sinCursor()).toBe(false);
+});
+
 test('anda abriendo el archivo con doble clic (file://)', async ({ page }) => {
     const archivo = pathToFileURL(resolve('ejemplos/prueba.html')).href;
     const escena = await abrirEn(page, 10, archivo);

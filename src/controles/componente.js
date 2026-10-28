@@ -23,8 +23,9 @@ import { ESTILOS } from './estilos.js';
 //                          esconderse (si no, con mouse flotan y se esconden
 //                          mientras la animación corre)
 //
-// Zoom: Ctrl + rueda (o pellizcar el touchpad o la pantalla), los botones + y −
-// que aparecen arriba a la derecha, o las teclas + − 0. Con zoom, arrastrar
+// Zoom: los botones + y − que aparecen arriba a la derecha, las teclas + − 0,
+// pellizcar la pantalla, y en pantalla completa la rueda (en la página, la
+// rueda es de la página). Con zoom, arrastrar
 // mueve el dibujo. El zoom es solo de la vista: no cambia la escena.
 //
 // También se maneja desde JavaScript: elemento.escena = {...}, .reproducir(),
@@ -66,9 +67,12 @@ export class MotorEscena extends Base {
                 <div class="ma-lienzo" tabindex="0">
                     <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="ma-titulo" aria-describedby="ma-descripcion"></svg>
                     <div class="ma-zoom" role="group" aria-label="Zoom">
+                        <!-- El de volver va primero: la botonera está pegada a la
+                             derecha, así que al aparecer (o al pasar de 1,5× a 2×)
+                             crece hacia la izquierda y no corre al − ni al +. -->
+                        <button type="button" data-zoom="normal" aria-label="Volver al tamaño normal">1×</button>
                         <button type="button" data-zoom="alejar" aria-label="Alejar">−</button>
                         <button type="button" data-zoom="acercar" aria-label="Acercar">+</button>
-                        <button type="button" data-zoom="normal" aria-label="Volver al tamaño normal">1×</button>
                     </div>
                 </div>
                 <div class="ma-subtitulo" part="subtitulo" aria-live="off"></div>
@@ -482,7 +486,10 @@ export class MotorEscena extends Base {
         this._raiz.classList.toggle('flotantes', flotantes);
         this._raiz.classList.toggle('con-pregunta', v.pregunta);
         this._raiz.classList.toggle('ver-controles', ver);
-        this._raiz.classList.toggle('sin-cursor', llena && !ver);
+        // En pantalla completa el mouse se esconde apenas se queda quieto,
+        // corra o no la animación: en un proyector, una flecha en el medio
+        // del dibujo molesta. Al moverlo, vuelve.
+        this._raiz.classList.toggle('sin-cursor', llena && !v.reciente && !v.sobreControles && !v.foco);
     }
 
     // ---------------- Zoom ----------------
@@ -542,9 +549,11 @@ export class MotorEscena extends Base {
     }
 
     _rueda(e) {
-        // La rueda sola sigue bajando por la página. Con Ctrl (que es también
-        // lo que manda el touchpad al pellizcar), hace zoom.
-        if (!e.ctrlKey && !e.metaKey) return;
+        // En la página, la rueda es de la página: baja, y con Ctrl (o
+        // pellizcando el touchpad) agranda la página entera, como siempre. Un
+        // alumno que baja leyendo no tiene que quedar atrapado en el zoom de
+        // la escena. En pantalla completa no hay página: la rueda hace zoom.
+        if (!this._llena()) return;
         e.preventDefault();
         this._zoomEn(Math.exp(-e.deltaY * 0.0025), e.clientX, e.clientY);
     }
