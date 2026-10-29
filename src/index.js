@@ -16,7 +16,7 @@ export { RECETAS as SONIDOS, sintetizar, mezclarPista } from './sonido/sintetiza
 export { registrar, MotorEscena, definirComponente } from './controles/componente.js';
 export * from './pedagogico/index.js';
 
-export const version = '0.11.0';
+export const version = '0.12.0';
 
 definirComponente();
 definirLeccion();

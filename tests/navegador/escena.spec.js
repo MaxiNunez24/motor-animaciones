@@ -288,3 +288,30 @@ test('en una pantalla sin controles (la Expo), el mouse vuelve con una sacudida,
     // Quieto un ratito: se vuelve a esconder.
     await expect.poll(sinCursor, { timeout: 5000 }).toBe(true);
 });
+
+test('en pantalla completa, el subtítulo sube si taparía el cartel de abajo de la Expo, y vuelve si no', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto('/ejemplos/expo/pantalla.html');
+    await page.waitForFunction(() => document.querySelector('motor-escena')?.compilada);
+    const medir = (t) => page.evaluate((t) => {
+        const m = document.querySelector('motor-escena');
+        m.pausar();
+        m.irA(t);
+        const sub = m.shadowRoot.querySelector('.ma-subtitulo').getBoundingClientRect();
+        const c = m.compilada;
+        const cartel = Motor.posicionAbsoluta('cuenta2', c.estado(t), c.tipos);
+        const k = m.shadowRoot.querySelector('svg').getScreenCTM();
+        return {
+            subtitulo: { arriba: sub.top, abajo: sub.bottom },
+            cartel: { arriba: k.f + (cartel.y - cartel.alto / 2) * k.d, abajo: k.f + (cartel.y + cartel.alto / 2) * k.d },
+            esquiva: m.shadowRoot.querySelector('.ma-raiz').style.getPropertyValue('--ma-sub-esquiva'),
+        };
+    }, t);
+    // Mientras el cartel está a la vista, el subtítulo no lo pisa.
+    const con = await medir(12);
+    expect(parseInt(con.esquiva, 10)).toBeGreaterThan(0);
+    expect(con.subtitulo.abajo <= con.cartel.arriba || con.subtitulo.arriba >= con.cartel.abajo).toBe(true);
+    // El primer subtítulo, sin cartel abajo, queda en su lugar.
+    const sin = await medir(1);
+    expect(sin.esquiva === '' || sin.esquiva === '0px').toBe(true);
+});

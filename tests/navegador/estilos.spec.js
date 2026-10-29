@@ -170,3 +170,17 @@ test('en un celular de 360px entra todo, y los subtítulos de reel van abajo del
     expect(r.renglones).toBe(1);
     expect(r.disposicion).toBe('angosta');
 });
+
+test('la lupa de quien mira copia pieza por pieza (como el espejo), también en un programa paso a paso', async ({ page }) => {
+    await page.goto('/ejemplos/conceptos/');
+    await page.waitForFunction(() => [...document.querySelectorAll('motor-leccion')].every((m) => m.compilada));
+    const r = await page.evaluate(() => {
+        const m = document.querySelector('motor-leccion');
+        m.shadowRoot.querySelector('[data-zoom="lupa"]').click();
+        const usos = [...m.shadowRoot.querySelectorAll('.ma-lupa use')];
+        const arriba = m.shadowRoot.querySelectorAll('svg g[data-pieza]:not(g[data-pieza] g[data-pieza])').length;
+        return { usos: usos.length, arriba, resuelven: usos.every((u) => m.shadowRoot.getElementById(u.getAttribute('href').slice(1))) };
+    });
+    expect(r.usos).toBe(r.arriba);
+    expect(r.resuelven).toBe(true);
+});

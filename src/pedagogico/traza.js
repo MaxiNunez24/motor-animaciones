@@ -2,6 +2,8 @@ import { duracionLectura } from '../nucleo/linea.js';
 import { caja, texto, tabla, flecha } from '../piezas/index.js';
 import { codigo, caracteresPorLinea, ANCHO_MONO } from './piezas/codigo.js';
 import { camara } from '../piezas/camara.js';
+import { espejo } from '../piezas/espejo.js';
+import { partirLineas, ANCHO_LETRA } from '../piezas/geometria.js';
 import { variable } from './piezas/variable.js';
 import { lista } from './piezas/lista.js';
 import { consola } from './piezas/consola.js';
@@ -67,6 +69,8 @@ function queEs(v) {
  *     lupa?: boolean | number | { zoom?: number, forma?: 'rect' | 'circulo', radio?: number, aro?: number },
  *     lupaDebajoDe?: number,
  *     contexto?: number,
+ *     alto?: number | 'auto',
+ *     lineaGrande?: boolean | { zoom?: number, renglones?: number },
  * }} opciones
  *     `explicaciones`, `preguntas` y `capitulos` van por número de paso (desde 0).
  *     Una pregunta frena ANTES de mostrar lo que hace la línea marcada.
@@ -86,12 +90,21 @@ function queEs(v) {
  *     y un aro fino que la enmarca).
  *     `lupaDebajoDe` (en píxeles): la lupa se usa solo si el lugar donde se ve
  *     la escena es más angosto que eso (por ejemplo, 900).
+ *     `alto`: 'auto' mide la escena hasta donde llega lo que muestra (la pila,
+ *     en su momento más alto; el cartel de un error; la consola): un programa
+ *     corto no deja medio cuadro vacío. Un número lo fija. Sin él, 900 (1140 en
+ *     angosto), como siempre.
+ *     `lineaGrande`: una franja abajo con la línea que corre, agrandada hasta
+ *     ocupar todo el ancho (un espejo del código que la sigue, con un recuadro
+ *     punteado en el código). El código queda entero arriba, sin la lupa de
+ *     cámara. Cuando el programa termina, la franja se atenúa. Con un objeto:
+ *     { zoom } (el máximo; por defecto, lo que entre a lo ancho).
  */
 export function desdeTraza(opciones) {
     const {
         traza, lenguaje = 'python', titulo = '', descripcion = '', archivo = '',
         ritmo = 1.4, lectura = 13, explicaciones = {}, preguntas = {}, capitulos = {}, explicar = false,
-        lupa = false, lupaDebajoDe = null, contexto = 3,
+        lupa: lupaPedida = false, lupaDebajoDe = null, contexto = 3, alto: altoPedido = null, lineaGrande = false,
     } = opciones;
     const punteros = opciones.punteros === 'auto' ? detectarPunteros(opciones.traza ?? []) : opciones.punteros ?? {};
     const programa = String(opciones.codigo).replace(/\s+$/, '');
@@ -115,6 +128,11 @@ export function desdeTraza(opciones) {
     const conSalida = traza.some((p) => p.salida);
     const conError = traza.some((p) => p.excepcion);
     const conPila = traza.some((p) => p.pila?.length);
+    // Con la línea grande, el código va entero arriba: la lupa de cámara sobra.
+    const lupa = lineaGrande ? false : lupaPedida;
+    const altoAuto = altoPedido === 'auto';
+    // El texto más largo que va a mostrar el cartel del error.
+    const textosError = traza.filter((p) => p.excepcion).map(({ excepcion: { tipo, mensaje } }) => `🚨 ${tipo}${mensaje ? `: ${mensaje}` : ''}`);
 
     // Las referencias compartidas: dos nombres (o un nombre y un `self`) que
     // son LA MISMA lista u objeto. Solo esas llevan su número a la vista; en
@@ -150,7 +168,7 @@ export function desdeTraza(opciones) {
         // ancho en vez de 1600, todo se ve un tercio más grande.
         const media = disposicion.nombre === 'media';
         const W = angosta ? 640 : media ? 1200 : 1600;
-        const H = angosta ? 1140 : 900;
+        let H = typeof altoPedido === 'number' ? altoPedido : angosta ? 1140 : 900;
         const arriba = titulo ? (angosta ? 100 : 100) : 30;
 
         // ---- Dónde va cada cosa ----
@@ -186,12 +204,20 @@ export function desdeTraza(opciones) {
         const altoConsola = piezaConsola.tipo.tamano(piezaConsola.props).alto;
         piezaConsola.props.y = angosta ? H - 20 - altoConsola / 2 : arriba + altoCodigo + 40 + altoConsola / 2;
         if (conSalida) piezas.consola = piezaConsola;
+        // El cartel del error crece con el mensaje: uno largo ("unsupported
+        // operand type(s) for +: 'NoneType' and 'int'") ocupa dos o tres renglones.
+        const tamanoError = angosta ? 24 : 34;
+        const altoError = conError
+            ? Math.max(angosta ? 80 : 96, 40 + tamanoError * 1.2 * Math.max(...textosError.map((t) => partirLineas(t, Math.floor((con.ancho - 32) / (tamanoError * ANCHO_LETRA))).length)))
+            : 0;
         if (conError) {
-            const yError = angosta
-                ? piezaConsola.props.y - altoConsola / 2 - 70
-                : piezaConsola.props.y + altoConsola / 2 + 70;
+            // Debajo de la consola (o del código, si no hay consola).
+            const encima = conSalida ? piezaConsola.props.y + altoConsola / 2 : arriba + altoCodigo;
+            const yError = angosta && !altoAuto
+                ? piezaConsola.props.y - altoConsola / 2 - 30 - altoError / 2
+                : encima + 30 + altoError / 2;
             piezas.error = caja({
-                x: con.x, y: yError, ancho: con.ancho, alto: angosta ? 80 : 96, texto: '', tamano: angosta ? 24 : 34,
+                x: con.x, y: yError, ancho: con.ancho, alto: altoError, texto: '', tamano: tamanoError,
                 relleno: 'superficie', borde: 'error', color: 'error', opacidad: 0,
             });
         }
@@ -239,6 +265,13 @@ export function desdeTraza(opciones) {
         if (conPila) {
             piezas.pila = pila({ x: col.x, y: y - (angosta ? 10 : 20), ancho: Math.min(col.ancho, angosta ? 560 : 600), tamano: angosta ? 22 : media ? 25 : 32 });
         }
+        // En angosto con alto 'auto' la consola no va pegada abajo (no hay un
+        // "abajo" fijo): va después de las variables, y el error después de ella.
+        if (angosta && altoAuto) {
+            const debajo = Math.max(arriba + altoCodigo, y - 40) + 40;
+            piezaConsola.props.y = debajo + altoConsola / 2;
+            if (piezas.error) piezas.error.props.y = (conSalida ? piezaConsola.props.y + altoConsola / 2 : debajo) + 30 + altoError / 2;
+        }
         // Las flechas entre dos variables que son lo mismo. Van por afuera, por
         // el costado izquierdo de las dos: entre una y otra no hay lugar, y una
         // flecha recta cruzaría por encima de la segunda. Enganchadas al
@@ -258,7 +291,7 @@ export function desdeTraza(opciones) {
         // todo para que quede centrado debajo del título. En angosto no, porque
         // la consola va pegada abajo a propósito. Con pila tampoco: la pila
         // crece, y centrada se iría por abajo.
-        if (!angosta && !conPila) {
+        if (!angosta && !conPila && !altoAuto) {
             let minimo = Infinity;
             let maximo = -Infinity;
             for (const [id, pieza] of Object.entries(piezas)) {
@@ -271,6 +304,38 @@ export function desdeTraza(opciones) {
             }
             const corrimiento = Math.max(0, (arriba + H) / 2 - (minimo + maximo) / 2);
             for (const [id, pieza] of Object.entries(piezas)) if (id !== 'titulo') pieza.props.y += corrimiento;
+        }
+        // Con alto fijo, el cartel del error no puede caer afuera del cuadro:
+        // si no entra debajo, sube (aunque tape un poco de la consola, que ya
+        // se leyó: lo que importa ahora es el error).
+        if (piezas.error && !altoAuto) {
+            const e = piezas.error.props;
+            e.y = Math.min(e.y, H - 20 - altoError / 2);
+        }
+
+        // ---- Hasta dónde llega lo que se muestra ----
+        // Con alto 'auto', la escena mide eso. La pila se mide en su momento
+        // más alto (con más marcos y más variables); el resto, por lo que ocupa.
+        const fondoDe = (id, pieza) => {
+            if (id === 'pila') {
+                let max = 0;
+                for (const paso of traza) {
+                    const marcos = (paso.pila ?? []).map((m) => ({ funcion: m.funcion, filas: Object.entries(m.variables), retorno: paso.retorno ? 1 : undefined }));
+                    max = Math.max(max, pieza.tipo.tamano({ ...pieza.props, marcos }).alto);
+                }
+                return pieza.props.y + max;
+            }
+            const alto = pieza.tipo.tamano?.(pieza.props).alto ?? pieza.props.alto ?? pieza.props.tamano ?? 0;
+            // Las variables y las listas llevan el nombre arriba y los índices abajo.
+            return pieza.props.y + alto / 2 + (id.startsWith('var_') ? 40 : 0);
+        };
+        if (altoAuto) {
+            let fondo = arriba + 100;
+            for (const [id, pieza] of Object.entries(piezas)) {
+                if (id === 'titulo' || id.startsWith('alias_') || (id === 'consola' && !conSalida)) continue;
+                fondo = Math.max(fondo, fondoDe(id, pieza));
+            }
+            H = Math.ceil(fondo + 30);
         }
 
         // ---- La lupa ----
@@ -287,6 +352,27 @@ export function desdeTraza(opciones) {
         // La y (en la escena) del centro de la línea k, contando desde 1.
         const arribaCodigo = geo.y - altoCodigo / 2;
         const yLinea = (k) => arribaCodigo + (archivo ? geo.tamano * 1.6 : 0) + geo.tamano * 0.5 + (k - 0.5) * altoLinea;
+
+        // ---- La línea grande ----
+        // Una franja abajo de todo con la línea que corre, agrandada hasta
+        // ocupar el ancho: se lee desde el fondo del aula, o en un video
+        // vertical. Es un espejo del código: lo que cambia allá, cambia acá.
+        let franja = null;
+        if (lineaGrande) {
+            const pedidoZoom = typeof lineaGrande === 'object' ? lineaGrande.zoom : undefined;
+            const anchoFranja = W - (angosta ? 30 : 80);
+            const zoomFranja = Math.min(pedidoZoom ?? Infinity, anchoFranja / usado, 4);
+            const altoFranja = altoLinea * zoomFranja + 16;
+            const yFranja = H + 10 + altoFranja / 2;
+            H = Math.ceil(yFranja + altoFranja / 2 + 24);
+            franja = { zoom: zoomFranja };
+            piezas.lineaGrande = espejo({
+                x: W / 2, y: yFranja, ancho: anchoFranja, alto: altoFranja, zoom: zoomFranja,
+                fuente: 'codigo', mirarX: izqCodigo + anchoFranja / (2 * zoomFranja), mirarY: yLinea(traza[0].linea || 1),
+                forma: 'rect', radio: 12, aro: 2, colorAro: 'borde', fondo: 'superficie',
+                marco: true, colorMarco: 'acento', arrastrable: false, opacidad: 0,
+            });
+        }
         const medioVisible = altoCodigo / (2 * zoom);
         const encuadrar = (y) => Math.min(Math.max(y, arribaCodigo + medioVisible), arribaCodigo + altoCodigo - medioVisible);
         let mirarY = encuadrar(arribaCodigo);
@@ -334,6 +420,7 @@ export function desdeTraza(opciones) {
         // ---- La línea de tiempo: un paso atrás del otro ----
         /** @type {any[]} */
         const linea = [{ pieza: 'codigo', a: { marca: 1 }, dur: 0.4, en: 0.2 }];
+        if (franja) linea.push({ pieza: 'lineaGrande', a: { opacidad: 1 }, dur: 0.4, en: 0.2 });
         const anterior = {};
         const indiceSenalado = {};
         let t = 0.7;
@@ -441,8 +528,11 @@ export function desdeTraza(opciones) {
                 linea.push({ pieza: 'codigo', a: { linea: paso.linea, marca: 1 }, dur: i === 0 ? 0 : 0.35, en: t + 0.45 });
                 const y = seguir(paso.linea);
                 if (y != null) linea.push({ pieza: 'lupa', a: { mirarY: y }, dur: i === 0 ? 0 : 0.6, en: t + 0.4 });
+                if (franja) linea.push({ pieza: 'lineaGrande', a: { mirarY: yLinea(paso.linea) }, dur: i === 0 ? 0 : 0.35, en: t + 0.45 });
             } else if (!paso.excepcion) {
                 linea.push({ pieza: 'codigo', a: { marca: 0 }, dur: 0.4, en: t + 0.45 });
+                // Terminó: la franja queda, apagada, mostrando la última línea.
+                if (franja) linea.push({ pieza: 'lineaGrande', a: { opacidad: 0.4 }, dur: 0.4, en: t + 0.45 });
             }
 
             let largo = Math.max(ritmo, 0.9);

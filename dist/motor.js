@@ -508,10 +508,10 @@ function partirLineas(texto3, maxCaracteres = 0) {
   }
   return lineas;
 }
-function revelar(lineas, escrito) {
-  if (escrito >= 1) return lineas;
+function revelar(lineas, escrito2) {
+  if (escrito2 >= 1) return lineas;
   const total = lineas.reduce((n3, l) => n3 + largo(l), 0);
-  let quedan = Math.floor(total * Math.max(escrito, 0) + 1e-9);
+  let quedan = Math.floor(total * Math.max(escrito2, 0) + 1e-9);
   return lineas.map((l) => {
     const letras = Array.from(l);
     const visibles = letras.slice(0, quedan).join("");
@@ -1133,6 +1133,12 @@ function texto(nodo, valor) {
 function redondear(n3) {
   return String(Math.round(n3 * 100) / 100);
 }
+function filtroSombra(padre, { dy = 8, desenfoque = 9, opacidad = 0.3 } = {}) {
+  const id = idUnico("ma-sombra");
+  const f = el("filter", { id, x: "-20%", y: "-20%", width: "140%", height: "160%" }, el("defs", {}, padre));
+  el("feDropShadow", { dx: 0, dy, stdDeviation: desenfoque, "flood-color": "#000", "flood-opacity": opacidad }, f);
+  return `url(#${id})`;
+}
 var contador = 0;
 function idUnico(prefijo) {
   contador += 1;
@@ -1229,7 +1235,7 @@ function crearPintor(svg, escena, opciones = {}) {
         lupa?.grupo.setAttribute("visibility", "hidden");
         return;
       }
-      lupa ??= crearLupa(svg, defs, dibujo.id);
+      lupa ??= crearLupa(svg, defs, dibujo);
       pintarLupa(lupa, l);
     }
   };
@@ -1244,13 +1250,17 @@ function crearPintor(svg, escena, opciones = {}) {
     return corrida;
   }
 }
-function crearLupa(svg, defs, idDibujo) {
+function crearLupa(svg, defs, dibujo) {
   const id = idUnico("ma-lupa");
   const recorte = el("rect", {}, el("clipPath", { id }, defs));
   const grupo = el("g", { "data-lupa": "cuerpo", class: "ma-lupa" }, svg);
-  const fondo = el("rect", { fill: "var(--ma-fondo)", filter: "drop-shadow(0 8px 18px rgb(0 0 0 / 0.35))" }, grupo);
+  const fondo = el("rect", { fill: "var(--ma-fondo)", filter: filtroSombra(defs, { dy: 8, desenfoque: 9, opacidad: 0.35 }) }, grupo);
   const vista = el("g", { "clip-path": `url(#${id})` }, grupo);
-  const uso = el("use", { href: `#${idDibujo}` }, vista);
+  const uso = el("g", {}, vista);
+  for (const pieza of dibujo.querySelectorAll(":scope > g[data-pieza]")) {
+    if (!pieza.id) pieza.id = idUnico("ma-pieza");
+    el("use", { href: `#${pieza.id}` }, uso);
+  }
   const aro = el("rect", { fill: "none", stroke: "var(--ma-texto)" }, grupo);
   const asa = el("circle", { "data-lupa": "asa", fill: "var(--ma-acento)", stroke: "var(--ma-fondo)", class: "ma-lupa-asa" }, grupo);
   return { grupo, recorte, fondo, uso, aro, asa };
@@ -1712,6 +1722,8 @@ ${CSS_TEMA}
     text-transform: var(--ma-sub-mayusculas, none);
     line-height: 1.15;
     letter-spacing: 0.01em;
+    transform: translateY(calc(-1 * var(--ma-sub-esquiva, 0px)));
+    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .ma-raiz.subs-reel[data-sub-posicion="centro"] .ma-subtitulo { align-self: center; margin: 0; }
 .ma-raiz.subs-reel[data-sub-posicion="arriba"] .ma-subtitulo { align-self: start; margin: 5% 0 0; }
@@ -2108,7 +2120,14 @@ ${CSS_TEMA}
     background: color-mix(in srgb, var(--ma-fondo) 85%, transparent);
     font-size: clamp(18px, 2.2cqi, 46px);
     pointer-events: none;
+    /* --ma-sub-esquiva: cu\xE1nto sube para no tapar algo (lo calcula el componente). */
+    transform: translateY(calc(-1 * var(--ma-sub-esquiva, 0px)));
     transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+/* Si no encontr\xF3 un lugar libre, un fondo m\xE1s firme: tapa, pero se lee. */
+:host([pantalla]) .sub-tapa .ma-subtitulo,
+:host(:fullscreen) .sub-tapa .ma-subtitulo {
+    background: color-mix(in srgb, var(--ma-fondo) 96%, transparent);
 }
 :host([pantalla]) .ma-subtitulo:empty,
 :host(:fullscreen) .ma-subtitulo:empty {
@@ -2117,18 +2136,18 @@ ${CSS_TEMA}
 /* Cuando aparecen los controles, el subt\xEDtulo sube para no quedar abajo de ellos. */
 :host([pantalla]) .ver-controles .ma-subtitulo,
 :host(:fullscreen) .ver-controles .ma-subtitulo {
-    transform: translateY(calc(-1 * var(--ma-alto-controles, 0px)));
+    transform: translateY(calc(-1 * (var(--ma-alto-controles, 0px) + var(--ma-sub-esquiva, 0px))));
 }
 /* Con una pregunta abierta (en <motor-leccion>), la pregunta ocupa la parte
    de abajo: el subt\xEDtulo sube y queda justo encima de ella. Arriba de todo
    tapar\xEDa el t\xEDtulo de la escena. --ma-alto-pregunta lo mide la lecci\xF3n. */
 :host([pantalla]) .con-pregunta .ma-subtitulo,
 :host(:fullscreen) .con-pregunta .ma-subtitulo {
-    transform: translateY(calc(-1 * var(--ma-alto-pregunta, 0px)));
+    transform: translateY(calc(-1 * (var(--ma-alto-pregunta, 0px) + var(--ma-sub-esquiva, 0px))));
 }
 :host([pantalla]) .con-pregunta.ver-controles .ma-subtitulo,
 :host(:fullscreen) .con-pregunta.ver-controles .ma-subtitulo {
-    transform: translateY(calc(-1 * (var(--ma-alto-pregunta, 0px) + var(--ma-alto-controles, 0px))));
+    transform: translateY(calc(-1 * (var(--ma-alto-pregunta, 0px) + var(--ma-alto-controles, 0px) + var(--ma-sub-esquiva, 0px))));
 }
 
 .ma-oculto {
@@ -2258,7 +2277,9 @@ function subtitulosDelEstilo(estilo) {
     posicion: ["arriba", "centro", "abajo"].includes(s.posicion) ? s.posicion : "abajo",
     // 'caja' (un fondo detrás), 'contorno' (letras con borde, sin fondo) o 'ninguno'.
     caja: ["caja", "contorno", "ninguno"].includes(s.caja) ? s.caja : "caja",
-    ritmo: s.ritmo ?? 15
+    ritmo: s.ritmo ?? 15,
+    // Si sube solo cuando taparía algo (en pantalla completa y en los de reel).
+    esquivar: s.esquivar !== false
   };
 }
 var fuentesPedidas = /* @__PURE__ */ new Set();
@@ -2649,6 +2670,149 @@ function crearReproductor() {
   };
 }
 
+// src/piezas/superposiciones.js
+function cajasEn(compilada, t) {
+  const estado = compilada.estado(t);
+  const tipos = compilada.tipos;
+  const area = compilada.ancho * compilada.alto;
+  const cajas2 = [];
+  const tapas = [];
+  compilada.ids.forEach((id, orden) => {
+    const p = estado.piezas[id];
+    if (tipos[id].nombre !== "caja" || p.relleno !== "fondo" || p.opacidad < 0.6 || !seVe(id, estado)) return;
+    const r4 = posicionAbsoluta(id, estado, tipos);
+    tapas.push({ orden, x0: r4.x - r4.ancho / 2, y0: r4.y - r4.alto / 2, x1: r4.x + r4.ancho / 2, y1: r4.y + r4.alto / 2 });
+  });
+  const tapada = (orden, c) => tapas.some((t2) => t2.orden > orden && c.x0 >= t2.x0 - 1 && c.y0 >= t2.y0 - 1 && c.x1 <= t2.x1 + 1 && c.y1 <= t2.y1 + 1);
+  for (const [orden, id] of compilada.ids.entries()) {
+    const tipo = tipos[id];
+    const p = estado.piezas[id];
+    if (!tipo.tamano || tipo.contenedor || !seVe(id, estado)) continue;
+    if (tipo.nombre === "caja" && !p.texto && !p.icono && p.relleno === "fondo" && (p.borde === "ninguno" || !(p.grosorBorde > 0))) continue;
+    const r4 = posicionAbsoluta(id, estado, tipos);
+    if (!(r4.ancho > 0 && r4.alto > 0) || r4.ancho * r4.alto > area * 0.35) continue;
+    let caja3 = { x0: r4.x - r4.ancho / 2, y0: r4.y - r4.alto / 2, x1: r4.x + r4.ancho / 2, y1: r4.y + r4.alto / 2 };
+    for (let padre = p.dentro; padre != null && caja3; padre = estado.piezas[padre].dentro) {
+      const v = posicionAbsoluta(padre, estado, tipos);
+      caja3 = recortar(caja3, { x0: v.x - v.ancho / 2, y0: v.y - v.alto / 2, x1: v.x + v.ancho / 2, y1: v.y + v.alto / 2 });
+    }
+    if (!caja3 || tapada(orden, caja3)) continue;
+    cajas2.push({
+      id,
+      tipo: tipo.nombre,
+      // Lo que se lee: si se tapa, se pierde algo que hay que leer.
+      texto: ["texto", "contador"].includes(tipo.nombre) || tipo.nombre === "caja" && !!p.texto,
+      ...caja3
+    });
+  }
+  return cajas2;
+}
+function recortar(a, b) {
+  const c = { x0: Math.max(a.x0, b.x0), y0: Math.max(a.y0, b.y0), x1: Math.min(a.x1, b.x1), y1: Math.min(a.y1, b.y1) };
+  return c.x1 - c.x0 > 1 && c.y1 - c.y0 > 1 ? c : null;
+}
+function seVe(id, estado) {
+  let actual = id;
+  let opacidad = 1;
+  while (actual != null) {
+    const p = estado.piezas[actual];
+    opacidad *= p.opacidad;
+    if (opacidad < 0.3 || p.trazo <= 0) return false;
+    actual = p.dentro;
+  }
+  return true;
+}
+function cruce(a, b) {
+  const ancho = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+  const alto = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
+  return ancho > 0 && alto > 0 ? ancho * alto : 0;
+}
+function queTapa(compilada, zona, desde, hasta, paso = 0.25) {
+  const areaZona = (zona.x1 - zona.x0) * (zona.y1 - zona.y0) || 1;
+  let peor = 0;
+  const piezas = /* @__PURE__ */ new Set();
+  for (let t = desde; t < hasta + 1e-9; t += paso) {
+    let suma = 0;
+    for (const c of cajasEn(compilada, Math.min(t, hasta - 1e-6))) {
+      const comun = cruce(zona, c);
+      if (comun > 0.12 * Math.min(areaZona, (c.x1 - c.x0) * (c.y1 - c.y0))) {
+        suma += comun;
+        piezas.add(c.id);
+      }
+    }
+    peor = Math.max(peor, suma / areaZona);
+  }
+  return { peor, piezas: [...piezas] };
+}
+function zonaDeSubtitulo(compilada, donde, renglones2 = 2) {
+  const { ancho, alto } = compilada;
+  const h = alto * 0.06 * renglones2;
+  const m = alto * 0.025;
+  const y0 = donde === "abajo" ? alto - m - h : m;
+  return { x0: ancho * 0.12, x1: ancho * 0.88, y0, y1: y0 + h };
+}
+function lugarLibre(compilada, zona, desde, hasta) {
+  const alto = zona.y1 - zona.y0;
+  const paso = compilada.alto * 0.03;
+  const max = Math.max(0, zona.y0 - compilada.alto * 0.02);
+  let mejor = null;
+  for (let subir = 0; subir <= max + 1e-9; subir += paso) {
+    const z = { ...zona, y0: zona.y0 - subir, y1: zona.y0 - subir + alto };
+    const r4 = queTapa(compilada, z, desde, hasta);
+    if (r4.peor < 0.02) return { subir, libre: true, tapa: [] };
+    if (!mejor || r4.peor < mejor.peor - 1e-9) mejor = { subir, peor: r4.peor, tapa: r4.piezas };
+  }
+  const abajo = queTapa(compilada, zona, desde, hasta);
+  if (mejor && mejor.peor < abajo.peor * 0.5) return { subir: mejor.subir, libre: false, tapa: mejor.tapa };
+  return { subir: 0, libre: false, tapa: abajo.piezas };
+}
+function revisarSuperposiciones(compilada, { paso = 0.25 } = {}) {
+  const subtitulos = [];
+  compilada.subtitulos.forEach((s, indice) => {
+    const renglones2 = s.texto.length > 70 ? 2 : 1;
+    const abajo = queTapa(compilada, zonaDeSubtitulo(compilada, "abajo", renglones2), s.desde, s.hasta, paso);
+    if (abajo.peor < 0.02) return;
+    const lugar = lugarLibre(compilada, zonaDeSubtitulo(compilada, "abajo", renglones2), s.desde, s.hasta);
+    subtitulos.push({
+      indice,
+      texto: s.texto,
+      desde: s.desde,
+      hasta: s.hasta,
+      tapa: abajo.piezas,
+      // Si hay una franja libre más arriba, en pantalla completa el
+      // subtítulo sube solo hasta ahí.
+      libre: lugar.libre
+    });
+  });
+  const pares2 = /* @__PURE__ */ new Map();
+  for (let t = 0; t <= compilada.duracion + 1e-9; t += paso) {
+    const textos = cajasEn(compilada, Math.min(t, compilada.duracion)).filter((c) => c.texto);
+    for (let i = 0; i < textos.length; i++) {
+      for (let j = i + 1; j < textos.length; j++) {
+        const a = textos[i];
+        const b = textos[j];
+        const menor = Math.min((a.x1 - a.x0) * (a.y1 - a.y0), (b.x1 - b.x0) * (b.y1 - b.y0));
+        if (cruce(a, b) <= 0.15 * menor) continue;
+        const clave = `${a.id}|${b.id}`;
+        const par = pares2.get(clave);
+        if (par && t - par.hasta <= paso + 1e-9) par.hasta = t;
+        else if (!par) pares2.set(clave, { a: a.id, b: b.id, desde: t, hasta: t });
+      }
+    }
+  }
+  return { subtitulos, textos: [...pares2.values()] };
+}
+function describirSuperposiciones(r4, nombre = "la escena") {
+  const s = (t) => `${t.toFixed(1).replace(".", ",")} s`;
+  const lineas = [];
+  for (const x of r4.subtitulos) {
+    lineas.push(`  ${s(x.desde)}\u2013${s(x.hasta)}: el subt\xEDtulo \xAB${x.texto.slice(0, 50)}${x.texto.length > 50 ? "\u2026" : ""}\xBB tapa ${x.tapa.join(", ")}` + (x.libre ? " (en pantalla completa sube solo a un lugar libre)" : " (y no hay un lugar libre: corr\xE9 la pieza o part\xED el subt\xEDtulo)"));
+  }
+  for (const x of r4.textos) lineas.push(`  ${s(x.desde)}\u2013${s(x.hasta)}: \xAB${x.a}\xBB y \xAB${x.b}\xBB se pisan`);
+  return lineas.length ? `En ${nombre}:
+${lineas.join("\n")}` : "";
+}
+
 // src/controles/componente.js
 var registro2 = /* @__PURE__ */ new Map();
 var esperando = /* @__PURE__ */ new Map();
@@ -2723,6 +2887,7 @@ var MotorEscena = class extends Base {
     this._sonido = crearReproductor();
     this._sonidoPrendido = !this.hasAttribute("sin-sonido");
     this._tAnterior = 0;
+    this._esquiva = { clave: "" };
     this._definicion = null;
     this._compilada = null;
     this._pintor = null;
@@ -3067,6 +3232,11 @@ var MotorEscena = class extends Base {
     }
     this._compilada = compilada;
     this._disposicion = disposicion.nombre;
+    this._esquiva.clave = "";
+    if (this.hasAttribute("revisar")) {
+      const aviso = describirSuperposiciones(revisarSuperposiciones(compilada), `\xAB${compilada.titulo || this.getAttribute("escena")}\xBB (${disposicion.nombre})`);
+      if (aviso) console.warn(aviso);
+    }
     this._pintor = crearPintor(this._svg, compilada, { arrastres: this._arrastres, estilo });
     this._prepararLupa(compilada, estilo);
     const conSonido = compilada.sonidos.length > 0 || !!compilada.musica;
@@ -3098,6 +3268,7 @@ var MotorEscena = class extends Base {
     this._barra.mostrar(estado);
     if (this._subs.modo === "reel") this._subtituloReel(estado);
     else if (this._subtitulo.textContent !== estado.subtitulo) this._subtitulo.textContent = estado.subtitulo;
+    this._esquivar(estado);
     this._sonar(estado.t);
     this._alPintar(estado);
   }
@@ -3147,6 +3318,49 @@ var MotorEscena = class extends Base {
       const visto = this._subtitulo.querySelector(".ma-reel");
       if (visto) visto.setAttribute("data-grupo", String(grupo % 2));
     }
+  }
+  // Cuando el subtítulo va encima del dibujo (en pantalla completa, o los de
+  // reel), antes de que aparezca se fija si va a tapar algo mientras dure.
+  // Si tapa, sube hasta la primera franja libre; si no hay ninguna, se queda
+  // donde tape menos y se pone un fondo más firme, para que se lea igual.
+  // Se decide una vez por subtítulo: uno que salta mientras se lee, marea.
+  _esquivar(estado) {
+    const c = this._compilada;
+    const encima = (this._llena() || this._subs.modo === "reel") && this._raiz.classList.contains("con-subtitulos");
+    const s = c?.subtitulos[estado.subtituloIndice];
+    if (!encima || !s || this._subs.esquivar === false) {
+      if (this._esquiva.clave !== "nada") {
+        this._esquiva.clave = "nada";
+        this._raiz.style.removeProperty("--ma-sub-esquiva");
+        this._raiz.classList.remove("sub-tapa");
+      }
+      return;
+    }
+    const clave = `${estado.subtituloIndice}|${this._svg.clientWidth}x${this._svg.clientHeight}|${this._subs.modo}`;
+    if (this._esquiva.clave === clave) return;
+    this._esquiva.clave = clave;
+    const m = this._svg.getScreenCTM();
+    const sub = this._subtitulo;
+    const padre = (
+      /** @type {HTMLElement | null} */
+      sub.offsetParent
+    );
+    if (!m || !padre || !sub.offsetHeight) return;
+    const base = padre.getBoundingClientRect();
+    const izq = base.left + sub.offsetLeft;
+    const arr = base.top + sub.offsetTop;
+    const zona = {
+      x0: (izq - m.e) / m.a,
+      x1: (izq + sub.offsetWidth - m.e) / m.a,
+      y0: (arr - m.f) / m.d,
+      y1: (arr + sub.offsetHeight - m.f) / m.d
+    };
+    const lugar = lugarLibre(c, zona, s.desde, s.hasta);
+    sub.style.transition = "none";
+    this._raiz.style.setProperty("--ma-sub-esquiva", `${Math.round(lugar.subir * m.d)}px`);
+    void sub.offsetWidth;
+    sub.style.transition = "";
+    this._raiz.classList.toggle("sub-tapa", !lugar.libre && lugar.tapa.length > 0);
   }
   // Suena lo que quedó entre el cuadro anterior y este, solo si el reloj
   // venía corriendo hacia adelante. Un salto (la barra, un capítulo) no suena.
@@ -4082,7 +4296,9 @@ var texto2 = definirPieza({
       "font-size": p.tamano,
       "font-weight": p.peso,
       "text-anchor": ANCLAS[p.alineacion],
-      "font-family": p.fuente === "mono" ? "var(--ma-fuente-mono)" : null
+      "font-family": p.fuente === "mono" ? "var(--ma-fuente-mono)" : null,
+      // El código lleva sangría: en mono, los espacios del principio no se juntan.
+      style: p.fuente === "mono" ? "white-space: pre" : null
     });
     const lineas = partirLineas(p.texto, anchoEnLetras(p));
     renglones(partes.texto, revelar(lineas, p.escrito), { tamano: p.tamano, interlineado: p.interlineado });
@@ -4417,7 +4633,7 @@ var camara = definirPieza({
     const sombra = el("rect", {}, grupo);
     const ventana = el("g", {}, grupo);
     const contenido = el("g", {}, ventana);
-    return { id, recorte: el("rect", {}, clip), sombra, ventana, contenido, aro: el("rect", { fill: "none" }, grupo) };
+    return { id, recorte: el("rect", {}, clip), sombra, ventana, contenido, aro: el("rect", { fill: "none" }, grupo), filtro: filtroSombra(grupo, { dy: 6, desenfoque: 7, opacidad: 0.28 }) };
   },
   actualizar(partes, p) {
     const recorta = p.ancho > 0 && p.alto > 0;
@@ -4431,7 +4647,7 @@ var camara = definirPieza({
       ...forma2,
       fill: p.fondo ? aCss(p.fondo) : "var(--ma-fondo)",
       visibility: recorta && (p.sombra || p.fondo) ? null : "hidden",
-      filter: p.sombra ? "drop-shadow(0 6px 14px rgb(0 0 0 / 0.28))" : null
+      filter: p.sombra ? partes.filtro : null
     });
     poner(partes.aro, {
       ...forma2,
@@ -4492,7 +4708,7 @@ var espejo = definirPieza({
     if (p.arrastrable && !p.seguir) {
       grupo.setAttribute("data-arrastrable", ctx.id);
     }
-    return { grupo, marco, clip, fondo, contenido, aro, usos: /* @__PURE__ */ new Map() };
+    return { grupo, marco, clip, fondo, contenido, aro, usos: /* @__PURE__ */ new Map(), sombra: filtroSombra(grupo, { dy: 8, desenfoque: 9, opacidad: 0.3 }) };
   },
   actualizar(partes, p, ctx) {
     const forma2 = ventanaDe2(p);
@@ -4500,7 +4716,7 @@ var espejo = definirPieza({
     poner(partes.fondo, {
       ...forma2,
       fill: aCss(p.fondo),
-      filter: p.sombra ? "drop-shadow(0 8px 18px rgb(0 0 0 / 0.3))" : null
+      filter: p.sombra ? partes.sombra : null
     });
     poner(partes.aro, { ...forma2, stroke: aCss(p.colorAro), "stroke-width": p.aro, visibility: p.aro > 0 ? null : "hidden" });
     const corrida = !p.seguir && ctx.arrastres?.[ctx.id] || { x: 0, y: 0 };
@@ -4638,9 +4854,21 @@ var contador2 = definirPieza({
       "font-weight": p.peso,
       "text-anchor": ANCLAS2[p.alineacion] ?? "middle"
     });
-    texto(partes.texto, `${p.prefijo}${formatearNumero(p.valor, p.decimales)}${p.sufijo}`);
+    texto(partes.texto, escrito(p));
+  },
+  // Estimado, como el de un texto: para enganchar flechas y para avisar si
+  // algo lo tapa.
+  tamano(p) {
+    return { ancho: Array.from(escrito(p)).length * p.tamano * ANCHO_LETRA, alto: p.tamano * 1.25 };
+  },
+  centro(p) {
+    const medio = this.tamano(p).ancho / 2;
+    return { x: p.alineacion === "inicio" ? medio : p.alineacion === "fin" ? -medio : 0, y: 0 };
   }
 });
+function escrito(p) {
+  return `${p.prefijo}${formatearNumero(p.valor, p.decimales)}${p.sufijo}`;
+}
 
 // src/piezas/cilindro.js
 var cilindro = definirPieza({
@@ -5819,9 +6047,11 @@ function desdeTraza(opciones) {
     preguntas = {},
     capitulos = {},
     explicar = false,
-    lupa = false,
+    lupa: lupaPedida = false,
     lupaDebajoDe = null,
-    contexto = 3
+    contexto = 3,
+    alto: altoPedido = null,
+    lineaGrande = false
   } = opciones;
   const punteros = opciones.punteros === "auto" ? detectarPunteros(opciones.traza ?? []) : opciones.punteros ?? {};
   const programa = String(opciones.codigo).replace(/\s+$/, "");
@@ -5843,6 +6073,9 @@ function desdeTraza(opciones) {
   const conSalida = traza.some((p) => p.salida);
   const conError = traza.some((p) => p.excepcion);
   const conPila = traza.some((p) => p.pila?.length);
+  const lupa = lineaGrande ? false : lupaPedida;
+  const altoAuto = altoPedido === "auto";
+  const textosError = traza.filter((p) => p.excepcion).map(({ excepcion: { tipo, mensaje } }) => `\u{1F6A8} ${tipo}${mensaje ? `: ${mensaje}` : ""}`);
   const compartidas = /* @__PURE__ */ new Set();
   const pares2 = /* @__PURE__ */ new Map();
   for (const paso of traza) {
@@ -5869,7 +6102,7 @@ function desdeTraza(opciones) {
     const angosta = disposicion.nombre === "angosta";
     const media = disposicion.nombre === "media";
     const W = angosta ? 640 : media ? 1200 : 1600;
-    const H = angosta ? 1140 : 900;
+    let H = typeof altoPedido === "number" ? altoPedido : angosta ? 1140 : 900;
     const arriba = titulo ? angosta ? 100 : 100 : 30;
     const cod = angosta ? { x: 320, ancho: 610, tamano: 22 } : media ? { x: 345, ancho: 650, tamano: 36 } : { x: 440, ancho: 820, tamano: 36 };
     const necesario = Math.max(...programa.split("\n").map((l) => l.length));
@@ -5901,15 +6134,18 @@ function desdeTraza(opciones) {
     const altoConsola = piezaConsola.tipo.tamano(piezaConsola.props).alto;
     piezaConsola.props.y = angosta ? H - 20 - altoConsola / 2 : arriba + altoCodigo + 40 + altoConsola / 2;
     if (conSalida) piezas.consola = piezaConsola;
+    const tamanoError = angosta ? 24 : 34;
+    const altoError = conError ? Math.max(angosta ? 80 : 96, 40 + tamanoError * 1.2 * Math.max(...textosError.map((t2) => partirLineas(t2, Math.floor((con.ancho - 32) / (tamanoError * ANCHO_LETRA))).length))) : 0;
     if (conError) {
-      const yError = angosta ? piezaConsola.props.y - altoConsola / 2 - 70 : piezaConsola.props.y + altoConsola / 2 + 70;
+      const encima = conSalida ? piezaConsola.props.y + altoConsola / 2 : arriba + altoCodigo;
+      const yError = angosta && !altoAuto ? piezaConsola.props.y - altoConsola / 2 - 30 - altoError / 2 : encima + 30 + altoError / 2;
       piezas.error = caja({
         x: con.x,
         y: yError,
         ancho: con.ancho,
-        alto: angosta ? 80 : 96,
+        alto: altoError,
         texto: "",
-        tamano: angosta ? 24 : 34,
+        tamano: tamanoError,
         relleno: "superficie",
         borde: "error",
         color: "error",
@@ -5969,6 +6205,11 @@ function desdeTraza(opciones) {
     if (conPila) {
       piezas.pila = pila({ x: col.x, y: y - (angosta ? 10 : 20), ancho: Math.min(col.ancho, angosta ? 560 : 600), tamano: angosta ? 22 : media ? 25 : 32 });
     }
+    if (angosta && altoAuto) {
+      const debajo = Math.max(arriba + altoCodigo, y - 40) + 40;
+      piezaConsola.props.y = debajo + altoConsola / 2;
+      if (piezas.error) piezas.error.props.y = (conSalida ? piezaConsola.props.y + altoConsola / 2 : debajo) + 30 + altoError / 2;
+    }
     const costado = (id) => ({ pieza: id, lado: "izquierda", dx: -12 });
     for (const [clave, par] of pares2) {
       piezas["alias_" + clave.replace("|", "_")] = flecha({
@@ -5986,7 +6227,7 @@ function desdeTraza(opciones) {
       });
     }
     Object.assign(piezas, opciones.piezas?.(disposicion, { W, H, col, y }) ?? {});
-    if (!angosta && !conPila) {
+    if (!angosta && !conPila && !altoAuto) {
       let minimo = Infinity;
       let maximo = -Infinity;
       for (const [id, pieza] of Object.entries(piezas)) {
@@ -5997,6 +6238,30 @@ function desdeTraza(opciones) {
       }
       const corrimiento = Math.max(0, (arriba + H) / 2 - (minimo + maximo) / 2);
       for (const [id, pieza] of Object.entries(piezas)) if (id !== "titulo") pieza.props.y += corrimiento;
+    }
+    if (piezas.error && !altoAuto) {
+      const e = piezas.error.props;
+      e.y = Math.min(e.y, H - 20 - altoError / 2);
+    }
+    const fondoDe = (id, pieza) => {
+      if (id === "pila") {
+        let max = 0;
+        for (const paso of traza) {
+          const marcos = (paso.pila ?? []).map((m) => ({ funcion: m.funcion, filas: Object.entries(m.variables), retorno: paso.retorno ? 1 : void 0 }));
+          max = Math.max(max, pieza.tipo.tamano({ ...pieza.props, marcos }).alto);
+        }
+        return pieza.props.y + max;
+      }
+      const alto = pieza.tipo.tamano?.(pieza.props).alto ?? pieza.props.alto ?? pieza.props.tamano ?? 0;
+      return pieza.props.y + alto / 2 + (id.startsWith("var_") ? 40 : 0);
+    };
+    if (altoAuto) {
+      let fondo = arriba + 100;
+      for (const [id, pieza] of Object.entries(piezas)) {
+        if (id === "titulo" || id.startsWith("alias_") || id === "consola" && !conSalida) continue;
+        fondo = Math.max(fondo, fondoDe(id, pieza));
+      }
+      H = Math.ceil(fondo + 30);
     }
     const comoSeVe = typeof lupa === "object" && lupa ? lupa : {};
     const pedida = lupa === true ? 1.8 : typeof lupa === "object" && lupa ? lupa.zoom ?? 1.8 : Number(lupa) || 0;
@@ -6011,6 +6276,35 @@ function desdeTraza(opciones) {
     const zoom = conLupa ? Math.min(pedida, geo.ancho / usado, tamanoPorAncho / geo.tamano * 1.15) : 1;
     const arribaCodigo = geo.y - altoCodigo / 2;
     const yLinea = (k) => arribaCodigo + (archivo ? geo.tamano * 1.6 : 0) + geo.tamano * 0.5 + (k - 0.5) * altoLinea;
+    let franja = null;
+    if (lineaGrande) {
+      const pedidoZoom = typeof lineaGrande === "object" ? lineaGrande.zoom : void 0;
+      const anchoFranja = W - (angosta ? 30 : 80);
+      const zoomFranja = Math.min(pedidoZoom ?? Infinity, anchoFranja / usado, 4);
+      const altoFranja = altoLinea * zoomFranja + 16;
+      const yFranja = H + 10 + altoFranja / 2;
+      H = Math.ceil(yFranja + altoFranja / 2 + 24);
+      franja = { zoom: zoomFranja };
+      piezas.lineaGrande = espejo({
+        x: W / 2,
+        y: yFranja,
+        ancho: anchoFranja,
+        alto: altoFranja,
+        zoom: zoomFranja,
+        fuente: "codigo",
+        mirarX: izqCodigo + anchoFranja / (2 * zoomFranja),
+        mirarY: yLinea(traza[0].linea || 1),
+        forma: "rect",
+        radio: 12,
+        aro: 2,
+        colorAro: "borde",
+        fondo: "superficie",
+        marco: true,
+        colorMarco: "acento",
+        arrastrable: false,
+        opacidad: 0
+      });
+    }
     const medioVisible = altoCodigo / (2 * zoom);
     const encuadrar = (y2) => Math.min(Math.max(y2, arribaCodigo + medioVisible), arribaCodigo + altoCodigo - medioVisible);
     let mirarY = encuadrar(arribaCodigo);
@@ -6056,6 +6350,7 @@ function desdeTraza(opciones) {
       return nuevo;
     };
     const linea = [{ pieza: "codigo", a: { marca: 1 }, dur: 0.4, en: 0.2 }];
+    if (franja) linea.push({ pieza: "lineaGrande", a: { opacidad: 1 }, dur: 0.4, en: 0.2 });
     const anterior = {};
     const indiceSenalado = {};
     let t = 0.7;
@@ -6148,8 +6443,10 @@ function desdeTraza(opciones) {
         linea.push({ pieza: "codigo", a: { linea: paso.linea, marca: 1 }, dur: i === 0 ? 0 : 0.35, en: t + 0.45 });
         const y2 = seguir(paso.linea);
         if (y2 != null) linea.push({ pieza: "lupa", a: { mirarY: y2 }, dur: i === 0 ? 0 : 0.6, en: t + 0.4 });
+        if (franja) linea.push({ pieza: "lineaGrande", a: { mirarY: yLinea(paso.linea) }, dur: i === 0 ? 0 : 0.35, en: t + 0.45 });
       } else if (!paso.excepcion) {
         linea.push({ pieza: "codigo", a: { marca: 0 }, dur: 0.4, en: t + 0.45 });
+        if (franja) linea.push({ pieza: "lineaGrande", a: { opacidad: 0.4 }, dur: 0.4, en: t + 0.45 });
       }
       let largo2 = Math.max(ritmo, 0.9);
       const propia = explicaciones[i] ?? (explicar ? explicarPaso(traza, i, lineasDelPrograma) : void 0);
@@ -6619,7 +6916,7 @@ function crearNarrador(opciones = {}) {
 }
 
 // src/index.js
-var version = "0.11.0";
+var version = "0.12.0";
 definirComponente();
 definirLeccion();
 export {
@@ -6640,6 +6937,7 @@ export {
   azar,
   borrar,
   caja,
+  cajasEn,
   camara,
   caminoFlecha,
   caracteresPorLinea,
@@ -6659,6 +6957,7 @@ export {
   definirLeccion,
   definirPieza,
   desaparecer,
+  describirSuperposiciones,
   desdeConsulta,
   desdeTests,
   desdeTraza,
@@ -6682,6 +6981,7 @@ export {
   limitar,
   lineaDeCodigo,
   lista,
+  lugarLibre,
   mezclarColores,
   mezclarFormas,
   mezclarPista,
@@ -6692,6 +6992,7 @@ export {
   poner,
   posicionAbsoluta,
   probarConPyodide,
+  queTapa,
   rebotar,
   registrar,
   registrarEstilo,
@@ -6699,6 +7000,7 @@ export {
   resolverEstilo,
   resorte,
   revelar,
+  revisarSuperposiciones,
   sintetizar,
   sonar,
   tabla,
@@ -6708,5 +7010,6 @@ export {
   trazarConPyodide,
   usarEstilo,
   variable,
-  version
+  version,
+  zonaDeSubtitulo
 };

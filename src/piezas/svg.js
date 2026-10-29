@@ -48,6 +48,20 @@ export function redondear(n) {
     return String(Math.round(n * 100) / 100);
 }
 
+/**
+ * Una sombra suave, como filtro de SVG. No se usa "drop-shadow(...)" de CSS
+ * en el atributo filter: Safari no lo entiende ahí y deja la forma sin dibujar.
+ * @param {Element} padre donde va el <defs> con el filtro
+ * @param {{ dy?: number, desenfoque?: number, opacidad?: number }} [opciones]
+ * @returns {string} lo que va en filter="..."
+ */
+export function filtroSombra(padre, { dy = 8, desenfoque = 9, opacidad = 0.3 } = {}) {
+    const id = idUnico('ma-sombra');
+    const f = el('filter', { id, x: '-20%', y: '-20%', width: '140%', height: '160%' }, el('defs', {}, padre));
+    el('feDropShadow', { dx: 0, dy, stdDeviation: desenfoque, 'flood-color': '#000', 'flood-opacity': opacidad }, f);
+    return `url(#${id})`;
+}
+
 let contador = 0;
 /** Un id que no se repite, para clipPath y similares. */
 export function idUnico(prefijo) {

@@ -1,5 +1,5 @@
 import { definirPieza } from './definir.js';
-import { el, poner, idUnico } from './svg.js';
+import { el, poner, idUnico, filtroSombra } from './svg.js';
 import { aCss } from '../nucleo/colores.js';
 import { posicionAbsoluta } from './geometria.js';
 
@@ -66,7 +66,7 @@ export const espejo = definirPieza({
         if (p.arrastrable && !p.seguir) {
             grupo.setAttribute('data-arrastrable', ctx.id);
         }
-        return { grupo, marco, clip, fondo, contenido, aro, usos: new Map() };
+        return { grupo, marco, clip, fondo, contenido, aro, usos: new Map(), sombra: filtroSombra(grupo, { dy: 8, desenfoque: 9, opacidad: 0.3 }) };
     },
 
     actualizar(partes, p, ctx) {
@@ -75,7 +75,7 @@ export const espejo = definirPieza({
         poner(partes.fondo, {
             ...forma,
             fill: aCss(p.fondo),
-            filter: p.sombra ? 'drop-shadow(0 8px 18px rgb(0 0 0 / 0.3))' : null,
+            filter: p.sombra ? partes.sombra : null,
         });
         poner(partes.aro, { ...forma, stroke: aCss(p.colorAro), 'stroke-width': p.aro, visibility: p.aro > 0 ? null : 'hidden' });
         // El marco está en la escena, no en la ventana: se descuenta dónde

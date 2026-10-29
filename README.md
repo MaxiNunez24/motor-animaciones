@@ -37,12 +37,12 @@ Sin dependencias. 42 KB con gzip con todo (22 KB sin la capa pedagógica, en `mo
 
 `motor.min.js` es un script clásico a propósito: anda abriendo el `.html` con doble clic
 (`file://`), donde los módulos no cargan. Con internet también se puede usar desde jsDelivr:
-`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.11.0/dist/motor.min.js`.
+`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.12.0/dist/motor.min.js`.
 
 ## Desde otro proyecto (Astro, Vite…)
 
 ```bash
-pnpm add github:MaxiNunez24/motor-animaciones#v0.11.0
+pnpm add github:MaxiNunez24/motor-animaciones#v0.12.0
 ```
 
 ```js
@@ -117,7 +117,18 @@ y se esconden mientras la animación corre; vuelven al mover el mouse, al pausar
 teclado, y se van apenas el mouse sale de la escena. Escondidos, queda un hilo finito abajo con lo
 que pasó y puntitos en los capítulos y las preguntas. Al entrar en pantalla completa se esconden
 enseguida, aunque esté en pausa. En una pantalla sin controles (`pantalla sin-controles`, la Expo)
-el mouse se esconde y no vuelve con un roce: vuelve con una sacudida, cuando alguien lo busca. En pantalla completa el subtítulo va encima del dibujo, como en el cine, así que el
+el mouse se esconde y no vuelve con un roce: vuelve con una sacudida, cuando alguien lo busca.
+
+**Subtítulos que esquivan**: cuando el subtítulo va encima del dibujo (pantalla completa, o los de
+reel), antes de que aparezca se fija si va a tapar algo mientras dure. Si tapa, sube hasta la
+primera franja libre; si no hay ninguna, se queda abajo con un fondo más firme. Se decide una vez
+por subtítulo, de un salto (uno que se mueve mientras se lee, marea). Se apaga con
+`subtitulos: { esquivar: false }` en el estilo.
+
+**Revisar qué se tapa**, antes de mirar: el atributo `revisar` avisa en la consola qué subtítulos
+caen sobre algo y qué textos se pisan, y `npm run revisar` (con `npm run servir` andando) revisa
+todos los ejemplos, o uno con `--url`. Los tamaños son estimados (los mismos de las flechas): es un
+aviso para mirar, no una medición al pixel. Desde código: `Motor.revisarSuperposiciones(compilada)`. En pantalla completa el subtítulo va encima del dibujo, como en el cine, así que el
 dibujo ocupa toda la pantalla. En una `<motor-leccion>`, mientras hay una pregunta abierta los
 controles se esconden (vuelven si se pasa el mouse por abajo) y el subtítulo sube encima de ella.
 
@@ -165,6 +176,14 @@ Está encima del motor, y el motor no sabe que existe (vive en `src/pedagogico/`
     más larga. Con `lupaDebajoDe: 900` se usa solo si el lugar mide menos de 900px. Por defecto
     tiene las esquinas redondeadas y un aro fino; con `lupa: { zoom, forma: 'circulo', radio, aro }`
     se elige cómo se ve.
+  - **Línea grande** (`lineaGrande: true`): una franja abajo de todo con la línea que corre,
+    agrandada hasta ocupar el ancho (un `espejo` del código, con un recuadro punteado en el código).
+    Se mueve con la marca y se atenúa cuando el programa termina. El código queda entero arriba,
+    sin la lupa de cámara. Sirve para el fondo del aula, la portada y los videos.
+  - **Alto** (`alto: 'auto'`): la escena mide hasta donde llega lo que muestra (la pila en su
+    momento más alto, el cartel del error, la consola): un programa corto no deja medio cuadro
+    vacío. Un número lo fija; sin él, 900 (1140 en angosto). El cartel de un error crece con el
+    mensaje y nunca queda afuera del cuadro.
 - **`lineaDeCodigo(codigo, k)`**: dónde está la línea k de un `codigo`, para apuntarle con una
   flecha o mirarla con un espejo.
 
@@ -284,6 +303,7 @@ flecha inclinada), una **dirección IP** en sus 32 bits y la **ventana** de un p
 | | |
 |---|---|
 | `desdeIntercambio({ extremos, mensajes })` | cualquier intercambio contado mensaje por mensaje: el saludo de TCP, HTTP, DNS, SMTP |
+| `desdePedidoHttp({ pedidos })` | un pedido HTTP y su respuesta con lo que viaja adentro (método, URL, encabezados, cuerpo; código y JSON), la ruta de Flask que lo atiende y lo que muestra el navegador. Para Flask, fetch y APIs |
 | `desdeVentana({ protocolo, paquetes, ventana, perdidos })` | stop-and-wait, Go-Back-N o Selective Repeat, con pérdidas de paquetes o de ACK |
 | `desdeCongestion({ rondas, umbral, eventos })` | la ventana de congestión de TCP (Reno o Tahoe), con timeouts y ACK duplicados |
 | `desdeSubred({ direccion: '192.168.10.77/26' })` | la máscara, la red (AND bit a bit), el broadcast y los hosts |
@@ -422,6 +442,11 @@ las preguntas no frenan, se leen y quedan como cartel, y el paso siguiente dice 
 - Usa el ffmpeg de `ffmpeg-static` (viene con `npm install`), o el de la variable `FFMPEG`.
 - `--voz otra-voz.onnx` narra con otra voz de Piper. Para entrenar la tuya (grabar las frases, clonar o
   entrenar Piper), ver [herramientas/voz/LEEME.md](herramientas/voz/LEEME.md).
+
+## Versiones
+
+Lo que cambió en cada una está en [CHANGELOG.md](CHANGELOG.md). Cada versión publicada lleva su tag
+(`v0.12.0`): es lo que conviene fijar desde otro proyecto.
 
 ## Trabajar en el motor
 

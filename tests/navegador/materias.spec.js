@@ -14,7 +14,7 @@ async function abrir(page, url) {
 }
 
 for (const [pagina, cuantas] of [
-    ['/ejemplos/matematica/', 9], ['/ejemplos/matematica-3d/', 4], ['/ejemplos/redes/', 9],
+    ['/ejemplos/matematica/', 9], ['/ejemplos/matematica-3d/', 4], ['/ejemplos/redes/', 10],
     ['/ejemplos/estadistica/', 4], ['/ejemplos/regresion/', 6], ['/ejemplos/finanzas/', 6],
 ]) {
     test(`${pagina}: las lecciones se dibujan y se recorren sin errores`, async ({ page }) => {
@@ -74,7 +74,7 @@ test('la superficie 3D dibuja algo en el lienzo (no queda vacío)', async ({ pag
 
 test('Go-Back-N: el paquete perdido lleva su cruz, y al final la ventana confirmó todo', async ({ page }) => {
     await abrir(page, '/ejemplos/redes/');
-    const leccion = page.locator('motor-leccion').nth(5);
+    const leccion = page.locator('motor-leccion[escena="redes-gbn"]');
     await leccion.evaluate((m) => m.irA(m.duracion));
     const { cruces, base } = await leccion.evaluate((m) => ({
         cruces: [...m.shadowRoot.querySelectorAll('[data-pieza="diagrama"] text')].filter((t) => t.textContent === '✗' && t.getAttribute('visibility') !== 'hidden').length,

@@ -6,6 +6,7 @@ import { ESTILOS } from './estilos.js';
 import { palabrasDe } from '../nucleo/palabras.js';
 import { resolverEstilo, cargarEstilo, esArchivo, cssDelEstilo, subtitulosDelEstilo, cargarFuentes, estiloPorDefecto } from '../estilos/index.js';
 import { crearReproductor } from '../sonido/reproductor.js';
+import { lugarLibre, revisarSuperposiciones, describirSuperposiciones } from '../piezas/superposiciones.js';
 
 // <motor-escena>: la forma de poner una escena en cualquier página.
 //
@@ -22,6 +23,8 @@ import { crearReproductor } from '../sonido/reproductor.js';
 //                          (sin él, el de Motor.usarEstilo(), o el sobrio)
 //   sin-sonido             arranca en silencio (si la escena tiene sonidos)
 //   sin-lupa               sin el botón de la lupa
+//   revisar                avisa en la consola qué tapan los subtítulos y qué
+//                          textos se pisan (para quien arma la escena)
 //   movimiento="reducido|completo"   sin él, respeta prefers-reduced-motion
 //   sin-controles          para una pantalla que solo muestra (la Expo)
 //   sin-subtitulos         arrancan apagados
@@ -120,6 +123,8 @@ export class MotorEscena extends Base {
         this._sonidoPrendido = !this.hasAttribute('sin-sonido');
         // Dónde estaba el reloj en el cuadro anterior: suena lo que quedó en el medio.
         this._tAnterior = 0;
+        /** Para qué subtítulo (y qué tamaño de pantalla) se buscó lugar la última vez. */
+        this._esquiva = { clave: '' };
 
         this._definicion = null;
         this._compilada = null;
@@ -522,6 +527,11 @@ export class MotorEscena extends Base {
         }
         this._compilada = compilada;
         this._disposicion = disposicion.nombre;
+        this._esquiva.clave = '';
+        if (this.hasAttribute('revisar')) {
+            const aviso = describirSuperposiciones(revisarSuperposiciones(compilada), `«${compilada.titulo || this.getAttribute('escena')}» (${disposicion.nombre})`);
+            if (aviso) console.warn(aviso);
+        }
         this._pintor = crearPintor(this._svg, compilada, { arrastres: this._arrastres, estilo });
         this._prepararLupa(compilada, estilo);
         const conSonido = compilada.sonidos.length > 0 || !!compilada.musica;
@@ -558,6 +568,7 @@ export class MotorEscena extends Base {
         this._barra.mostrar(estado);
         if (this._subs.modo === 'reel') this._subtituloReel(estado);
         else if (this._subtitulo.textContent !== estado.subtitulo) this._subtitulo.textContent = estado.subtitulo;
+        this._esquivar(estado);
         this._sonar(estado.t);
         this._alPintar(estado);
     }
@@ -609,6 +620,49 @@ export class MotorEscena extends Base {
             const visto = this._subtitulo.querySelector('.ma-reel');
             if (visto) visto.setAttribute('data-grupo', String(grupo % 2));
         }
+    }
+
+    // Cuando el subtítulo va encima del dibujo (en pantalla completa, o los de
+    // reel), antes de que aparezca se fija si va a tapar algo mientras dure.
+    // Si tapa, sube hasta la primera franja libre; si no hay ninguna, se queda
+    // donde tape menos y se pone un fondo más firme, para que se lea igual.
+    // Se decide una vez por subtítulo: uno que salta mientras se lee, marea.
+    _esquivar(estado) {
+        const c = this._compilada;
+        const encima = (this._llena() || this._subs.modo === 'reel') && this._raiz.classList.contains('con-subtitulos');
+        const s = c?.subtitulos[estado.subtituloIndice];
+        if (!encima || !s || this._subs.esquivar === false) {
+            if (this._esquiva.clave !== 'nada') {
+                this._esquiva.clave = 'nada';
+                this._raiz.style.removeProperty('--ma-sub-esquiva');
+                this._raiz.classList.remove('sub-tapa');
+            }
+            return;
+        }
+        const clave = `${estado.subtituloIndice}|${this._svg.clientWidth}x${this._svg.clientHeight}|${this._subs.modo}`;
+        if (this._esquiva.clave === clave) return;
+        this._esquiva.clave = clave;
+        const m = this._svg.getScreenCTM();
+        const sub = this._subtitulo;
+        const padre = /** @type {HTMLElement | null} */ (sub.offsetParent);
+        if (!m || !padre || !sub.offsetHeight) return;
+        // Su lugar de siempre, sin las corridas de CSS (offset* no las cuenta).
+        const base = padre.getBoundingClientRect();
+        const izq = base.left + sub.offsetLeft;
+        const arr = base.top + sub.offsetTop;
+        const zona = {
+            x0: (izq - m.e) / m.a, x1: (izq + sub.offsetWidth - m.e) / m.a,
+            y0: (arr - m.f) / m.d, y1: (arr + sub.offsetHeight - m.f) / m.d,
+        };
+        const lugar = lugarLibre(c, zona, s.desde, s.hasta);
+        // De un salto, sin la transición de CSS: deslizándose pasaría por
+        // encima de lo que justo quiere no tapar (y un video no puede depender
+        // de una animación que corre en tiempo real).
+        sub.style.transition = 'none';
+        this._raiz.style.setProperty('--ma-sub-esquiva', `${Math.round(lugar.subir * m.d)}px`);
+        void sub.offsetWidth;
+        sub.style.transition = '';
+        this._raiz.classList.toggle('sub-tapa', !lugar.libre && lugar.tapa.length > 0);
     }
 
     // Suena lo que quedó entre el cuadro anterior y este, solo si el reloj

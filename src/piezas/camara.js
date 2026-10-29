@@ -1,5 +1,5 @@
 import { definirPieza } from './definir.js';
-import { el, poner, idUnico } from './svg.js';
+import { el, poner, idUnico, filtroSombra } from './svg.js';
 import { aCss } from '../nucleo/colores.js';
 
 // Una cámara: las piezas que van `dentro: 'camara'` se ven a través de ella,
@@ -47,7 +47,7 @@ export const camara = definirPieza({
         const sombra = el('rect', {}, grupo);
         const ventana = el('g', {}, grupo);
         const contenido = el('g', {}, ventana);
-        return { id, recorte: el('rect', {}, clip), sombra, ventana, contenido, aro: el('rect', { fill: 'none' }, grupo) };
+        return { id, recorte: el('rect', {}, clip), sombra, ventana, contenido, aro: el('rect', { fill: 'none' }, grupo), filtro: filtroSombra(grupo, { dy: 6, desenfoque: 7, opacidad: 0.28 }) };
     },
 
     actualizar(partes, p) {
@@ -62,7 +62,7 @@ export const camara = definirPieza({
             ...forma,
             fill: p.fondo ? aCss(p.fondo) : 'var(--ma-fondo)',
             visibility: recorta && (p.sombra || p.fondo) ? null : 'hidden',
-            filter: p.sombra ? 'drop-shadow(0 6px 14px rgb(0 0 0 / 0.28))' : null,
+            filter: p.sombra ? partes.filtro : null,
         });
         poner(partes.aro, {
             ...forma,

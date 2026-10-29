@@ -1682,7 +1682,9 @@ var texto2 = definirPieza({
       "font-size": p.tamano,
       "font-weight": p.peso,
       "text-anchor": ANCLAS[p.alineacion],
-      "font-family": p.fuente === "mono" ? "var(--ma-fuente-mono)" : null
+      "font-family": p.fuente === "mono" ? "var(--ma-fuente-mono)" : null,
+      // El código lleva sangría: en mono, los espacios del principio no se juntan.
+      style: p.fuente === "mono" ? "white-space: pre" : null
     });
     const lineas = partirLineas(p.texto, anchoEnLetras(p));
     renglones(partes.texto, revelar(lineas, p.escrito), { tamano: p.tamano, interlineado: p.interlineado });

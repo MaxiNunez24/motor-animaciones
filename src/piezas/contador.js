@@ -1,6 +1,7 @@
 import { definirPieza } from './definir.js';
 import { el, poner, texto as ponerTexto } from './svg.js';
 import { aCss } from '../nucleo/colores.js';
+import { ANCHO_LETRA } from './geometria.js';
 
 const ANCLAS = { inicio: 'start', centro: 'middle', fin: 'end' };
 
@@ -48,6 +49,20 @@ export const contador = definirPieza({
             'font-weight': p.peso,
             'text-anchor': ANCLAS[p.alineacion] ?? 'middle',
         });
-        ponerTexto(partes.texto, `${p.prefijo}${formatearNumero(p.valor, p.decimales)}${p.sufijo}`);
+        ponerTexto(partes.texto, escrito(p));
+    },
+
+    // Estimado, como el de un texto: para enganchar flechas y para avisar si
+    // algo lo tapa.
+    tamano(p) {
+        return { ancho: Array.from(escrito(p)).length * p.tamano * ANCHO_LETRA, alto: p.tamano * 1.25 };
+    },
+    centro(p) {
+        const medio = this.tamano(p).ancho / 2;
+        return { x: p.alineacion === 'inicio' ? medio : p.alineacion === 'fin' ? -medio : 0, y: 0 };
     },
 });
+
+function escrito(p) {
+    return `${p.prefijo}${formatearNumero(p.valor, p.decimales)}${p.sufijo}`;
+}

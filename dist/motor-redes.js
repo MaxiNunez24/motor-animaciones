@@ -69,8 +69,8 @@ function texto(nodo, valor) {
   nodo.__texto = valor;
   nodo.textContent = valor;
 }
-function redondear(n) {
-  return String(Math.round(n * 100) / 100);
+function redondear(n2) {
+  return String(Math.round(n2 * 100) / 100);
 }
 var contador = 0;
 function idUnico(prefijo) {
@@ -93,6 +93,102 @@ function renglones(nodoTexto, lineas, { x = 0, y = 0, tamano, interlineado = 1.2
 }
 
 // src/piezas/geometria.js
+function posicionAbsoluta(id, estado, tipos) {
+  const p = estado.piezas[id];
+  const tam = tipos[id].tamano?.(p) ?? { ancho: 0, alto: 0 };
+  const c = tipos[id].centro?.(p) ?? { x: 0, y: 0 };
+  let x = p.x + c.x * p.escala;
+  let y = p.y + c.y * p.escala;
+  let escala = p.escala;
+  let padre = p.dentro;
+  while (padre != null) {
+    const pp = estado.piezas[padre];
+    const o = tipos[padre].origenContenedor?.(pp) ?? { x: 0, y: 0, escala: 1 };
+    x = pp.x + pp.escala * (o.x + o.escala * x);
+    y = pp.y + pp.escala * (o.y + o.escala * y);
+    escala *= pp.escala * o.escala;
+    padre = pp.dentro;
+  }
+  return { x, y, ancho: tam.ancho * escala, alto: tam.alto * escala };
+}
+function aCoordenadasDe(punto2, contenedor, estado, tipos) {
+  const donde = (x, y) => {
+    const falso = { piezas: { ...estado.piezas, __punto: { x, y, escala: 1, dentro: contenedor } } };
+    return posicionAbsoluta("__punto", falso, { ...tipos, __punto: {} });
+  };
+  const origen = donde(0, 0);
+  const escala = donde(1, 0).x - origen.x || 1;
+  return { x: (punto2.x - origen.x) / escala, y: (punto2.y - origen.y) / escala, escala };
+}
+function caminoFlecha(a, b, curvatura = 0, separacion = 0) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const largo2 = Math.hypot(dx, dy) || 1;
+  const c = {
+    x: (a.x + b.x) / 2 - dy / largo2 * curvatura * largo2,
+    y: (a.y + b.y) / 2 + dx / largo2 * curvatura * largo2
+  };
+  if (curvatura === 0) {
+    const p0 = bordeHacia(a, b, separacion);
+    const p1 = bordeHacia(b, a, separacion);
+    return { p0, c: { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 }, p1 };
+  }
+  return { p0: bordeHacia(a, c, separacion), c, p1: bordeHacia(b, c, separacion) };
+}
+function bordeHacia(r3, hacia, separacion) {
+  const dx = hacia.x - r3.x;
+  const dy = hacia.y - r3.y;
+  const d = Math.hypot(dx, dy);
+  if (d === 0) return { x: r3.x, y: r3.y };
+  const ux = dx / d;
+  const uy = dy / d;
+  const mx = (r3.ancho ?? 0) / 2;
+  const my = (r3.alto ?? 0) / 2;
+  const hastaBorde = Math.min(
+    ux === 0 ? Infinity : mx / Math.abs(ux),
+    uy === 0 ? Infinity : my / Math.abs(uy)
+  );
+  const t = (Number.isFinite(hastaBorde) ? hastaBorde : 0) + separacion;
+  return { x: r3.x + ux * t, y: r3.y + uy * t };
+}
+function puntoCurva({ p0, c, p1 }, u) {
+  const v = 1 - u;
+  return {
+    x: v * v * p0.x + 2 * v * u * c.x + u * u * p1.x,
+    y: v * v * p0.y + 2 * v * u * c.y + u * u * p1.y
+  };
+}
+function anguloCurva({ p0, c, p1 }, u) {
+  const dx = 2 * (1 - u) * (c.x - p0.x) + 2 * u * (p1.x - c.x);
+  const dy = 2 * (1 - u) * (c.y - p0.y) + 2 * u * (p1.y - c.y);
+  return Math.atan2(dy, dx);
+}
+var TRAMOS = 32;
+function medirCurva(curva2) {
+  const largos = [0];
+  let anterior = curva2.p0;
+  for (let i = 1; i <= TRAMOS; i++) {
+    const p = puntoCurva(curva2, i / TRAMOS);
+    largos.push(largos[i - 1] + Math.hypot(p.x - anterior.x, p.y - anterior.y));
+    anterior = p;
+  }
+  return largos;
+}
+function uParaFraccion(largos, fraccion) {
+  const total = largos[TRAMOS];
+  if (fraccion <= 0 || total === 0) return 0;
+  if (fraccion >= 1) return 1;
+  const objetivo = fraccion * total;
+  let i = 1;
+  while (largos[i] < objetivo) i++;
+  const tramo = largos[i] - largos[i - 1];
+  const dentro = tramo === 0 ? 0 : (objetivo - largos[i - 1]) / tramo;
+  return (i - 1 + dentro) / TRAMOS;
+}
+function cortarCurva({ p0, c, p1 }, u) {
+  const c2 = { x: p0.x + (c.x - p0.x) * u, y: p0.y + (c.y - p0.y) * u };
+  return { p0, c: c2, p1: puntoCurva({ p0, c, p1 }, u) };
+}
 function partirLineas(texto3, maxCaracteres = 0) {
   const parrafos = String(texto3 ?? "").split("\n");
   if (!(maxCaracteres > 0)) return parrafos;
@@ -114,7 +210,7 @@ function partirLineas(texto3, maxCaracteres = 0) {
 }
 function revelar(lineas, escrito) {
   if (escrito >= 1) return lineas;
-  const total = lineas.reduce((n, l) => n + largo(l), 0);
+  const total = lineas.reduce((n2, l) => n2 + largo(l), 0);
   let quedan = Math.floor(total * Math.max(escrito, 0) + 1e-9);
   return lineas.map((l) => {
     const letras = Array.from(l);
@@ -216,33 +312,33 @@ var secuencia = definirPieza({
   actualizar(partes, p) {
     const g = geometriaSecuencia(p);
     const extremos = p.extremos.map((e) => typeof e === "object" ? e : { texto: e });
-    reusar(partes.lineas, extremos.length, (n) => {
-      el("line", { "stroke-width": 3, "stroke-dasharray": "2 8", "stroke-linecap": "round" }, n);
-      el("rect", { rx: 12 }, n);
-      el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-weight": 700 }, n);
+    reusar(partes.lineas, extremos.length, (n2) => {
+      el("line", { "stroke-width": 3, "stroke-dasharray": "2 8", "stroke-linecap": "round" }, n2);
+      el("rect", { rx: 12 }, n2);
+      el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-weight": 700 }, n2);
     });
     const espacio = extremos.length > 1 ? (g.x(1) - g.x(0)) * 0.94 : p.ancho;
     extremos.forEach((e, i) => {
-      const [linea, caja, nombre] = hijos(partes.lineas.childNodes[i]);
+      const [linea, caja2, nombre] = hijos(partes.lineas.childNodes[i]);
       const x = g.x(i);
       const rotulo = `${e.icono ? `${e.icono} ` : ""}${e.texto}`;
       const tamNombre = Math.min(p.tamano * 1.1, (espacio - 20) / (Array.from(rotulo).length * ANCHO_LETRA));
       const anchoCaja = Math.min(espacio, Math.max(140, Array.from(rotulo).length * tamNombre * ANCHO_LETRA + 36));
       poner(linea, { x1: x, x2: x, y1: g.arriba + g.cabecera / 2, y2: g.abajo, stroke: aCss(p.colorLinea) });
-      poner(caja, { x: x - anchoCaja / 2, y: g.arriba, width: anchoCaja, height: g.cabecera, fill: aCss(p.relleno), stroke: aCss(p.colorLinea), "stroke-width": 2.5 });
+      poner(caja2, { x: x - anchoCaja / 2, y: g.arriba, width: anchoCaja, height: g.cabecera, fill: aCss(p.relleno), stroke: aCss(p.colorLinea), "stroke-width": 2.5 });
       poner(nombre, { x, y: g.arriba + g.cabecera / 2, "font-size": r(tamNombre), fill: aCss(p.color) });
       texto(nombre, rotulo);
     });
     const marcas2 = p.regla ? Math.floor(g.duracion) + 1 : 0;
-    reusar(partes.regla, marcas2, (n) => el("text", { "text-anchor": "end", "dominant-baseline": "central" }, n));
+    reusar(partes.regla, marcas2, (n2) => el("text", { "text-anchor": "end", "dominant-baseline": "central" }, n2));
     for (let k = 0; k < marcas2; k++) {
       const [t] = hijos(partes.regla.childNodes[k]);
       poner(t, { x: g.izq - 14, y: g.y(k), "font-size": p.tamano * 0.75, fill: aCss("suave"), opacity: p.tiempo >= k ? 1 : 0.35 });
       texto(t, `t${k}`);
     }
-    reusar(partes.intervalos, p.intervalos.length, (n) => {
-      el("path", { fill: "none", "stroke-width": 3 }, n);
-      el("text", { "dominant-baseline": "central", "font-weight": 600, ...HALO }, n);
+    reusar(partes.intervalos, p.intervalos.length, (n2) => {
+      el("path", { fill: "none", "stroke-width": 3 }, n2);
+      el("text", { "dominant-baseline": "central", "font-weight": 600, ...HALO }, n2);
     });
     p.intervalos.forEach((iv, i) => {
       const [barra, rot] = hijos(partes.intervalos.childNodes[i]);
@@ -267,11 +363,11 @@ var secuencia = definirPieza({
       });
       texto(rot, iv.texto ?? "");
     });
-    reusar(partes.mensajes, p.mensajes.length, (n) => {
-      el("path", {}, n);
-      el("path", { stroke: "none" }, n);
-      el("text", { "text-anchor": "middle", "font-weight": 700, ...HALO, stroke: "var(--ma-fondo)" }, n);
-      el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-weight": 800 }, n);
+    reusar(partes.mensajes, p.mensajes.length, (n2) => {
+      el("path", {}, n2);
+      el("path", { stroke: "none" }, n2);
+      el("text", { "text-anchor": "middle", "font-weight": 700, ...HALO, stroke: "var(--ma-fondo)" }, n2);
+      el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-weight": 800 }, n2);
     });
     p.mensajes.forEach((m, i) => {
       const [linea, punta, rot, cruz] = hijos(partes.mensajes.childNodes[i]);
@@ -349,7 +445,7 @@ var secuencia = definirPieza({
       });
       texto(cruz, "\u2717");
     });
-    reusar(partes.notas, p.notas.length, (n) => el("text", { "dominant-baseline": "central", "font-weight": 600, ...HALO }, n));
+    reusar(partes.notas, p.notas.length, (n2) => el("text", { "dominant-baseline": "central", "font-weight": 600, ...HALO }, n2));
     p.notas.forEach((nota, i) => {
       const [t] = hijos(partes.notas.childNodes[i]);
       const ultimo = nota.extremo === extremos.length - 1;
@@ -370,14 +466,14 @@ var secuencia = definirPieza({
   tamano: (p) => ({ ancho: p.ancho, alto: p.alto })
 });
 function geometriaSecuencia(p) {
-  const duracion = p.duracion ?? Math.max(1, ...p.mensajes.map((m) => m.llega), ...p.notas.map((n2) => n2.t));
-  const n = p.extremos.length;
+  const duracion = p.duracion ?? Math.max(1, ...p.mensajes.map((m) => m.llega), ...p.notas.map((n3) => n3.t));
+  const n2 = p.extremos.length;
   const cabecera = p.tamano * 2.4;
   const arriba = -p.alto / 2;
   const abajo = p.alto / 2;
   const inicio = arriba + cabecera + p.tamano * 0.9;
   const fin = abajo - p.tamano * 0.6;
-  const margen = Math.min(p.ancho * (n > 3 ? 0.08 : 0.2), 220);
+  const margen = Math.min(p.ancho * (n2 > 3 ? 0.08 : 0.2), 220);
   const izq = -p.ancho / 2 + margen;
   const der = p.ancho / 2 - margen;
   return {
@@ -386,7 +482,7 @@ function geometriaSecuencia(p) {
     arriba,
     abajo,
     izq,
-    x: (i) => n === 1 ? 0 : izq + (der - izq) * i / (n - 1),
+    x: (i) => n2 === 1 ? 0 : izq + (der - izq) * i / (n2 - 1),
     y: (t) => inicio + (fin - inicio) * t / duracion
   };
 }
@@ -458,7 +554,7 @@ var direccionIp = definirPieza({
     texto(tRed, enRed);
     texto(tHost, enHost);
     const paso = tamBits * 0.6;
-    const lugares = (desde, n) => Array.from({ length: n }, (_, i) => Math.round((xBits + (desde + i + 0.5) * paso) * 100) / 100).join(" ");
+    const lugares = (desde, n2) => Array.from({ length: n2 }, (_, i) => Math.round((xBits + (desde + i + 0.5) * paso) * 100) / 100).join(" ");
     poner(tRed, { x: lugares(0, Array.from(enRed).length) });
     poner(tHost, { x: lugares(Array.from(enRed).length, Array.from(enHost).length) });
     const xCorte = xBits + (corteChar + (enHost.startsWith(".") ? 0.5 : 0)) * paso;
@@ -511,9 +607,9 @@ var ventanaDeslizante = definirPieza({
     poner(partes.rotulo, { x: izq - 18, y: 0, "font-size": p.tamano * 0.85, fill: aCss("suave") });
     texto(partes.rotulo, p.rotulo);
     const confirmados = new Set(p.confirmados);
-    reusar(partes.celdas, p.cantidad, (n) => {
-      el("rect", { rx: 8, "stroke-width": 2.5 }, n);
-      el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-weight": 700 }, n);
+    reusar(partes.celdas, p.cantidad, (n2) => {
+      el("rect", { rx: 8, "stroke-width": 2.5 }, n2);
+      el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-weight": 700 }, n2);
     });
     const base = Math.floor(p.base + 1e-6);
     for (let i = 0; i < p.cantidad; i++) {
@@ -623,11 +719,11 @@ function esPrivada([a, b]) {
 function aNumero(o) {
   return (o[0] << 24 | o[1] << 16 | o[2] << 8 | o[3]) >>> 0;
 }
-function aTexto(n) {
-  return [n >>> 24, n >>> 16 & 255, n >>> 8 & 255, n & 255].join(".");
+function aTexto(n2) {
+  return [n2 >>> 24, n2 >>> 16 & 255, n2 >>> 8 & 255, n2 & 255].join(".");
 }
-function aBits(n) {
-  const b = (n >>> 0).toString(2).padStart(32, "0");
+function aBits(n2) {
+  const b = (n2 >>> 0).toString(2).padStart(32, "0");
   return `${b.slice(0, 8)}.${b.slice(8, 16)}.${b.slice(16, 24)}.${b.slice(24)}`;
 }
 function simularArq(opciones) {
@@ -660,9 +756,9 @@ function simularArq(opciones) {
   let esperado = 0;
   const recibidos = /* @__PURE__ */ new Set();
   const mandar = (t, numero2, retransmision) => {
-    const n = (veces.get(numero2) ?? 0) + 1;
-    veces.set(numero2, n);
-    const perdido = n === 1 && pierde.has(numero2);
+    const n2 = (veces.get(numero2) ?? 0) + 1;
+    veces.set(numero2, n2);
+    const perdido = n2 === 1 && pierde.has(numero2);
     mensajes.push({ tipo: "datos", numero: numero2, sale: redondear2(t), llega: redondear2(t + 1), perdido, retransmision });
     if (!perdido) agendar(t + 1, "llegaDatos", { numero: numero2 });
     return t;
@@ -673,9 +769,9 @@ function simularArq(opciones) {
     agendar(t + timeout, "timeout", { cual, id: idTimer });
   };
   const mandarAck = (t, numero2, duplicado) => {
-    const n = (vecesAck.get(numero2) ?? 0) + 1;
-    vecesAck.set(numero2, n);
-    const perdido = n === 1 && pierdeAck.has(numero2);
+    const n2 = (vecesAck.get(numero2) ?? 0) + 1;
+    vecesAck.set(numero2, n2);
+    const perdido = n2 === 1 && pierdeAck.has(numero2);
     mensajes.push({ tipo: "ack", numero: numero2, sale: redondear2(t), llega: redondear2(t + 1), perdido, retransmision: false, duplicado });
     if (!perdido) agendar(t + 1, "llegaAck", { numero: numero2 });
   };
@@ -810,7 +906,9 @@ var texto2 = definirPieza({
       "font-size": p.tamano,
       "font-weight": p.peso,
       "text-anchor": ANCLAS[p.alineacion],
-      "font-family": p.fuente === "mono" ? "var(--ma-fuente-mono)" : null
+      "font-family": p.fuente === "mono" ? "var(--ma-fuente-mono)" : null,
+      // El código lleva sangría: en mono, los espacios del principio no se juntan.
+      style: p.fuente === "mono" ? "white-space: pre" : null
     });
     const lineas = partirLineas(p.texto, anchoEnLetras(p));
     renglones(partes.texto, revelar(lineas, p.escrito), { tamano: p.tamano, interlineado: p.interlineado });
@@ -832,6 +930,202 @@ function anchoEnLetras(p) {
   return p.anchoMax > 0 ? Math.floor(p.anchoMax / (p.tamano * ANCHO_LETRA)) : 0;
 }
 
+// src/piezas/caja.js
+var caja = definirPieza({
+  nombre: "caja",
+  predeterminados: {
+    ancho: 280,
+    alto: 140,
+    radio: 18,
+    relleno: "superficie",
+    borde: "borde",
+    grosorBorde: 3,
+    texto: "",
+    color: "texto",
+    tamano: 30,
+    peso: 600,
+    // Un emoji arriba del texto.
+    icono: "",
+    tamanoIcono: 56,
+    // De 0 a 1: cuánto del texto ya se escribió.
+    escrito: 1,
+    // De 0 a 1: un anillo alrededor, para decir "mirá esta".
+    resaltado: 0
+  },
+  colores: ["relleno", "borde", "color"],
+  crear(grupo) {
+    return {
+      anillo: el("rect", { fill: "none", stroke: "var(--ma-acento)", "stroke-width": 6 }, grupo),
+      fondo: el("rect", {}, grupo),
+      icono: el("text", { "text-anchor": "middle", "dominant-baseline": "central" }, grupo),
+      texto: el("text", { "text-anchor": "middle", "dominant-baseline": "central" }, grupo)
+    };
+  },
+  actualizar(partes, p) {
+    const { ancho: w, alto: h } = p;
+    poner(partes.fondo, {
+      x: -w / 2,
+      y: -h / 2,
+      width: w,
+      height: h,
+      rx: p.radio,
+      fill: aCss(p.relleno),
+      stroke: aCss(p.borde),
+      "stroke-width": p.grosorBorde
+    });
+    const aire = 10;
+    poner(partes.anillo, {
+      x: -w / 2 - aire,
+      y: -h / 2 - aire,
+      width: w + 2 * aire,
+      height: h + 2 * aire,
+      rx: p.radio + aire,
+      opacity: p.resaltado,
+      visibility: p.resaltado > 0 ? null : "hidden"
+    });
+    const lineas = partirLineas(p.texto, Math.floor((w - 32) / (p.tamano * ANCHO_LETRA)));
+    const altoTexto = p.texto ? lineas.length * p.tamano * 1.2 : 0;
+    const altoIcono = p.icono ? p.tamanoIcono : 0;
+    const hueco = p.icono && p.texto ? 10 : 0;
+    const arriba = -(altoIcono + hueco + altoTexto) / 2;
+    poner(partes.icono, {
+      y: arriba + altoIcono / 2,
+      "font-size": p.tamanoIcono,
+      visibility: p.icono ? null : "hidden"
+    });
+    texto(partes.icono, p.icono);
+    poner(partes.texto, { fill: aCss(p.color), "font-size": p.tamano, "font-weight": p.peso });
+    renglones(partes.texto, revelar(lineas, p.escrito), {
+      y: arriba + altoIcono + hueco + altoTexto / 2,
+      tamano: p.tamano,
+      interlineado: 1.2
+    });
+  },
+  tamano: (p) => ({ ancho: p.ancho, alto: p.alto })
+});
+
+// src/piezas/flecha.js
+var flecha = definirPieza({
+  nombre: "flecha",
+  predeterminados: {
+    // El id de una pieza (se engancha al borde que mira a la otra punta),
+    // un punto { x, y }, o un costado de una pieza: { pieza: 'id', lado:
+    // 'izquierda' | 'derecha' | 'arriba' | 'abajo' | 'centro', dx, dy }.
+    // Enganchada a un costado, la sigue aunque la pieza crezca.
+    desde: null,
+    hasta: null,
+    // De 0 (no se ve) a 1 (dibujada entera).
+    progreso: 1,
+    // 0 es recta. Positivo se arquea a la derecha del camino; negativo, a la izquierda.
+    curvatura: 0,
+    separacion: 12,
+    grosor: 5,
+    color: "suave",
+    punta: true,
+    punteada: false,
+    etiqueta: "",
+    tamanoEtiqueta: 24,
+    colorEtiqueta: "suave",
+    // De qué lado del camino va la etiqueta: 1 o -1 (para que no quede encima de otra pieza).
+    ladoEtiqueta: 1,
+    // Girar la etiqueta para que siga la flecha (en una flecha vertical, no ocupa ancho).
+    girarEtiqueta: false
+  },
+  colores: ["color", "colorEtiqueta"],
+  // Depende de dónde están las otras piezas, así que se recalcula siempre.
+  dependeDeOtras: true,
+  validar(p) {
+    if (p.desde == null || p.hasta == null) throw new Error('Una flecha necesita "desde" y "hasta".');
+  },
+  crear(grupo) {
+    return {
+      linea: el("path", { fill: "none", "stroke-linecap": "round" }, grupo),
+      punta: el("path", {}, grupo),
+      etiqueta: el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-weight": 600 }, grupo)
+    };
+  },
+  actualizar(partes, p, ctx) {
+    let a = extremo(p.desde, ctx);
+    let b = extremo(p.hasta, ctx);
+    if (p.dentro != null) {
+      a = adentro(a, p.dentro, ctx);
+      b = adentro(b, p.dentro, ctx);
+    }
+    if (esDePieza(p.desde)) a = { ...a, x: a.x - p.x, y: a.y - p.y };
+    if (esDePieza(p.hasta)) b = { ...b, x: b.x - p.x, y: b.y - p.y };
+    const curva2 = caminoFlecha(a, b, p.curvatura, p.separacion);
+    const largos = medirCurva(curva2);
+    const total = largos[largos.length - 1];
+    const avance = limitar(p.progreso, 0, 1);
+    const visible = avance > 0 && total > 0;
+    const largoPunta = p.punta ? p.grosor * 3.2 : 0;
+    const fLinea = limitar((avance * total - largoPunta * 0.7) / total, 0, 1);
+    const tramo = cortarCurva(curva2, uParaFraccion(largos, fLinea));
+    poner(partes.linea, {
+      d: `M${n(tramo.p0.x)} ${n(tramo.p0.y)} Q${n(tramo.c.x)} ${n(tramo.c.y)} ${n(tramo.p1.x)} ${n(tramo.p1.y)}`,
+      stroke: aCss(p.color),
+      "stroke-width": p.grosor,
+      "stroke-dasharray": p.punteada ? `${p.grosor * 2.4} ${p.grosor * 2}` : null,
+      visibility: visible && fLinea > 0 ? null : "hidden"
+    });
+    const uPunta = uParaFraccion(largos, avance);
+    const tip = puntoCurva(curva2, uPunta);
+    const ang = anguloCurva(curva2, uPunta);
+    const L = largoPunta;
+    const W = p.grosor * 2.2;
+    const base = { x: tip.x - Math.cos(ang) * L, y: tip.y - Math.sin(ang) * L };
+    const nx = -Math.sin(ang) * W;
+    const ny = Math.cos(ang) * W;
+    poner(partes.punta, {
+      d: `M${n(tip.x)} ${n(tip.y)} L${n(base.x + nx)} ${n(base.y + ny)} L${n(base.x - nx)} ${n(base.y - ny)} Z`,
+      fill: aCss(p.color),
+      visibility: visible && p.punta ? null : "hidden"
+    });
+    const medio = puntoCurva(curva2, 0.5);
+    const angMedio = anguloCurva(curva2, 0.5);
+    const ex = Math.sin(angMedio) * (p.ladoEtiqueta < 0 ? -1 : 1);
+    const ey = -Math.cos(angMedio) * (p.ladoEtiqueta < 0 ? -1 : 1);
+    const medioAncho = Array.from(p.etiqueta).length * p.tamanoEtiqueta * ANCHO_LETRA / 2;
+    const corrimiento = p.girarEtiqueta ? p.tamanoEtiqueta * 0.8 : p.tamanoEtiqueta * 0.5 + Math.abs(ex) * medioAncho + Math.abs(ey) * p.tamanoEtiqueta * 0.5;
+    const ex2 = medio.x + ex * corrimiento;
+    const ey2 = medio.y + ey * corrimiento;
+    let grados = angMedio * 180 / Math.PI;
+    if (grados > 90) grados -= 180;
+    if (grados < -90) grados += 180;
+    poner(partes.etiqueta, {
+      x: ex2,
+      y: ey2,
+      transform: p.girarEtiqueta ? `rotate(${grados.toFixed(1)} ${ex2.toFixed(1)} ${ey2.toFixed(1)})` : null,
+      "font-size": p.tamanoEtiqueta,
+      fill: aCss(p.colorEtiqueta),
+      opacity: limitar((avance - 0.5) / 0.4, 0, 1),
+      visibility: p.etiqueta && avance > 0.5 ? null : "hidden"
+    });
+    texto(partes.etiqueta, p.etiqueta);
+  }
+});
+var esDePieza = (cual) => typeof cual === "string" || cual?.pieza != null;
+function extremo(cual, ctx) {
+  const pieza = typeof cual === "string" ? cual : cual.pieza;
+  if (pieza == null) return { x: cual.x, y: cual.y };
+  if (!ctx.estado.piezas[pieza]) throw new Error(`La flecha apunta a "${pieza}", y no hay ninguna pieza que se llame as\xED.`);
+  const r3 = posicionAbsoluta(pieza, ctx.estado, ctx.tipos);
+  if (typeof cual === "string") return r3;
+  return puntoDelLado(r3, cual.lado, cual.dx ?? 0, cual.dy ?? 0);
+}
+function puntoDelLado(r3, lado = "centro", dx = 0, dy = 0) {
+  const x = r3.x + (lado === "derecha" ? r3.ancho / 2 : lado === "izquierda" ? -r3.ancho / 2 : 0);
+  const y = r3.y + (lado === "abajo" ? r3.alto / 2 : lado === "arriba" ? -r3.alto / 2 : 0);
+  return { x: x + dx, y: y + dy };
+}
+function adentro(r3, contenedor, ctx) {
+  const { x, y, escala } = aCoordenadasDe(r3, contenedor, ctx.estado, ctx.tipos);
+  return { x, y, ancho: (r3.ancho ?? 0) / escala, alto: (r3.alto ?? 0) / escala };
+}
+function n(v) {
+  return Math.round(v * 100) / 100;
+}
+
 // src/nucleo/curvas.js
 var C1 = 1.70158;
 var C3 = C1 + 1;
@@ -848,15 +1142,15 @@ function resorte({ rebote = 0.3, oscilaciones = 1.5 } = {}) {
   return (p) => crudo(p) + resto * p * p;
 }
 function rebotar({ botes = 3 } = {}) {
-  const n = Math.min(Math.max(Math.round(botes), 1), 4);
+  const n2 = Math.min(Math.max(Math.round(botes), 1), 4);
   const tramos = [1];
-  for (let i = 1; i <= n; i++) tramos.push(tramos[i - 1] / 2);
+  for (let i = 1; i <= n2; i++) tramos.push(tramos[i - 1] / 2);
   const total = tramos[0] + 2 * tramos.slice(1).reduce((a, b) => a + b, 0);
   return (p) => {
     let t = p * total;
     if (t < tramos[0]) return (t / tramos[0]) ** 2;
     t -= tramos[0];
-    for (let i = 1; i <= n; i++) {
+    for (let i = 1; i <= n2; i++) {
       const ancho = 2 * tramos[i];
       if (t < ancho) {
         const u = t / ancho * 2 - 1;
@@ -912,15 +1206,15 @@ function crearNarrador(opciones = {}) {
   const preguntas = opciones.preguntas ?? {};
   const linea = [];
   let respuestaPendiente = "";
-  const n = {
+  const n2 = {
     linea,
     tiempo: opciones.inicio ?? 0.3,
     ritmo,
     lectura,
     /** Agrega una animación (o varias) que arranca ahora, o `demora` segundos después. */
     animar(item, demora = 0) {
-      for (const i of [item].flat()) linea.push({ en: n.tiempo + demora, ...i });
-      return n;
+      for (const i of [item].flat()) linea.push({ en: n2.tiempo + demora, ...i });
+      return n2;
     },
     /**
      * Un subtítulo. Dura lo que se tarda en leerlo (nunca menos de dos
@@ -931,16 +1225,16 @@ function crearNarrador(opciones = {}) {
       const subtitulo = respuestaPendiente + texto3;
       respuestaPendiente = "";
       const dur = Math.max(ritmo * 2, duracionLectura(subtitulo, lectura));
-      linea.push({ subtitulo, en: n.tiempo, dur });
-      n.tiempo += dur + extra;
+      linea.push({ subtitulo, en: n2.tiempo, dur });
+      n2.tiempo += dur + extra;
       return dur;
     },
     /** Deja pasar un rato sin decir nada (para mirar algo que se mueve). */
     esperar(segundos) {
-      n.tiempo += segundos * ritmo;
+      n2.tiempo += segundos * ritmo;
     },
     capitulo(nombre) {
-      linea.push({ capitulo: nombre, en: n.tiempo });
+      linea.push({ capitulo: nombre, en: n2.tiempo });
     },
     /**
      * Si hay una pregunta con esa clave, la hace (frena la lección) y
@@ -951,13 +1245,13 @@ function crearNarrador(opciones = {}) {
       if (!p) return false;
       const enunciado = `${p.pregunta} Paus\xE1 y pensalo.`;
       const dur = Math.max(p.dur ?? 4, duracionLectura(enunciado, lectura) + 1.5);
-      linea.push({ marca: "pregunta", datos: p, en: n.tiempo, dur }, { subtitulo: enunciado, en: n.tiempo, dur });
-      n.tiempo += dur + 0.2;
+      linea.push({ marca: "pregunta", datos: p, en: n2.tiempo, dur }, { subtitulo: enunciado, en: n2.tiempo, dur });
+      n2.tiempo += dur + 0.2;
       respuestaPendiente = p.opciones && p.correcta !== void 0 ? `Respuesta: ${p.opciones[p.correcta]}. ${p.explicacion ? `${p.explicacion} ` : ""}` : "";
       return true;
     }
   };
-  return n;
+  return n2;
 }
 
 // src/mate/calculo.js
@@ -989,7 +1283,7 @@ function curvaDeNivel(f, rango, nivel, resolucion = 48) {
         [xmin + i * dx, ymin + (j + 1) * dy]
       ];
       const v = [valores[j][i], valores[j][i + 1], valores[j + 1][i + 1], valores[j + 1][i]];
-      if (v.some((n) => !Number.isFinite(n))) continue;
+      if (v.some((n2) => !Number.isFinite(n2))) continue;
       const puntos = [];
       for (let k = 0; k < 4; k++) {
         const a = v[k];
@@ -1018,9 +1312,9 @@ function pasoLindo(rango, cuantas = 8) {
   const lindo = fraccion < 1.5 ? 1 : fraccion < 3.5 ? 2 : fraccion < 7.5 ? 5 : 10;
   return lindo * potencia;
 }
-function numero(n, decimales = 2) {
-  if (!Number.isFinite(n)) return String(n);
-  const r3 = Math.round(n * 10 ** decimales) / 10 ** decimales;
+function numero(n2, decimales = 2) {
+  if (!Number.isFinite(n2)) return String(n2);
+  const r3 = Math.round(n2 * 10 ** decimales) / 10 ** decimales;
   const texto3 = String(Object.is(r3, -0) ? 0 : r3);
   return texto3.replace(".", ",");
 }
@@ -1618,8 +1912,8 @@ var area = sobrePlano({
     let arriba = "";
     let abajo = "";
     if (!vacia) {
-      const n = Math.max(2, Math.ceil(p.muestras * ((x1 - x0) / (pl.xmax - pl.xmin))));
-      const xs = Array.from({ length: n + 1 }, (_, i) => x0 + (x1 - x0) * i / n);
+      const n2 = Math.max(2, Math.ceil(p.muestras * ((x1 - x0) / (pl.xmax - pl.xmin))));
+      const xs = Array.from({ length: n2 + 1 }, (_, i) => x0 + (x1 - x0) * i / n2);
       arriba = xs.map((x, i) => {
         const q = c.a(x, lim(p.f(x, p.k)));
         return `${i ? "L" : "M"}${r2(q.x)} ${r2(q.y)}`;
@@ -1775,10 +2069,10 @@ var campo = sobrePlano({
         const y = pl.ymin + (j + 0.5) / p.cantidad * (pl.ymax - pl.ymin);
         const [dx, dy] = vec(x, y);
         const v = { x, y, dx: dx * signo * c.ux, dy: -dy * signo * c.uy };
-        const n = Math.hypot(v.dx, v.dy);
-        if (Number.isFinite(n)) {
-          maximo = Math.max(maximo, n);
-          lista.push({ ...v, n });
+        const n2 = Math.hypot(v.dx, v.dy);
+        if (Number.isFinite(n2)) {
+          maximo = Math.max(maximo, n2);
+          lista.push({ ...v, n: n2 });
         }
       }
     }
@@ -1854,27 +2148,27 @@ function desdeIntercambio(opciones) {
       tamano: angosta ? 17 : 23,
       mensajes: mensajes.map(({ de, a, sale, llega, texto: t, perdido, color }) => ({ de, a, sale, llega, texto: t, perdido, color }))
     });
-    const n = crearNarrador({ ritmo, lectura, preguntas });
+    const n2 = crearNarrador({ ritmo, lectura, preguntas });
     const segundosPorViaje = 1.3 * ritmo;
     mensajes.forEach((m, i) => {
-      if (m.capitulo) n.capitulo(m.capitulo);
-      else if (i === 0) n.capitulo(m.texto);
-      n.preguntar(i);
+      if (m.capitulo) n2.capitulo(m.capitulo);
+      else if (i === 0) n2.capitulo(m.texto);
+      n2.preguntar(i);
       const desde = i === 0 ? 0 : mensajes[i - 1].llega;
       if (mensajes[i + 1]?.junto) return;
       const hasta = m.llega;
-      n.animar([
+      n2.animar([
         { pieza: "diagrama", a: { resaltar: i }, dur: 0 },
         { pieza: "diagrama", a: { tiempo: hasta }, dur: (hasta - desde) * segundosPorViaje, curva: "lineal" }
       ]);
-      n.tiempo += (hasta - desde) * segundosPorViaje;
+      n2.tiempo += (hasta - desde) * segundosPorViaje;
       const grupo = [m];
       for (let k = i - 1; k >= 0 && mensajes[k + 1].junto; k--) grupo.unshift(mensajes[k]);
       const explicacion = grupo.map((x) => x.explicacion).filter(Boolean).join(" ");
-      if (explicacion) n.decir(explicacion, 0.3);
-      else n.esperar(0.4);
+      if (explicacion) n2.decir(explicacion, 0.3);
+      else n2.esperar(0.4);
     });
-    n.animar({ pieza: "diagrama", a: { resaltar: -1, tiempo: duracion }, dur: 0.4 });
+    n2.animar({ pieza: "diagrama", a: { resaltar: -1, tiempo: duracion }, dur: 0.4 });
     return {
       titulo: titulo || "Un intercambio de mensajes",
       descripcion: descripcion || `${nombres.join(" y ")} intercambian ${mensajes.length} mensajes: ${mensajes.map((m) => m.texto).join(", ")}.`,
@@ -1883,7 +2177,7 @@ function desdeIntercambio(opciones) {
       lectura,
       pausaFinal: 1.5,
       piezas,
-      linea: n.linea
+      linea: n2.linea
     };
   };
 }
@@ -1933,7 +2227,7 @@ function desdeVentana(opciones) {
       })),
       notas: sim.hechos.filter((h) => h.tipo === "timeout").map((h) => ({ extremo: 0, t: h.t, texto: "\u23F0 timeout", color: "error" }))
     });
-    const n = crearNarrador({ ritmo, lectura, preguntas });
+    const n2 = crearNarrador({ ritmo, lectura, preguntas });
     const v = 1.5 * ritmo;
     const paradas = [];
     const perdidos = sim.mensajes.filter((m) => m.perdido);
@@ -1959,34 +2253,34 @@ function desdeVentana(opciones) {
     let d = 0;
     const avanzarHasta = (hasta) => {
       if (hasta <= d) return;
-      tramos.push({ d0: d, d1: hasta, s0: n.tiempo });
-      n.animar({ pieza: "diagrama", a: { tiempo: hasta }, dur: (hasta - d) * v, curva: "lineal" });
-      n.tiempo += (hasta - d) * v;
+      tramos.push({ d0: d, d1: hasta, s0: n2.tiempo });
+      n2.animar({ pieza: "diagrama", a: { tiempo: hasta }, dur: (hasta - d) * v, curva: "lineal" });
+      n2.tiempo += (hasta - d) * v;
       d = hasta;
     };
     const enEscena = (t) => {
       const tramo = tramos.find((x) => t >= x.d0 && t <= x.d1 + 1e-9);
-      return tramo ? tramo.s0 + (t - tramo.d0) * v : n.tiempo;
+      return tramo ? tramo.s0 + (t - tramo.d0) * v : n2.tiempo;
     };
-    n.capitulo(NOMBRES_ARQ[protocolo]);
-    n.decir(protocolo === "stop-and-wait" ? "En stop-and-wait el emisor manda un paquete y espera su ACK antes de mandar el siguiente. Si el ACK no llega a tiempo, lo reenv\xEDa." : `En ${NOMBRES_ARQ[protocolo]} el emisor puede tener hasta ${N} paquetes en viaje sin confirmar: es su ventana, el recuadro de arriba.`);
+    n2.capitulo(NOMBRES_ARQ[protocolo]);
+    n2.decir(protocolo === "stop-and-wait" ? "En stop-and-wait el emisor manda un paquete y espera su ACK antes de mandar el siguiente. Si el ACK no llega a tiempo, lo reenv\xEDa." : `En ${NOMBRES_ARQ[protocolo]} el emisor puede tener hasta ${N} paquetes en viaje sin confirmar: es su ventana, el recuadro de arriba.`);
     for (const parada of paradas) {
-      if (parada.timeout) n.preguntar("timeout");
+      if (parada.timeout) n2.preguntar("timeout");
       avanzarHasta(parada.t);
-      if (parada.timeout) n.capitulo(`Timeout en t = ${redondeo(parada.t)}`);
-      n.decir(parada.texto, 0.3);
+      if (parada.timeout) n2.capitulo(`Timeout en t = ${redondeo(parada.t)}`);
+      n2.decir(parada.texto, 0.3);
     }
     avanzarHasta(sim.fin + 0.2);
     const confirmados = /* @__PURE__ */ new Set();
     for (const h of sim.hechos) {
       if (h.tipo === "ack" && individual) confirmados.add(h.numero);
       if (h.base === void 0) continue;
-      n.linea.push({ pieza: "ventana", a: { base: h.base, siguiente: h.siguiente, confirmados: [...confirmados] }, dur: 0.35, en: enEscena(h.t) });
+      n2.linea.push({ pieza: "ventana", a: { base: h.base, siguiente: h.siguiente, confirmados: [...confirmados] }, dur: 0.35, en: enEscena(h.t) });
     }
-    n.linea.sort((a, b) => (a.en ?? 0) - (b.en ?? 0));
-    n.preguntar("final");
-    n.capitulo("Resumen");
-    n.decir(`Llegaron los ${paquetes} paquetes. Hubo ${sim.retransmisiones} ${sim.retransmisiones === 1 ? "retransmisi\xF3n" : "retransmisiones"}${protocolo === "go-back-n" && sim.retransmisiones > perdidos.length ? ": Go-Back-N reenv\xEDa tambi\xE9n los que hab\xEDan llegado bien despu\xE9s del perdido" : ""}.`);
+    n2.linea.sort((a, b) => (a.en ?? 0) - (b.en ?? 0));
+    n2.preguntar("final");
+    n2.capitulo("Resumen");
+    n2.decir(`Llegaron los ${paquetes} paquetes. Hubo ${sim.retransmisiones} ${sim.retransmisiones === 1 ? "retransmisi\xF3n" : "retransmisiones"}${protocolo === "go-back-n" && sim.retransmisiones > perdidos.length ? ": Go-Back-N reenv\xEDa tambi\xE9n los que hab\xEDan llegado bien despu\xE9s del perdido" : ""}.`);
     return {
       titulo: titulo || NOMBRES_ARQ[protocolo],
       descripcion: descripcion || `${NOMBRES_ARQ[protocolo]} con ${paquetes} paquetes${N > 1 ? ` y ventana ${N}` : ""}. ${perdidos.length ? `Se pierde${perdidos.length > 1 ? "n" : ""} ${perdidos.map((m) => m.tipo === "ack" ? `el ACK ${m.numero}` : `el paquete ${m.numero}`).join(" y ")}.` : ""}`,
@@ -1995,7 +2289,7 @@ function desdeVentana(opciones) {
       lectura,
       pausaFinal: 1.5,
       piezas,
-      linea: n.linea
+      linea: n2.linea
     };
   };
 }
@@ -2036,7 +2330,7 @@ function desdeCongestion(opciones) {
       piezas[nombre] = texto2({ x: pan.x, y: pan.y + i * pan.tamano * 1.9, texto: "", tamano: pan.tamano, alineacion: "inicio", opacidad: 0, anchoMax: angosta ? 600 : 470 });
     });
     piezas.fase.props.peso = 700;
-    const n = crearNarrador({ ritmo, lectura, preguntas });
+    const n2 = crearNarrador({ ritmo, lectura, preguntas });
     const datos = [];
     const panel = (r3, extra = {}) => [
       { pieza: "ronda", a: { texto: `Ronda ${r3.ronda}`, opacidad: 1 }, dur: 0 },
@@ -2044,40 +2338,40 @@ function desdeCongestion(opciones) {
       { pieza: "umbralTexto", a: { texto: `umbral = ${r3.umbral}`, opacidad: 1 }, dur: 0 },
       { pieza: "fase", a: { texto: extra.fase ?? r3.fase, color: r3.fase === "slow start" ? "acento" : "exito", opacidad: 1 }, dur: 0 }
     ];
-    n.capitulo("Slow start");
-    n.animar({ pieza: "umbral", a: { trazo: 1 }, dur: 1 });
-    n.decir(`TCP no sabe cu\xE1nto aguanta la red, as\xED que arranca con una ventana de ${rondas[0].cwnd} y la va agrandando. La l\xEDnea punteada es el umbral: ${rondas[0].umbral}.`);
+    n2.capitulo("Slow start");
+    n2.animar({ pieza: "umbral", a: { trazo: 1 }, dur: 1 });
+    n2.decir(`TCP no sabe cu\xE1nto aguanta la red, as\xED que arranca con una ventana de ${rondas[0].cwnd} y la va agrandando. La l\xEDnea punteada es el umbral: ${rondas[0].umbral}.`);
     let faseAnterior = rondas[0].fase;
     rondas.forEach((r3, i) => {
-      n.preguntar(r3.ronda);
+      n2.preguntar(r3.ronda);
       datos.push([r3.ronda, r3.cwnd]);
-      n.animar([
+      n2.animar([
         { pieza: "cwnd", a: { datos: datos.map((x) => [...x]) }, dur: 0 },
         { pieza: "marca", a: { mx: r3.ronda, my: r3.cwnd, opacidad: 1, color: r3.fase === "slow start" ? "acento" : "exito" }, dur: 0.35 * ritmo },
         ...panel(r3)
       ]);
       if (i === 0) {
-        n.decir("En slow start, por cada ACK la ventana crece un segmento: en cada ronda se duplica.", 0.2);
+        n2.decir("En slow start, por cada ACK la ventana crece un segmento: en cada ronda se duplica.", 0.2);
       } else if (r3.fase !== faseAnterior && r3.fase === "congestion avoidance") {
-        n.capitulo("Congestion avoidance");
-        n.decir(`La ventana lleg\xF3 al umbral (${r3.umbral}): de ac\xE1 en m\xE1s crece de a un segmento por ronda. Es congestion avoidance.`, 0.2);
+        n2.capitulo("Congestion avoidance");
+        n2.decir(`La ventana lleg\xF3 al umbral (${r3.umbral}): de ac\xE1 en m\xE1s crece de a un segmento por ronda. Es congestion avoidance.`, 0.2);
       } else if (r3.fase !== faseAnterior && r3.fase === "slow start") {
-        n.decir("Como volvi\xF3 a 1, arranca otra vez en slow start, duplicando hasta el umbral nuevo.", 0.2);
+        n2.decir("Como volvi\xF3 a 1, arranca otra vez en slow start, duplicando hasta el umbral nuevo.", 0.2);
       } else {
-        n.esperar(0.55);
+        n2.esperar(0.55);
       }
       faseAnterior = r3.fase;
       if (r3.evento) {
         const siguiente = rondas[i + 1];
-        n.capitulo(r3.evento === "timeout" ? `Timeout en la ronda ${r3.ronda}` : `Tres ACK duplicados en la ronda ${r3.ronda}`);
-        n.animar({ pieza: "marca", a: { color: "error" }, dur: 0.3 });
+        n2.capitulo(r3.evento === "timeout" ? `Timeout en la ronda ${r3.ronda}` : `Tres ACK duplicados en la ronda ${r3.ronda}`);
+        n2.animar({ pieza: "marca", a: { color: "error" }, dur: 0.3 });
         const nuevoUmbral = siguiente ? siguiente.umbral : Math.max(Math.floor(r3.cwnd / 2), 2);
         const nuevaVentana = siguiente ? siguiente.cwnd : 1;
-        n.decir(r3.evento === "timeout" ? `Vence un timer: algo se perdi\xF3 y no llegan ACK. Es la se\xF1al m\xE1s grave. El umbral pasa a la mitad de la ventana (${nuevoUmbral}) y la ventana vuelve a ${nuevaVentana}.` : variante === "reno" ? `Llegan tres ACK duplicados: se perdi\xF3 un segmento, pero los siguientes llegan. Es una congesti\xF3n leve. El umbral pasa a la mitad (${nuevoUmbral}) y, en Reno, la ventana sigue desde ah\xED: ${nuevaVentana}.` : `Llegan tres ACK duplicados. En Tahoe se trata igual que un timeout: el umbral pasa a la mitad (${nuevoUmbral}) y la ventana vuelve a 1.`);
+        n2.decir(r3.evento === "timeout" ? `Vence un timer: algo se perdi\xF3 y no llegan ACK. Es la se\xF1al m\xE1s grave. El umbral pasa a la mitad de la ventana (${nuevoUmbral}) y la ventana vuelve a ${nuevaVentana}.` : variante === "reno" ? `Llegan tres ACK duplicados: se perdi\xF3 un segmento, pero los siguientes llegan. Es una congesti\xF3n leve. El umbral pasa a la mitad (${nuevoUmbral}) y, en Reno, la ventana sigue desde ah\xED: ${nuevaVentana}.` : `Llegan tres ACK duplicados. En Tahoe se trata igual que un timeout: el umbral pasa a la mitad (${nuevoUmbral}) y la ventana vuelve a 1.`);
       }
     });
-    n.capitulo("El serrucho");
-    n.decir("As\xED se ve TCP en una conexi\xF3n larga: sube hasta que algo se pierde, baja, y vuelve a subir. Va tanteando cu\xE1nto aguanta la red.");
+    n2.capitulo("El serrucho");
+    n2.decir("As\xED se ve TCP en una conexi\xF3n larga: sube hasta que algo se pierde, baja, y vuelve a subir. Va tanteando cu\xE1nto aguanta la red.");
     return {
       titulo: titulo || "Control de congesti\xF3n de TCP",
       descripcion: descripcion || `La ventana de congesti\xF3n de TCP ${variante === "reno" ? "Reno" : "Tahoe"} durante ${rondas.length} rondas: ${rondas.map((r3) => r3.cwnd).join(", ")}.`,
@@ -2086,7 +2380,7 @@ function desdeCongestion(opciones) {
       lectura,
       pausaFinal: 1.5,
       piezas,
-      linea: n.linea
+      linea: n2.linea
     };
   };
 }
@@ -2131,34 +2425,34 @@ function desdeSubred(opciones) {
         opacidad: 0
       });
     });
-    const n = crearNarrador({ ritmo, lectura, preguntas });
-    n.capitulo(`${ip.direccion}/${ip.prefijo}`);
-    n.animar({ pieza: "ip", a: { opacidad: 1 }, dur: 0.4 });
-    n.decir(`La direcci\xF3n ${ip.direccion}/${ip.prefijo}. Son cuatro n\xFAmeros de 0 a 255, uno por octeto.`);
-    n.animar({ pieza: "ip", a: { verBits: 1 }, dur: 0.8 });
-    n.decir("Cada octeto son 8 bits: en total, 32. Las cuentas de subredes se hacen con los bits, no con los n\xFAmeros.");
-    n.capitulo("La m\xE1scara");
-    n.animar({ pieza: "mascara", a: { opacidad: 1, verBits: 1 }, dur: 0.6 });
-    n.decir(`El /${ip.prefijo} dice cu\xE1ntos bits, desde la izquierda, son de la red: ${ip.prefijo} unos y ${ip.bitsHost} ceros. En decimal, ${ip.mascara}.`);
-    n.animar({ pieza: ["ip", "mascara"], a: { verMascara: 1 }, dur: 0.6 });
-    n.decir(`En azul, los ${ip.prefijo} bits de red: son iguales para toda la subred. En naranja, los ${ip.bitsHost} bits de host: cambian de una m\xE1quina a otra.`);
-    n.preguntar("red");
-    n.capitulo("La direcci\xF3n de red");
-    n.animar({ pieza: "red", a: { opacidad: 1, verBits: 1, verMascara: 1, resaltado: 1 }, dur: 0.6 });
-    n.decir(`La direcci\xF3n de red es la IP con todos los bits de host en 0: un AND bit a bit con la m\xE1scara. Da ${ip.red}.`);
-    n.animar({ pieza: "red", a: { resaltado: 0 }, dur: 0.3 });
-    n.capitulo("Broadcast");
-    n.animar({ pieza: "broadcast", a: { opacidad: 1, verBits: 1, verMascara: 1, resaltado: 1 }, dur: 0.6 });
-    n.decir(`Y la de broadcast, con todos los bits de host en 1: ${ip.broadcast}. Un mensaje a esa direcci\xF3n le llega a todas las m\xE1quinas de la subred.`);
-    n.animar({ pieza: "broadcast", a: { resaltado: 0 }, dur: 0.3 });
-    n.preguntar("hosts");
-    n.capitulo("\xBFCu\xE1ntos hosts?");
-    n.animar([
+    const n2 = crearNarrador({ ritmo, lectura, preguntas });
+    n2.capitulo(`${ip.direccion}/${ip.prefijo}`);
+    n2.animar({ pieza: "ip", a: { opacidad: 1 }, dur: 0.4 });
+    n2.decir(`La direcci\xF3n ${ip.direccion}/${ip.prefijo}. Son cuatro n\xFAmeros de 0 a 255, uno por octeto.`);
+    n2.animar({ pieza: "ip", a: { verBits: 1 }, dur: 0.8 });
+    n2.decir("Cada octeto son 8 bits: en total, 32. Las cuentas de subredes se hacen con los bits, no con los n\xFAmeros.");
+    n2.capitulo("La m\xE1scara");
+    n2.animar({ pieza: "mascara", a: { opacidad: 1, verBits: 1 }, dur: 0.6 });
+    n2.decir(`El /${ip.prefijo} dice cu\xE1ntos bits, desde la izquierda, son de la red: ${ip.prefijo} unos y ${ip.bitsHost} ceros. En decimal, ${ip.mascara}.`);
+    n2.animar({ pieza: ["ip", "mascara"], a: { verMascara: 1 }, dur: 0.6 });
+    n2.decir(`En azul, los ${ip.prefijo} bits de red: son iguales para toda la subred. En naranja, los ${ip.bitsHost} bits de host: cambian de una m\xE1quina a otra.`);
+    n2.preguntar("red");
+    n2.capitulo("La direcci\xF3n de red");
+    n2.animar({ pieza: "red", a: { opacidad: 1, verBits: 1, verMascara: 1, resaltado: 1 }, dur: 0.6 });
+    n2.decir(`La direcci\xF3n de red es la IP con todos los bits de host en 0: un AND bit a bit con la m\xE1scara. Da ${ip.red}.`);
+    n2.animar({ pieza: "red", a: { resaltado: 0 }, dur: 0.3 });
+    n2.capitulo("Broadcast");
+    n2.animar({ pieza: "broadcast", a: { opacidad: 1, verBits: 1, verMascara: 1, resaltado: 1 }, dur: 0.6 });
+    n2.decir(`Y la de broadcast, con todos los bits de host en 1: ${ip.broadcast}. Un mensaje a esa direcci\xF3n le llega a todas las m\xE1quinas de la subred.`);
+    n2.animar({ pieza: "broadcast", a: { resaltado: 0 }, dur: 0.3 });
+    n2.preguntar("hosts");
+    n2.capitulo("\xBFCu\xE1ntos hosts?");
+    n2.animar([
       { pieza: "hosts", a: { texto: `Hosts: 2^${ip.bitsHost} \u2212 2 = ${ip.hosts}`, opacidad: 1, peso: 700 }, dur: 0.4 },
       { pieza: "rango", a: { texto: `Rango: de ${ip.primero} a ${ip.ultimo}`, opacidad: 1 }, dur: 0.4 },
       { pieza: "clase", a: { texto: `Clase ${ip.clase}${ip.privada ? ", privada" : ", p\xFAblica"}${ip.esRed ? " \xB7 es la direcci\xF3n de red" : ip.esBroadcast ? " \xB7 es la de broadcast" : ""}`, opacidad: 1, color: "suave" }, dur: 0.4 }
     ]);
-    n.decir(`Con ${ip.bitsHost} bits de host hay 2^${ip.bitsHost} = ${2 ** ip.bitsHost} combinaciones, pero dos no se pueden usar: la de red y la de broadcast. Quedan ${ip.hosts} hosts, de ${ip.primero} a ${ip.ultimo}.`);
+    n2.decir(`Con ${ip.bitsHost} bits de host hay 2^${ip.bitsHost} = ${2 ** ip.bitsHost} combinaciones, pero dos no se pueden usar: la de red y la de broadcast. Quedan ${ip.hosts} hosts, de ${ip.primero} a ${ip.ultimo}.`);
     return {
       titulo: titulo || `La subred de ${ip.direccion}/${ip.prefijo}`,
       descripcion: descripcion || `${ip.direccion}/${ip.prefijo}: m\xE1scara ${ip.mascara}, red ${ip.red}, broadcast ${ip.broadcast}, ${ip.hosts} hosts de ${ip.primero} a ${ip.ultimo}.`,
@@ -2167,15 +2461,195 @@ function desdeSubred(opciones) {
       lectura,
       pausaFinal: 1.5,
       piezas,
-      linea: n.linea
+      linea: n2.linea
+    };
+  };
+}
+var RAZONES = {
+  200: "OK",
+  201: "Created",
+  204: "No Content",
+  301: "Moved Permanently",
+  302: "Found",
+  304: "Not Modified",
+  400: "Bad Request",
+  401: "Unauthorized",
+  403: "Forbidden",
+  404: "Not Found",
+  405: "Method Not Allowed",
+  409: "Conflict",
+  422: "Unprocessable Entity",
+  500: "Internal Server Error"
+};
+function colorDeCodigo(codigo) {
+  return codigo < 300 ? "exito" : codigo < 400 ? "alerta" : "error";
+}
+function cuerpoComoTexto(cuerpo) {
+  if (cuerpo == null || cuerpo === "") return "";
+  return typeof cuerpo === "string" ? cuerpo : JSON.stringify(cuerpo, null, 2);
+}
+function encabezadosComoTexto(encabezados, cuerpo) {
+  const lista = encabezados ?? (cuerpo != null ? { "Content-Type": "application/json" } : {});
+  return Object.entries(lista).map(([k, v]) => `${k}: ${v}`);
+}
+function textoDelPedido(p) {
+  const cuerpo = cuerpoComoTexto(p.cuerpo);
+  return [`${(p.metodo ?? "GET").toUpperCase()} ${p.url}`, ...encabezadosComoTexto(p.encabezados, p.cuerpo), ...cuerpo ? ["", cuerpo] : []].join("\n");
+}
+function textoDeLaRespuesta(r3) {
+  const cuerpo = cuerpoComoTexto(r3.cuerpo);
+  const estado = `${r3.codigo} ${r3.razon ?? RAZONES[r3.codigo] ?? ""}`.trim();
+  return [estado, ...encabezadosComoTexto(r3.encabezados, r3.cuerpo), ...cuerpo ? ["", cuerpo] : []].join("\n");
+}
+function desdePedidoHttp(opciones) {
+  const {
+    pedidos,
+    cliente = "\u{1F310} Navegador",
+    servidor = "\u{1F5A5}\uFE0F Servidor (Flask)",
+    titulo = "",
+    descripcion = "",
+    ritmo = 1,
+    lectura = 13,
+    preguntas = {}
+  } = opciones;
+  if (!Array.isArray(pedidos) || !pedidos.length) throw new Error("Hace falta al menos un pedido: pedidos: [{ metodo, url, respuesta: { codigo } }].");
+  for (const p of pedidos) {
+    if (!p.url) throw new Error('Cada pedido necesita su url, por ejemplo "/api/alumnos".');
+    if (!(p.respuesta?.codigo >= 100)) throw new Error(`El pedido a ${p.url} necesita su respuesta: respuesta: { codigo: 200, cuerpo: {...} }.`);
+  }
+  return function(disposicion) {
+    const { angosta, W, H: H2, arriba } = lienzo(disposicion, titulo);
+    const piezas = {};
+    if (titulo) piezas.titulo = piezaTitulo(titulo, W, angosta);
+    const ext = angosta ? { ancho: 600, alto: 250, cli: { x: W / 2, y: arriba + 135 }, srv: { x: W / 2, y: H2 - 165 } } : { ancho: 380, alto: 560, cli: { x: 230, y: arriba + 330 }, srv: { x: W - 230, y: arriba + 330 } };
+    const tam = angosta ? 22 : 28;
+    const mono = angosta ? 17 : 21;
+    const extremos = [["cliente", ext.cli, cliente], ["servidor", ext.srv, servidor]];
+    for (const [id, lugar, nombre] of extremos) {
+      piezas[id] = caja({ ...lugar, ancho: ext.ancho, alto: ext.alto, texto: "", relleno: "superficie" });
+      piezas[`${id}Nombre`] = texto2({ x: lugar.x, y: lugar.y - ext.alto / 2 + 34, texto: nombre, tamano: tam, peso: 800 });
+    }
+    piezas.barra = caja({
+      x: ext.cli.x,
+      y: ext.cli.y - ext.alto / 2 + 84,
+      ancho: ext.ancho - 30,
+      alto: angosta ? 44 : 50,
+      texto: " ",
+      tamano: mono,
+      peso: 500,
+      relleno: "fondo",
+      borde: "borde",
+      radio: 25,
+      color: "suave"
+    });
+    piezas.resultado = texto2({
+      x: ext.cli.x,
+      y: ext.cli.y + (angosta ? 40 : 60),
+      texto: " ",
+      tamano: angosta ? 20 : 24,
+      anchoMax: ext.ancho - 50,
+      opacidad: 0
+    });
+    piezas.ruta = texto2({
+      x: ext.srv.x - ext.ancho / 2 + 24,
+      y: ext.srv.y + (angosta ? 20 : 10),
+      texto: " ",
+      tamano: angosta ? 16 : 20,
+      fuente: "mono",
+      alineacion: "inicio",
+      opacidad: 0
+    });
+    const largoMax = Math.max(...pedidos.flatMap((p) => [textoDelPedido(p), textoDeLaRespuesta(p.respuesta)]).flatMap((t) => t.split("\n")).map((l) => l.length));
+    const anchoTarjeta = Math.min(angosta ? 600 : 640, Math.max(260, largoMax * mono * 0.6 + 40));
+    const junto = (lugar) => ({ x: lugar.x - anchoTarjeta / 2 + 20, y: lugar.y });
+    const yMedio = angosta ? (ext.cli.y + ext.srv.y) / 2 : ext.cli.y;
+    const salidaCli = angosta ? { x: W / 2, y: yMedio - 60 } : { x: ext.cli.x + ext.ancho / 2 + anchoTarjeta / 2 + 24, y: yMedio };
+    const llegadaSrv = angosta ? { x: W / 2, y: yMedio + 60 } : { x: ext.srv.x - ext.ancho / 2 - anchoTarjeta / 2 - 24, y: yMedio };
+    for (const id of ["pedido", "respuesta"]) {
+      piezas[id] = caja({ ...salidaCli, ancho: anchoTarjeta, alto: 100, texto: "", relleno: "papel", borde: "acento", grosorBorde: 3, opacidad: 0, radio: 14 });
+      piezas[`${id}Texto`] = texto2({ ...junto(salidaCli), texto: " ", tamano: mono, fuente: "mono", alineacion: "inicio", opacidad: 0 });
+    }
+    piezas.cable = flecha({
+      desde: angosta ? { x: W / 2 - ext.ancho / 2 + 20, y: ext.cli.y + ext.alto / 2 + 6 } : { x: ext.cli.x + ext.ancho / 2 + 6, y: yMedio + 230 },
+      hasta: angosta ? { x: W / 2 - ext.ancho / 2 + 20, y: ext.srv.y - ext.alto / 2 - 6 } : { x: ext.srv.x - ext.ancho / 2 - 6, y: yMedio + 230 },
+      punta: false,
+      punteada: true,
+      color: "borde",
+      etiqueta: "internet",
+      ladoEtiqueta: -1,
+      separacion: 0
+    });
+    const altoDe = (t) => t.split("\n").length * mono * 1.3 + 30;
+    const llevar = (id, lugar, extra = {}) => [
+      { pieza: id, a: lugar, ...extra },
+      { pieza: `${id}Texto`, a: junto(lugar), ...extra }
+    ];
+    const n2 = crearNarrador({ ritmo, lectura, preguntas });
+    pedidos.forEach((p, i) => {
+      const metodo = (p.metodo ?? "GET").toUpperCase();
+      const razon = p.respuesta.razon ?? RAZONES[p.respuesta.codigo] ?? "";
+      n2.capitulo(p.capitulo ?? `${metodo} ${p.url}`);
+      const tp = textoDelPedido(p);
+      const tr = textoDeLaRespuesta(p.respuesta);
+      const color = colorDeCodigo(p.respuesta.codigo);
+      n2.animar([
+        { pieza: ["respuesta", "respuestaTexto", "resultado", "ruta"], a: { opacidad: 0 }, dur: 0.3 },
+        { pieza: "barra", a: { texto: p.url, color: "texto" }, dur: 0 },
+        { pieza: "barra", a: { resaltado: 1 }, dur: 0.25 },
+        { pieza: "barra", a: { resaltado: 0 }, dur: 0.4, en: n2.tiempo + 0.35 },
+        ...llevar("pedido", salidaCli, { dur: 0 }),
+        { pieza: "pedido", a: { alto: altoDe(tp) }, dur: 0 },
+        { pieza: "pedidoTexto", a: { texto: tp }, dur: 0 },
+        { pieza: ["pedido", "pedidoTexto"], a: { opacidad: 1 }, dur: 0.4, en: n2.tiempo + 0.3 }
+      ]);
+      n2.esperar(0.7);
+      n2.decir(p.explicacion ?? `El navegador arma el pedido: ${metodo} ${p.url}${p.cuerpo != null ? ", con un cuerpo en JSON" : ""}.`, 0.2);
+      n2.animar(llevar("pedido", llegadaSrv, { dur: 1.1 }));
+      n2.esperar(1.1);
+      n2.animar([
+        { pieza: "servidor", a: { resaltado: 1 }, dur: 0.25 },
+        ...p.ruta ? [{ pieza: "ruta", a: { texto: p.ruta }, dur: 0 }, { pieza: "ruta", a: { opacidad: 1 }, dur: 0.35 }] : [],
+        { pieza: ["pedido", "pedidoTexto"], a: { opacidad: 0 }, dur: 0.35, en: n2.tiempo + 0.6 }
+      ]);
+      n2.esperar(0.5);
+      if (p.ruta) n2.decir(`En el servidor lo atiende la ruta que coincide con ${metodo} y esa direcci\xF3n.`, 0.2);
+      n2.preguntar(i);
+      n2.animar([
+        { pieza: "servidor", a: { resaltado: 0 }, dur: 0.4 },
+        ...llevar("respuesta", llegadaSrv, { dur: 0 }),
+        { pieza: "respuesta", a: { alto: altoDe(tr), borde: color }, dur: 0 },
+        { pieza: "respuestaTexto", a: { texto: tr }, dur: 0 },
+        { pieza: ["respuesta", "respuestaTexto"], a: { opacidad: 1 }, dur: 0.35 },
+        ...llevar("respuesta", salidaCli, { dur: 1.1, en: n2.tiempo + 0.5 })
+      ]);
+      n2.esperar(1.7);
+      if (p.resultado) {
+        n2.animar([
+          { pieza: "resultado", a: { texto: p.resultado, color: color === "error" ? "error" : "texto" }, dur: 0 },
+          { pieza: "resultado", a: { opacidad: 1 }, dur: 0.4 }
+        ]);
+      }
+      n2.decir(p.explicacionRespuesta ?? `Vuelve un ${p.respuesta.codigo} ${razon}`.trim() + ".", 0.4);
+    });
+    return {
+      titulo: titulo || "Un pedido HTTP y su respuesta",
+      descripcion: descripcion || `Un navegador hace ${pedidos.length === 1 ? "un pedido" : `${pedidos.length} pedidos`} a un servidor: ${pedidos.map((p) => `${(p.metodo ?? "GET").toUpperCase()} ${p.url} \u2192 ${p.respuesta.codigo}`).join("; ")}.`,
+      ancho: W,
+      alto: H2,
+      lectura,
+      pausaFinal: 1.5,
+      piezas,
+      linea: n2.linea
     };
   };
 }
 export {
   aBits,
   analizarIp,
+  colorDeCodigo,
   desdeCongestion,
   desdeIntercambio,
+  desdePedidoHttp,
   desdeSubred,
   desdeVentana,
   direccionIp,
@@ -2184,5 +2658,7 @@ export {
   secuencia,
   simularArq,
   simularCongestion,
+  textoDeLaRespuesta,
+  textoDelPedido,
   ventanaDeslizante
 };

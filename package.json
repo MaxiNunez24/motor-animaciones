@@ -1,6 +1,6 @@
 {
     "name": "motor-animaciones",
-    "version": "0.11.0",
+    "version": "0.12.0",
     "description": "Motor de animaciones web deterministas: escenas declarativas, controles, y una capa para explicar conceptos.",
     "type": "module",
     "license": "MIT",
@@ -36,7 +36,8 @@
         "test": "node --test \"tests/nucleo/*.test.js\" \"tests/herramientas/*.test.js\"",
         "video": "node herramientas/video.js",
         "test:navegador": "node herramientas/construir.js && playwright test",
-        "tipos": "tsc -p jsconfig.json"
+        "tipos": "tsc -p jsconfig.json",
+        "revisar": "node herramientas/revisar.js"
     },
     "devDependencies": {
         "@playwright/test": "1.62.0",

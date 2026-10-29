@@ -10,6 +10,6 @@ export { registrarEstilo, resolverEstilo, cargarEstilo, usarEstilo, estilosDispo
 export { RECETAS as SONIDOS, sintetizar, mezclarPista } from './sonido/sintetizar.js';
 export { registrar, MotorEscena, definirComponente } from './controles/componente.js';
 
-export const version = '0.11.0';
+export const version = '0.12.0';
 
 definirComponente();

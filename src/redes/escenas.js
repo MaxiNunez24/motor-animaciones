@@ -1,4 +1,6 @@
 import { texto } from '../piezas/texto.js';
+import { caja } from '../piezas/caja.js';
+import { flecha } from '../piezas/flecha.js';
 import { crearNarrador } from '../pedagogico/narrar.js';
 import { plano, grafica, punto } from '../mate/plano.js';
 import { secuencia, direccionIp, ventanaDeslizante } from './piezas.js';
@@ -412,6 +414,203 @@ export function desdeSubred(opciones) {
         return {
             titulo: titulo || `La subred de ${ip.direccion}/${ip.prefijo}`,
             descripcion: descripcion || `${ip.direccion}/${ip.prefijo}: máscara ${ip.mascara}, red ${ip.red}, broadcast ${ip.broadcast}, ${ip.hosts} hosts de ${ip.primero} a ${ip.ultimo}.`,
+            ancho: W, alto: H, lectura, pausaFinal: 1.5, piezas, linea: n.linea,
+        };
+    };
+}
+
+// ======================= Un pedido y su respuesta =======================
+
+const RAZONES = {
+    200: 'OK', 201: 'Created', 204: 'No Content', 301: 'Moved Permanently', 302: 'Found', 304: 'Not Modified',
+    400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found', 405: 'Method Not Allowed',
+    409: 'Conflict', 422: 'Unprocessable Entity', 500: 'Internal Server Error',
+};
+
+/** El color de una respuesta, por su familia: 2xx bien, 3xx a otro lado, 4xx y 5xx error. */
+export function colorDeCodigo(codigo) {
+    return codigo < 300 ? 'exito' : codigo < 400 ? 'alerta' : 'error';
+}
+
+/** Un cuerpo (objeto, lista o texto) como se ve en el cable: JSON con sangría. */
+function cuerpoComoTexto(cuerpo) {
+    if (cuerpo == null || cuerpo === '') return '';
+    return typeof cuerpo === 'string' ? cuerpo : JSON.stringify(cuerpo, null, 2);
+}
+
+function encabezadosComoTexto(encabezados, cuerpo) {
+    const lista = encabezados ?? (cuerpo != null ? { 'Content-Type': 'application/json' } : {});
+    return Object.entries(lista).map(([k, v]) => `${k}: ${v}`);
+}
+
+/** Lo que viaja en un pedido, como texto: la primera línea, los encabezados y el cuerpo. */
+export function textoDelPedido(p) {
+    const cuerpo = cuerpoComoTexto(p.cuerpo);
+    return [`${(p.metodo ?? 'GET').toUpperCase()} ${p.url}`, ...encabezadosComoTexto(p.encabezados, p.cuerpo), ...(cuerpo ? ['', cuerpo] : [])].join('\n');
+}
+
+/** Lo que viaja en una respuesta, como texto: el código, los encabezados y el cuerpo. */
+export function textoDeLaRespuesta(r) {
+    const cuerpo = cuerpoComoTexto(r.cuerpo);
+    const estado = `${r.codigo} ${r.razon ?? RAZONES[r.codigo] ?? ''}`.trim();
+    return [estado, ...encabezadosComoTexto(r.encabezados, r.cuerpo), ...(cuerpo ? ['', cuerpo] : [])].join('\n');
+}
+
+/**
+ * Un pedido HTTP y su respuesta, con lo que viaja adentro: el navegador (o un
+ * fetch) arma el pedido —método, URL, encabezados, cuerpo—, el pedido viaja,
+ * el servidor lo atiende (con la ruta de Flask que le toca, si se da) y la
+ * respuesta vuelve con su código y su JSON. Al final, lo que el navegador hace
+ * con ella.
+ *
+ * Pensada para Flask y para fetch/APIs: varios pedidos seguidos cuentan una
+ * API entera (listar, crear, pedir uno que no existe).
+ *
+ * @param {{
+ *     pedidos: {
+ *         metodo?: string, url: string, encabezados?: Record<string, string>, cuerpo?: any,
+ *         ruta?: string,
+ *         respuesta: { codigo: number, razon?: string, encabezados?: Record<string, string>, cuerpo?: any },
+ *         resultado?: string, explicacion?: string, explicacionRespuesta?: string, capitulo?: string,
+ *     }[],
+ *     cliente?: string, servidor?: string,
+ *     titulo?: string, descripcion?: string, ritmo?: number, lectura?: number, preguntas?: Record<string, any>,
+ * }} opciones
+ *     `ruta`: el código del servidor que atiende ese pedido (se muestra en el
+ *     servidor mientras lo atiende). `resultado`: lo que muestra el navegador
+ *     después. `preguntas` va por número de pedido: se pregunta antes de que
+ *     vuelva la respuesta ("¿qué código va a devolver?").
+ */
+export function desdePedidoHttp(opciones) {
+    const {
+        pedidos, cliente = '🌐 Navegador', servidor = '🖥️ Servidor (Flask)',
+        titulo = '', descripcion = '', ritmo = 1, lectura = 13, preguntas = {},
+    } = opciones;
+    if (!Array.isArray(pedidos) || !pedidos.length) throw new Error('Hace falta al menos un pedido: pedidos: [{ metodo, url, respuesta: { codigo } }].');
+    for (const p of pedidos) {
+        if (!p.url) throw new Error('Cada pedido necesita su url, por ejemplo "/api/alumnos".');
+        if (!(p.respuesta?.codigo >= 100)) throw new Error(`El pedido a ${p.url} necesita su respuesta: respuesta: { codigo: 200, cuerpo: {...} }.`);
+    }
+
+    return function (disposicion) {
+        const { angosta, W, H, arriba } = lienzo(disposicion, titulo);
+        const piezas = {};
+        if (titulo) piezas.titulo = piezaTitulo(titulo, W, angosta);
+
+        // Los dos extremos: a los costados en ancho, arriba y abajo en angosto.
+        const ext = angosta
+            ? { ancho: 600, alto: 250, cli: { x: W / 2, y: arriba + 135 }, srv: { x: W / 2, y: H - 165 } }
+            : { ancho: 380, alto: 560, cli: { x: 230, y: arriba + 330 }, srv: { x: W - 230, y: arriba + 330 } };
+        const tam = angosta ? 22 : 28;
+        const mono = angosta ? 17 : 21;
+        /** @type {[string, { x: number, y: number }, string][]} */
+        const extremos = [['cliente', ext.cli, cliente], ['servidor', ext.srv, servidor]];
+        for (const [id, lugar, nombre] of extremos) {
+            piezas[id] = caja({ ...lugar, ancho: ext.ancho, alto: ext.alto, texto: '', relleno: 'superficie' });
+            piezas[`${id}Nombre`] = texto({ x: lugar.x, y: lugar.y - ext.alto / 2 + 34, texto: nombre, tamano: tam, peso: 800 });
+        }
+        // En el navegador: la barra con la dirección y, abajo, lo que muestra.
+        piezas.barra = caja({
+            x: ext.cli.x, y: ext.cli.y - ext.alto / 2 + 84, ancho: ext.ancho - 30, alto: angosta ? 44 : 50,
+            texto: ' ', tamano: mono, peso: 500, relleno: 'fondo', borde: 'borde', radio: 25, color: 'suave',
+        });
+        piezas.resultado = texto({
+            x: ext.cli.x, y: ext.cli.y + (angosta ? 40 : 60), texto: ' ', tamano: angosta ? 20 : 24,
+            anchoMax: ext.ancho - 50, opacidad: 0,
+        });
+        // En el servidor: la ruta que atiende el pedido.
+        piezas.ruta = texto({
+            x: ext.srv.x - ext.ancho / 2 + 24, y: ext.srv.y + (angosta ? 20 : 10), texto: ' ', tamano: angosta ? 16 : 20,
+            fuente: 'mono', alineacion: 'inicio', opacidad: 0,
+        });
+
+        // Las dos tarjetas que viajan: el pedido y la respuesta. Cada una es
+        // una caja y un texto de código que se mueven juntos (el texto, contra
+        // el costado izquierdo de la caja).
+        const largoMax = Math.max(...pedidos.flatMap((p) => [textoDelPedido(p), textoDeLaRespuesta(p.respuesta)])
+            .flatMap((t) => t.split('\n')).map((l) => l.length));
+        const anchoTarjeta = Math.min(angosta ? 600 : 640, Math.max(260, largoMax * mono * 0.6 + 40));
+        /** Dónde va el texto de una tarjeta que está en `lugar`. */
+        const junto = (lugar) => ({ x: lugar.x - anchoTarjeta / 2 + 20, y: lugar.y });
+        const yMedio = angosta ? (ext.cli.y + ext.srv.y) / 2 : ext.cli.y;
+        const salidaCli = angosta
+            ? { x: W / 2, y: yMedio - 60 }
+            : { x: ext.cli.x + ext.ancho / 2 + anchoTarjeta / 2 + 24, y: yMedio };
+        const llegadaSrv = angosta
+            ? { x: W / 2, y: yMedio + 60 }
+            : { x: ext.srv.x - ext.ancho / 2 - anchoTarjeta / 2 - 24, y: yMedio };
+        for (const id of ['pedido', 'respuesta']) {
+            piezas[id] = caja({ ...salidaCli, ancho: anchoTarjeta, alto: 100, texto: '', relleno: 'papel', borde: 'acento', grosorBorde: 3, opacidad: 0, radio: 14 });
+            piezas[`${id}Texto`] = texto({ ...junto(salidaCli), texto: ' ', tamano: mono, fuente: 'mono', alineacion: 'inicio', opacidad: 0 });
+        }
+        piezas.cable = flecha({
+            desde: angosta ? { x: W / 2 - ext.ancho / 2 + 20, y: ext.cli.y + ext.alto / 2 + 6 } : { x: ext.cli.x + ext.ancho / 2 + 6, y: yMedio + 230 },
+            hasta: angosta ? { x: W / 2 - ext.ancho / 2 + 20, y: ext.srv.y - ext.alto / 2 - 6 } : { x: ext.srv.x - ext.ancho / 2 - 6, y: yMedio + 230 },
+            punta: false, punteada: true, color: 'borde', etiqueta: 'internet', ladoEtiqueta: -1, separacion: 0,
+        });
+
+        const altoDe = (t) => t.split('\n').length * mono * 1.3 + 30;
+        // Mover una tarjeta es mover la caja y su texto, con el mismo tiempo y la misma curva.
+        const llevar = (id, lugar, extra = {}) => [
+            { pieza: id, a: lugar, ...extra },
+            { pieza: `${id}Texto`, a: junto(lugar), ...extra },
+        ];
+        const n = crearNarrador({ ritmo, lectura, preguntas });
+        pedidos.forEach((p, i) => {
+            const metodo = (p.metodo ?? 'GET').toUpperCase();
+            const razon = p.respuesta.razon ?? RAZONES[p.respuesta.codigo] ?? '';
+            n.capitulo(p.capitulo ?? `${metodo} ${p.url}`);
+            const tp = textoDelPedido(p);
+            const tr = textoDeLaRespuesta(p.respuesta);
+            const color = colorDeCodigo(p.respuesta.codigo);
+            // Se arma el pedido en el navegador.
+            n.animar([
+                { pieza: ['respuesta', 'respuestaTexto', 'resultado', 'ruta'], a: { opacidad: 0 }, dur: 0.3 },
+                { pieza: 'barra', a: { texto: p.url, color: 'texto' }, dur: 0 },
+                { pieza: 'barra', a: { resaltado: 1 }, dur: 0.25 },
+                { pieza: 'barra', a: { resaltado: 0 }, dur: 0.4, en: n.tiempo + 0.35 },
+                ...llevar('pedido', salidaCli, { dur: 0 }),
+                { pieza: 'pedido', a: { alto: altoDe(tp) }, dur: 0 },
+                { pieza: 'pedidoTexto', a: { texto: tp }, dur: 0 },
+                { pieza: ['pedido', 'pedidoTexto'], a: { opacidad: 1 }, dur: 0.4, en: n.tiempo + 0.3 },
+            ]);
+            n.esperar(0.7);
+            n.decir(p.explicacion ?? `El navegador arma el pedido: ${metodo} ${p.url}${p.cuerpo != null ? ', con un cuerpo en JSON' : ''}.`, 0.2);
+            // Viaja.
+            n.animar(llevar('pedido', llegadaSrv, { dur: 1.1 }));
+            n.esperar(1.1);
+            // El servidor lo atiende.
+            n.animar([
+                { pieza: 'servidor', a: { resaltado: 1 }, dur: 0.25 },
+                ...(p.ruta ? [{ pieza: 'ruta', a: { texto: p.ruta }, dur: 0 }, { pieza: 'ruta', a: { opacidad: 1 }, dur: 0.35 }] : []),
+                { pieza: ['pedido', 'pedidoTexto'], a: { opacidad: 0 }, dur: 0.35, en: n.tiempo + 0.6 },
+            ]);
+            n.esperar(0.5);
+            if (p.ruta) n.decir(`En el servidor lo atiende la ruta que coincide con ${metodo} y esa dirección.`, 0.2);
+            n.preguntar(i);
+            // La respuesta sale del servidor y vuelve.
+            n.animar([
+                { pieza: 'servidor', a: { resaltado: 0 }, dur: 0.4 },
+                ...llevar('respuesta', llegadaSrv, { dur: 0 }),
+                { pieza: 'respuesta', a: { alto: altoDe(tr), borde: color }, dur: 0 },
+                { pieza: 'respuestaTexto', a: { texto: tr }, dur: 0 },
+                { pieza: ['respuesta', 'respuestaTexto'], a: { opacidad: 1 }, dur: 0.35 },
+                ...llevar('respuesta', salidaCli, { dur: 1.1, en: n.tiempo + 0.5 }),
+            ]);
+            n.esperar(1.7);
+            if (p.resultado) {
+                n.animar([
+                    { pieza: 'resultado', a: { texto: p.resultado, color: color === 'error' ? 'error' : 'texto' }, dur: 0 },
+                    { pieza: 'resultado', a: { opacidad: 1 }, dur: 0.4 },
+                ]);
+            }
+            n.decir(p.explicacionRespuesta ?? `Vuelve un ${p.respuesta.codigo} ${razon}`.trim() + '.', 0.4);
+        });
+
+        return {
+            titulo: titulo || 'Un pedido HTTP y su respuesta',
+            descripcion: descripcion || `Un navegador hace ${pedidos.length === 1 ? 'un pedido' : `${pedidos.length} pedidos`} a un servidor: ` +
+                `${pedidos.map((p) => `${(p.metodo ?? 'GET').toUpperCase()} ${p.url} → ${p.respuesta.codigo}`).join('; ')}.`,
             ancho: W, alto: H, lectura, pausaFinal: 1.5, piezas, linea: n.linea,
         };
     };

@@ -4,7 +4,7 @@
 // documentación (203.0.113.0/24), y los dominios, de ejemplo.
 
 (function () {
-    const { desdeIntercambio, desdeVentana, desdeCongestion, desdeSubred } = MotorRedes;
+    const { desdeIntercambio, desdeVentana, desdeCongestion, desdeSubred, desdePedidoHttp } = MotorRedes;
 
     Motor.registrar('redes-saludo', desdeIntercambio({
         titulo: 'El saludo de tres vías de TCP',
@@ -73,6 +73,43 @@
                 pregunta: 'Si el archivo no existiera, ¿qué código de estado devolvería el servidor?',
                 opciones: ['200', '301', '404', '500'],
                 correcta: 2,
+            },
+        },
+    }));
+
+    Motor.registrar('redes-api', desdePedidoHttp({
+        titulo: 'Una API en Flask: pedido y respuesta',
+        pedidos: [
+            {
+                metodo: 'GET', url: '/api/alumnos',
+                ruta: "@app.get('/api/alumnos')\ndef listar():\n    return jsonify(alumnos)",
+                respuesta: { codigo: 200, cuerpo: [{ id: 1, nombre: 'Ana' }, { id: 2, nombre: 'Bruno' }] },
+                resultado: '• Ana\n• Bruno',
+                explicacion: 'Para listar, el navegador pide con GET: no manda cuerpo, solo la dirección.',
+                explicacionRespuesta: 'Vuelve un 200 OK con la lista en JSON, y la página la muestra.',
+            },
+            {
+                metodo: 'POST', url: '/api/alumnos', cuerpo: { nombre: 'Carla' },
+                ruta: "@app.post('/api/alumnos')\ndef crear():\n    datos = request.get_json()\n    ...\n    return jsonify(nuevo), 201",
+                respuesta: { codigo: 201, cuerpo: { id: 3, nombre: 'Carla' } },
+                resultado: 'Carla quedó anotada (id 3).',
+                explicacion: 'Para crear, POST: el pedido lleva un cuerpo en JSON con los datos.',
+                explicacionRespuesta: 'Vuelve un 201 Created: se creó algo, y la respuesta dice qué, con su id.',
+            },
+            {
+                metodo: 'GET', url: '/api/alumnos/9',
+                ruta: "@app.get('/api/alumnos/<int:id>')\ndef uno(id):\n    ...\n    return {'error': 'No existe'}, 404",
+                respuesta: { codigo: 404, cuerpo: { error: 'No existe' } },
+                resultado: 'No hay ningún alumno con id 9.',
+                explicacionRespuesta: 'Vuelve un 404 Not Found: el pedido llegó bien, pero eso no existe. Los 4xx son errores del que pide.',
+            },
+        ],
+        preguntas: {
+            2: {
+                pregunta: 'No hay ningún alumno con id 9. ¿Qué código devuelve el servidor?',
+                opciones: ['200', '404', '500'],
+                correcta: 1,
+                explicacion: 'Un 500 sería un error del servidor; acá el que pidió algo que no existe es el navegador.',
             },
         },
     }));

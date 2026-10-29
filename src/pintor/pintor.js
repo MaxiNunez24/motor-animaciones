@@ -1,4 +1,4 @@
-import { el, poner, idUnico } from '../piezas/svg.js';
+import { el, poner, idUnico, filtroSombra } from '../piezas/svg.js';
 import { posicionAbsoluta } from '../piezas/geometria.js';
 import { aCss } from '../nucleo/colores.js';
 
@@ -100,7 +100,7 @@ export function crearPintor(svg, escena, opciones = {}) {
                 lupa?.grupo.setAttribute('visibility', 'hidden');
                 return;
             }
-            lupa ??= crearLupa(svg, defs, dibujo.id);
+            lupa ??= crearLupa(svg, defs, dibujo);
             pintarLupa(lupa, l);
         },
     };
@@ -123,13 +123,20 @@ export function crearPintor(svg, escena, opciones = {}) {
 
 // ---------------- La lupa de quien mira ----------------
 
-function crearLupa(svg, defs, idDibujo) {
+function crearLupa(svg, defs, dibujo) {
     const id = idUnico('ma-lupa');
     const recorte = el('rect', {}, el('clipPath', { id }, defs));
     const grupo = el('g', { 'data-lupa': 'cuerpo', class: 'ma-lupa' }, svg);
-    const fondo = el('rect', { fill: 'var(--ma-fondo)', filter: 'drop-shadow(0 8px 18px rgb(0 0 0 / 0.35))' }, grupo);
+    const fondo = el('rect', { fill: 'var(--ma-fondo)', filter: filtroSombra(defs, { dy: 8, desenfoque: 9, opacidad: 0.35 }) }, grupo);
     const vista = el('g', { 'clip-path': `url(#${id})` }, grupo);
-    const uso = el('use', { href: `#${idDibujo}` }, vista);
+    // Un <use> por pieza de arriba (como hace el espejo), no uno del dibujo
+    // entero: en algunos navegadores, la copia de un grupo grande con
+    // cámaras y recortes adentro salía sin los textos.
+    const uso = el('g', {}, vista);
+    for (const pieza of dibujo.querySelectorAll(':scope > g[data-pieza]')) {
+        if (!pieza.id) pieza.id = idUnico('ma-pieza');
+        el('use', { href: `#${pieza.id}` }, uso);
+    }
     const aro = el('rect', { fill: 'none', stroke: 'var(--ma-texto)' }, grupo);
     // El asa: de donde se agarra para cambiarle el tamaño.
     const asa = el('circle', { 'data-lupa': 'asa', fill: 'var(--ma-acento)', stroke: 'var(--ma-fondo)', class: 'ma-lupa-asa' }, grupo);

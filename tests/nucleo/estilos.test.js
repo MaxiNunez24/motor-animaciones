@@ -232,3 +232,123 @@ describe('los sonidos fabricados', () => {
         assert.equal(wav.length, 44 + 48000 * 2);
     });
 });
+
+describe('qué tapa a qué', async () => {
+    const { revisarSuperposiciones, lugarLibre, zonaDeSubtitulo, cajasEn } = await import('../../src/piezas/superposiciones.js');
+    const { contador, celular } = await import('../../src/piezas/index.js');
+    const conCartel = (y) => escena({
+        cartel: texto({ x: 800, y, texto: 'Un cartel abajo que no hay que tapar', tamano: 44 }),
+        titulo: texto({ x: 800, y: 60, texto: 'Título', tamano: 50 }),
+    }, [{ subtitulo: 'Un subtítulo cualquiera.', dur: 3 }]);
+
+    test('un subtítulo que cae sobre un cartel se avisa, y arriba hay lugar', () => {
+        const c = compilar(conCartel(830));
+        const r = revisarSuperposiciones(c);
+        assert.equal(r.subtitulos.length, 1);
+        assert.deepEqual(r.subtitulos[0].tapa, ['cartel']);
+        assert.equal(r.subtitulos[0].libre, true);
+        const lugar = lugarLibre(c, zonaDeSubtitulo(c, 'abajo'), 0, 3);
+        assert.ok(lugar.subir > 0 && lugar.libre);
+    });
+    test('si no tapa nada, no se mueve', () => {
+        const c = compilar(conCartel(450));
+        assert.equal(revisarSuperposiciones(c).subtitulos.length, 0);
+        assert.equal(lugarLibre(c, zonaDeSubtitulo(c, 'abajo'), 0, 3).subir, 0);
+    });
+    test('lo apagado, lo muy tenue, lo tapado por un velo y lo recortado por su contenedor no cuenta', () => {
+        const c = compilar(escena({
+            apagado: texto({ x: 800, y: 830, texto: 'no se ve', opacidad: 0 }),
+            tenue: texto({ x: 800, y: 830, texto: 'casi no se ve', opacidad: 0.12 }),
+            cel: celular({ x: 300, y: 450, alto: 600 }),
+            afuera: caja({ dentro: 'cel', x: 180, y: 2000, texto: 'fuera de la pantalla' }),
+            num: contador({ x: 800, y: 300, valor: 12, prefijo: 'Hay ', sufijo: ' alumnos' }),
+            debajo: texto({ x: 1300, y: 600, texto: 'debajo del velo' }),
+            velo: caja({ x: 1300, y: 600, ancho: 500, alto: 300, relleno: 'fondo', borde: 'ninguno', opacidad: 0.8 }),
+        }, []));
+        const ids = cajasEn(c, 0).map((x) => x.id);
+        assert.deepEqual(ids.filter((id) => ['apagado', 'tenue', 'afuera', 'debajo'].includes(id)), []);
+        assert.ok(ids.includes('num'), 'un contador tiene tamaño');
+    });
+    test('dos textos que se pisan, con el tramo en que se pisan', () => {
+        const c = compilar(escena({
+            a: texto({ x: 800, y: 400, texto: 'Primer texto largo' }),
+            b: texto({ x: 820, y: 410, texto: 'Segundo texto largo', opacidad: 0 }),
+        }, [{ pieza: 'b', a: { opacidad: 1 }, dur: 0.1, en: 2 }, { espera: 2 }]));
+        const [par] = revisarSuperposiciones(c).textos;
+        assert.equal(`${par.a}|${par.b}`, 'a|b');
+        assert.ok(par.desde >= 2 && par.hasta >= 3.9);
+    });
+});
+
+// ---------------- Los pedidos del curso (desdeTraza y HTTP) ----------------
+
+describe('desdeTraza: error, alto y línea grande', async () => {
+    const { desdeTraza } = await import('../../src/pedagogico/index.js');
+    const { desdePedidoHttp, textoDelPedido, textoDeLaRespuesta } = await import('../../src/redes/index.js');
+    const traza = [
+        { linea: 1, variables: {} },
+        { linea: 2, variables: { x: { tipo: 'NoneType', repr: 'None' } } },
+        { linea: 2, variables: { x: { tipo: 'NoneType', repr: 'None' } }, excepcion: { tipo: 'TypeError', mensaje: "unsupported operand type(s) for +: 'NoneType' and 'int'" } },
+    ];
+    const codigo = 'x = None\ny = x + 2\nprint(y)';
+    const armar = (op, nombre = 'ancha') => compilar(desdeTraza({ codigo, traza, ...op }), { disposicion: { nombre } });
+
+    test('el cartel del error crece con el mensaje y queda adentro del cuadro', () => {
+        for (const nombre of ['ancha', 'media', 'angosta']) {
+            const c = armar({}, nombre);
+            const e = c.estado(c.duracion).piezas.error;
+            assert.ok(e.alto > 96, `${nombre}: ${e.alto}`);
+            assert.ok(e.y + e.alto / 2 <= c.alto, `${nombre}: el error termina en ${e.y + e.alto / 2} y la escena mide ${c.alto}`);
+        }
+    });
+    test("alto: 'auto' achica la escena a lo que muestra, sin dejar nada afuera", () => {
+        for (const nombre of ['ancha', 'angosta']) {
+            const c = armar({ alto: 'auto' }, nombre);
+            assert.ok(c.alto < (nombre === 'ancha' ? 900 : 1140), `${nombre}: ${c.alto}`);
+            const fin = c.estado(c.duracion);
+            for (const [id, p] of Object.entries(fin.piezas)) {
+                const tam = c.tipos[id].tamano?.(p);
+                if (tam && p.opacidad > 0) assert.ok(p.y + tam.alto / 2 <= c.alto + 1, `${nombre}: "${id}" se sale por abajo`);
+            }
+        }
+        assert.equal(armar({ alto: 700 }).alto, 700);
+    });
+    test('la línea grande: un espejo del código abajo, que sigue a la marca y se apaga al terminar', () => {
+        const larga = [
+            { linea: 1, variables: {} },
+            { linea: 2, variables: { a: { tipo: 'int', repr: '1' } } },
+            { linea: 3, variables: { a: { tipo: 'int', repr: '1' }, b: { tipo: 'int', repr: '2' } } },
+            { linea: 0, variables: { a: { tipo: 'int', repr: '1' }, b: { tipo: 'int', repr: '2' } }, salida: '3\n' },
+        ];
+        const c = compilar(desdeTraza({ codigo: 'a = 1\nb = 2\nprint(a + b)', traza: larga, lineaGrande: true, lupa: true, alto: 'auto' }), { disposicion: { nombre: 'ancha' } });
+        const inicio = c.estado(0.5).piezas;
+        assert.equal(c.tipos.lineaGrande.nombre, 'espejo');
+        assert.equal(inicio.lineaGrande.fuente, 'codigo');
+        assert.equal(inicio.codigo.dentro, null, 'sin la lupa de cámara');
+        const ys = new Set();
+        for (let t = 0; t < c.duracion; t += 0.5) ys.add(Math.round(c.estado(t).piezas.lineaGrande.mirarY));
+        assert.ok(ys.size >= 3, 'se mueve con la marca');
+        const fin = c.estado(c.duracion).piezas.lineaGrande;
+        assert.ok(fin.opacidad < 1 && fin.opacidad > 0);
+        assert.ok(fin.y + fin.alto / 2 <= c.alto);
+    });
+
+    test('HTTP: lo que viaja, escrito como en el cable', () => {
+        assert.equal(textoDelPedido({ metodo: 'post', url: '/api/x', cuerpo: { a: 1 } }), 'POST /api/x\nContent-Type: application/json\n\n{\n  "a": 1\n}');
+        assert.equal(textoDeLaRespuesta({ codigo: 404 }), '404 Not Found');
+    });
+    test('HTTP: la escena se arma ancha y angosta, con un capítulo por pedido', () => {
+        const escena = desdePedidoHttp({
+            pedidos: [
+                { url: '/api/alumnos', respuesta: { codigo: 200, cuerpo: [1, 2] }, resultado: 'dos' },
+                { metodo: 'POST', url: '/api/alumnos', cuerpo: { nombre: 'Ana' }, ruta: "@app.post('/api/alumnos')", respuesta: { codigo: 201 } },
+            ],
+        });
+        for (const nombre of ['ancha', 'angosta']) {
+            const c = compilar(escena, { disposicion: { nombre } });
+            assert.deepEqual(c.capitulos.map((x) => x.nombre), ['GET /api/alumnos', 'POST /api/alumnos']);
+            for (let t = 0; t <= c.duracion; t += 0.5) c.estado(t);
+        }
+        assert.throws(() => desdePedidoHttp({ pedidos: [{ url: '/x' }] }), /necesita su respuesta/);
+    });
+});

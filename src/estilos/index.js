@@ -19,7 +19,7 @@
 //   sonidos      los automáticos ({ aparecer: 'pop', mover: 'whoosh' }), su
 //                volumen y un paquete propio ({ pop: { receta: 'pop', agudo: 1400 } })
 //   musica       { archivo, volumen }
-//   subtitulos   { modo: 'reel', palabras: 3, posicion, tamano, peso, mayusculas, resaltado, caja }
+//   subtitulos   { modo: 'reel', palabras: 3, posicion, tamano, peso, mayusculas, resaltado, caja, esquivar }
 //   video        { desenfoque, obturador }: lo que usa herramientas/video.js
 //
 // La escena no se entera de nada de esto salvo de lo que cambia su línea de
@@ -177,6 +177,8 @@ export function subtitulosDelEstilo(estilo) {
         // 'caja' (un fondo detrás), 'contorno' (letras con borde, sin fondo) o 'ninguno'.
         caja: ['caja', 'contorno', 'ninguno'].includes(s.caja) ? s.caja : 'caja',
         ritmo: s.ritmo ?? 15,
+        // Si sube solo cuando taparía algo (en pantalla completa y en los de reel).
+        esquivar: s.esquivar !== false,
     };
 }
 

@@ -5,16 +5,20 @@ window.PLANTILLAS = {
     'Cajas y una flecha': `// Dos cajas y una flecha que las une. Probá cambiar los textos,
 // los colores ('acento', 'exito', 'error', 'papel'...) o los tiempos.
 return {
+    // titulo es el nombre de la escena (lo lee un lector de pantalla y va en
+    // la descripción del video); no se dibuja. Lo que se ve es la pieza encabezado.
     titulo: 'De la idea al programa',
     ancho: 1600,
     alto: 900,
     piezas: {
+        encabezado: texto({ x: 800, y: 110, texto: 'De la idea al programa', tamano: 56, peso: 800, escrito: 0 }),
         idea: caja({ x: 450, y: 450, texto: 'Una idea', icono: '💡', opacidad: 0 }),
         programa: caja({ x: 1150, y: 450, texto: 'Un programa', icono: '🐍', relleno: 'papel', opacidad: 0 }),
         camino: flecha({ desde: 'idea', hasta: 'programa', progreso: 0, etiqueta: 'pensamiento computacional', curvatura: -0.2 }),
     },
     linea: [
         { capitulo: 'Empieza' },
+        { pieza: 'encabezado', a: { escrito: 1 }, dur: 0.8, curva: 'lineal' },
         { pieza: 'idea', a: { opacidad: 1 } },
         { subtitulo: 'Todo arranca con una idea.', en: '<' },
         { pieza: 'camino', a: { progreso: 1 }, dur: 1.2 },
@@ -31,13 +35,14 @@ return {
     ancho: 1600,
     alto: 900,
     piezas: {
+        encabezado: texto({ x: 330, y: 450, texto: 'Mi app', tamano: 64, peso: 800, opacidad: 0 }),
         cel: celular({ x: 800, y: 470, alto: 760, titulo: 'Lista de compras', opacidad: 0 }),
         item1: caja({ dentro: 'cel', x: 180, y: 170, ancho: 320, alto: 76, texto: '🍞 Pan', opacidad: 0 }),
         item2: caja({ dentro: 'cel', x: 180, y: 260, ancho: 320, alto: 76, texto: '🥛 Leche', opacidad: 0 }),
         item3: caja({ dentro: 'cel', x: 180, y: 350, ancho: 320, alto: 76, texto: '🍎 Manzanas', opacidad: 0 }),
     },
     linea: [
-        { pieza: 'cel', a: { opacidad: 1 } },
+        { pieza: ['encabezado', 'cel'], a: { opacidad: 1 } },
         { pieza: ['item1', 'item2', 'item3'], a: { opacidad: 1 }, escalonar: 0.4 },
         { pieza: 'item2', a: { relleno: 'exito', color: 'fondo' }, en: '+0.5' },
         { subtitulo: 'Tocás un elemento y queda marcado.', en: '<' },
@@ -51,6 +56,7 @@ return {
     ancho: 1600,
     alto: 900,
     piezas: {
+        encabezado: texto({ x: 800, y: 110, texto: 'Asistencia de hoy', tamano: 56, peso: 800 }),
         lista: tabla({
             x: 600, y: 470, ancho: 700,
             columnas: ['Alumno', 'Llegó'],

@@ -107,6 +107,8 @@ ${CSS_TEMA}
     text-transform: var(--ma-sub-mayusculas, none);
     line-height: 1.15;
     letter-spacing: 0.01em;
+    transform: translateY(calc(-1 * var(--ma-sub-esquiva, 0px)));
+    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .ma-raiz.subs-reel[data-sub-posicion="centro"] .ma-subtitulo { align-self: center; margin: 0; }
 .ma-raiz.subs-reel[data-sub-posicion="arriba"] .ma-subtitulo { align-self: start; margin: 5% 0 0; }
@@ -503,7 +505,14 @@ ${CSS_TEMA}
     background: color-mix(in srgb, var(--ma-fondo) 85%, transparent);
     font-size: clamp(18px, 2.2cqi, 46px);
     pointer-events: none;
+    /* --ma-sub-esquiva: cuánto sube para no tapar algo (lo calcula el componente). */
+    transform: translateY(calc(-1 * var(--ma-sub-esquiva, 0px)));
     transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+/* Si no encontró un lugar libre, un fondo más firme: tapa, pero se lee. */
+:host([pantalla]) .sub-tapa .ma-subtitulo,
+:host(:fullscreen) .sub-tapa .ma-subtitulo {
+    background: color-mix(in srgb, var(--ma-fondo) 96%, transparent);
 }
 :host([pantalla]) .ma-subtitulo:empty,
 :host(:fullscreen) .ma-subtitulo:empty {
@@ -512,18 +521,18 @@ ${CSS_TEMA}
 /* Cuando aparecen los controles, el subtítulo sube para no quedar abajo de ellos. */
 :host([pantalla]) .ver-controles .ma-subtitulo,
 :host(:fullscreen) .ver-controles .ma-subtitulo {
-    transform: translateY(calc(-1 * var(--ma-alto-controles, 0px)));
+    transform: translateY(calc(-1 * (var(--ma-alto-controles, 0px) + var(--ma-sub-esquiva, 0px))));
 }
 /* Con una pregunta abierta (en <motor-leccion>), la pregunta ocupa la parte
    de abajo: el subtítulo sube y queda justo encima de ella. Arriba de todo
    taparía el título de la escena. --ma-alto-pregunta lo mide la lección. */
 :host([pantalla]) .con-pregunta .ma-subtitulo,
 :host(:fullscreen) .con-pregunta .ma-subtitulo {
-    transform: translateY(calc(-1 * var(--ma-alto-pregunta, 0px)));
+    transform: translateY(calc(-1 * (var(--ma-alto-pregunta, 0px) + var(--ma-sub-esquiva, 0px))));
 }
 :host([pantalla]) .con-pregunta.ver-controles .ma-subtitulo,
 :host(:fullscreen) .con-pregunta.ver-controles .ma-subtitulo {
-    transform: translateY(calc(-1 * (var(--ma-alto-pregunta, 0px) + var(--ma-alto-controles, 0px))));
+    transform: translateY(calc(-1 * (var(--ma-alto-pregunta, 0px) + var(--ma-alto-controles, 0px) + var(--ma-sub-esquiva, 0px))));
 }
 
 .ma-oculto {
