@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>La bolsa, las opciones y Black-Scholes · motor de animaciones</title>
+    <style>
+        :root {
+            font-family: system-ui, "Segoe UI", sans-serif;
+            color-scheme: light dark;
+        }
+        body {
+            margin: 0;
+            padding: 20px 16px 48px;
+            background: Canvas;
+            color: CanvasText;
+            line-height: 1.5;
+        }
+        main {
+            max-width: 1040px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: clamp(1.4rem, 4.5vw, 2rem);
+            margin: 0 0 0.3em;
+        }
+        h2 {
+            font-size: clamp(1.15rem, 3.6vw, 1.5rem);
+            margin: 2em 0 0.3em;
+        }
+        motor-leccion {
+            margin-top: 0.8em;
+        }
+        details {
+            margin-top: 0.8em;
+            border: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+            border-radius: 10px;
+            padding: 0.5em 0.9em;
+        }
+        summary {
+            cursor: pointer;
+            font-weight: 600;
+        }
+        pre {
+            overflow-x: auto;
+            font-size: 0.88rem;
+            line-height: 1.45;
+            margin: 0.6em 0 0.2em;
+        }
+        .aviso {
+            font-size: 0.92rem;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>La bolsa, las opciones y Black-Scholes</h1>
+        <p>
+            Los fundamentos para después hacerlo en Python sabiendo qué hace cada línea: qué es una acción y su
+            volatilidad, por qué la plata de hoy vale más que la de mañana, qué paga una opción, de dónde sale la fórmula
+            de Black-Scholes y qué miden las griegas. Debajo de cada lección está el mismo cálculo en Python, con
+            <code>numpy</code> y <code>scipy</code>.
+        </p>
+        <p class="aviso">Las empresas y los precios son inventados. Es material para aprender, no una recomendación de inversión.</p>
+
+        <h2>1. Una acción y su precio</h2>
+        <motor-leccion escena="fin-accion"></motor-leccion>
+        <details>
+            <summary>El mismo cálculo en Python</summary>
+<pre><code>import numpy as np
+
+rng = np.random.default_rng(4)
+S0, mu, sigma, dias = 100, 0.08, 0.20, 126
+dt = 1 / 252                                    # un día de bolsa, en años
+
+# El modelo de Black-Scholes: cada día el precio se multiplica por e^(algo al azar)
+z = rng.standard_normal(dias)
+precios = S0 * np.exp(np.cumsum((mu - sigma**2 / 2) * dt + sigma * np.sqrt(dt) * z))
+precios = np.insert(precios, 0, S0)
+
+simple = precios[1:] / precios[:-1] - 1        # (P1 - P0) / P0
+logaritmico = np.log(precios[1:] / precios[:-1])  # ln(P1 / P0): se suman de un día al otro
+
+volatilidad = logaritmico.std(ddof=1) * np.sqrt(252)   # desvío diario, pasado a un año
+print(f"σ medida: {volatilidad:.1%}")
+
+# Con datos de verdad (pandas): precios.pct_change() y np.log(precios).diff()</code></pre>
+        </details>
+
+        <h2>2. El valor del dinero en el tiempo</h2>
+        <motor-leccion escena="fin-interes"></motor-leccion>
+        <details>
+            <summary>El mismo cálculo en Python</summary>
+<pre><code>import numpy as np
+
+monto, r, T = 1000, 0.12, 5
+
+anual = monto * (1 + r) ** T              # una vez por año
+mensual = monto * (1 + r / 12) ** (12 * T)  # una vez por mes
+continua = monto * np.exp(r * T)          # a cada instante: e^(rT)
+
+promesa = 2000
+hoy = promesa * np.exp(-r * T)            # valor presente: e^(-rT), el "descuento"
+print(f"{anual:.2f} {mensual:.2f} {continua:.2f} -> hoy vale {hoy:.2f}")</code></pre>
+        </details>
+
+        <h2>3. Qué paga una opción</h2>
+        <motor-leccion escena="fin-pago"></motor-leccion>
+        <details>
+            <summary>El mismo cálculo en Python</summary>
+<pre><code>import numpy as np
+
+K, prima_call, prima_put = 100, 6, 4
+S = np.linspace(60, 140, 401)            # precios posibles al vencer
+
+pago_call = np.maximum(S - K, 0)         # derecho a comprar a K
+pago_put = np.maximum(K - S, 0)          # derecho a vender a K
+
+ganancia_call = pago_call - prima_call   # el que compró
+ganancia_lanzador = -ganancia_call       # el que vendió: lo mismo dado vuelta
+
+print("empate del call:", K + prima_call, "· empate del put:", K - prima_put)</code></pre>
+        </details>
+
+        <h2>4. De dónde sale Black-Scholes</h2>
+        <motor-leccion escena="fin-bs"></motor-leccion>
+        <details>
+            <summary>El mismo cálculo en Python</summary>
+<pre><code>import numpy as np
+from scipy.stats import norm
+
+S, K, T, r, sigma = 100, 105, 0.5, 0.05, 0.25
+
+# 1) Simulando: muchos futuros, el promedio de lo que paga, traído a hoy.
+#    Se simula creciendo a la tasa sin riesgo r (el mundo "neutral al riesgo").
+rng = np.random.default_rng(11)
+z = rng.standard_normal(20_000)
+ST = S * np.exp((r - sigma**2 / 2) * T + sigma * np.sqrt(T) * z)
+precio_mc = np.exp(-r * T) * np.maximum(ST - K, 0).mean()
+
+# 2) Con la fórmula
+d1 = (np.log(S / K) + (r + sigma**2 / 2) * T) / (sigma * np.sqrt(T))
+d2 = d1 - sigma * np.sqrt(T)
+call = S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
+put = K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
+
+print(f"simulando: {precio_mc:.2f} · fórmula: {call:.2f} · put: {put:.2f}")
+print(f"N(d2) = {norm.cdf(d2):.1%}: probabilidad (neutral al riesgo) de terminar con S > K")
+
+# La volatilidad implícita: el σ que hace que la fórmula dé el precio de mercado
+from scipy.optimize import brentq
+def bs_call(s):
+    a = (np.log(S / K) + (r + s**2 / 2) * T) / (s * np.sqrt(T))
+    return S * norm.cdf(a) - K * np.exp(-r * T) * norm.cdf(a - s * np.sqrt(T))
+precio_de_mercado = 8.00
+print("σ implícita:", brentq(lambda s: bs_call(s) - precio_de_mercado, 0.01, 3))</code></pre>
+        </details>
+
+        <h2>5. Las griegas</h2>
+        <motor-leccion escena="fin-griegas"></motor-leccion>
+        <details>
+            <summary>El mismo cálculo en Python</summary>
+<pre><code>import numpy as np
+from scipy.stats import norm
+
+S, K, T, r, sigma = 100, 100, 0.5, 0.05, 0.25
+d1 = (np.log(S / K) + (r + sigma**2 / 2) * T) / (sigma * np.sqrt(T))
+d2 = d1 - sigma * np.sqrt(T)
+
+delta = norm.cdf(d1)                                  # por $1 de la acción
+gamma = norm.pdf(d1) / (S * sigma * np.sqrt(T))       # cuánto cambia delta por $1
+theta = (-S * norm.pdf(d1) * sigma / (2 * np.sqrt(T))
+         - r * K * np.exp(-r * T) * norm.cdf(d2)) / 365   # por día
+vega = S * norm.pdf(d1) * np.sqrt(T) / 100            # por punto (1 %) de σ
+rho = K * T * np.exp(-r * T) * norm.cdf(d2) / 100     # por punto (1 %) de r
+
+# Sin fórmula: diferencias finitas (mover un poquito y mirar cuánto cambia)
+def call(S=S, T=T, r=r, sigma=sigma):
+    a = (np.log(S / K) + (r + sigma**2 / 2) * T) / (sigma * np.sqrt(T))
+    return S * norm.cdf(a) - K * np.exp(-r * T) * norm.cdf(a - sigma * np.sqrt(T))
+h = 0.01
+print(delta, (call(S + h) - call(S - h)) / (2 * h))   # dan lo mismo</code></pre>
+        </details>
+
+        <h2>6. Estrategias con opciones</h2>
+        <motor-leccion escena="fin-estrategias"></motor-leccion>
+        <details>
+            <summary>El mismo cálculo en Python</summary>
+<pre><code>import numpy as np
+
+S = np.linspace(65, 135, 701)                   # precios posibles al vencer
+
+def call(K, prima, cantidad=1): return cantidad * (np.maximum(S - K, 0) - prima)
+def put(K, prima, cantidad=1):  return cantidad * (np.maximum(K - S, 0) - prima)
+def accion(precio_hoy, cantidad=1): return cantidad * (S - precio_hoy)
+
+# Una estrategia es la suma de sus patas (las primas, de Black-Scholes)
+put_protector = accion(100) + put(95, 2.35)
+straddle = call(100, 5.60) + put(100, 4.36)
+spread_alcista = call(100, 5.60) + call(115, 1.07, cantidad=-1)
+
+empates = S[np.where(np.diff(np.sign(straddle)))[0]]
+print("el straddle empata en", empates.round(1), "· pierde como mucho", straddle.min().round(2))</code></pre>
+        </details>
+    </main>
+
+    <script src="../../dist/motor.min.js"></script>
+    <script src="../../dist/motor-finanzas.min.js"></script>
+    <script src="lecciones.js"></script>
+</body>
+</html>

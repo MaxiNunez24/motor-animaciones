@@ -187,3 +187,20 @@ test('la portada: las escenas en vivo se arman, y el código de cada ejemplo es 
     for (const { mostrado, script } of codigos) expect(mostrado).toBe(script);
     expect(errores).toEqual([]);
 });
+
+test('la flecha de "la misma lista" arranca y termina a la altura de las listas, aunque la escena se haya centrado', async ({ page }) => {
+    await abrir(page, '/ejemplos/funciones-y-objetos/');
+    const r = await page.locator('[escena="referencias"]').evaluate((m) => {
+        m.irA(m.duracion * 0.7);
+        const s = m.shadowRoot;
+        const caja = (el) => el.getBoundingClientRect();
+        const flecha = caja(s.querySelector('[data-pieza^="alias"] path'));
+        const a = caja(s.querySelector('[data-pieza="var_a"] rect'));
+        const b = caja(s.querySelector('[data-pieza="var_b"] rect'));
+        return { arriba: flecha.top, abajo: flecha.bottom, a: [a.top, a.bottom], b: [b.top, b.bottom] };
+    });
+    expect(r.arriba).toBeGreaterThan(r.a[0]);
+    expect(r.arriba).toBeLessThan(r.a[1]);
+    expect(r.abajo).toBeGreaterThan(r.b[0]);
+    expect(r.abajo).toBeLessThan(r.b[1]);
+});

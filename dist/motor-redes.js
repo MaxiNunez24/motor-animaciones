@@ -411,7 +411,7 @@ var direccionIp = definirPieza({
       fondo: el("rect", { rx: 10, fill: "var(--ma-superficie)", "stroke-width": 3 }, grupo),
       rotulo: el("text", { "dominant-baseline": "central", "font-weight": 700, "text-anchor": "start" }, grupo),
       decimal: el("text", { "dominant-baseline": "central", "font-weight": 700, "text-anchor": "start", "font-family": "var(--ma-fuente-mono)" }, grupo),
-      bits: el("text", { "dominant-baseline": "central", "text-anchor": "start", "font-family": "var(--ma-fuente-mono)" }, grupo),
+      bits: el("text", { "dominant-baseline": "central", "text-anchor": "middle", "font-family": "var(--ma-fuente-mono)" }, grupo),
       corte: el("line", { "stroke-width": 3, "stroke-dasharray": "6 5" }, grupo)
     };
   },
@@ -453,7 +453,11 @@ var direccionIp = definirPieza({
     poner(tHost, { fill: m > 0 ? aCss(p.colorHost) : aCss(p.color), "font-weight": m > 0.5 ? 700 : 400 });
     texto(tRed, enRed);
     texto(tHost, enHost);
-    const xCorte = xBits + (corteChar + (enHost.startsWith(".") ? 0.5 : 0)) * tamBits * 0.6;
+    const paso = tamBits * 0.6;
+    const lugares = (desde, n) => Array.from({ length: n }, (_, i) => Math.round((xBits + (desde + i + 0.5) * paso) * 100) / 100).join(" ");
+    poner(tRed, { x: lugares(0, Array.from(enRed).length) });
+    poner(tHost, { x: lugares(Array.from(enRed).length, Array.from(enHost).length) });
+    const xCorte = xBits + (corteChar + (enHost.startsWith(".") ? 0.5 : 0)) * paso;
     poner(partes.corte, {
       x1: xCorte,
       x2: xCorte,
@@ -1158,6 +1162,10 @@ var grafica = sobrePlano({
     grosor: 4,
     punteada: false,
     muestras: 400,
+    // Un número que se le pasa a f como segundo argumento, f(x, k), y que se
+    // puede animar: la curva se va deformando de a poco (el precio de una
+    // opción a medida que pasa el tiempo, una campana que se ensancha).
+    k: 0,
     // Un rótulo al final de lo dibujado: "f(x) = x²".
     etiqueta: "",
     tamanoEtiqueta: 24
@@ -1206,7 +1214,7 @@ function puntosDeGrafica(p, c) {
     const t1 = p.hasta ?? 1;
     for (let i = 0; i <= p.muestras; i++) {
       const t = t0 + (t1 - t0) * i / p.muestras;
-      const [x, y] = p.parametrica(t);
+      const [x, y] = p.parametrica(t, p.k);
       lista.push(Number.isFinite(x) && Number.isFinite(y) ? [x, y] : null);
     }
     return lista;
@@ -1217,7 +1225,7 @@ function puntosDeGrafica(p, c) {
   let anterior = null;
   for (let i = 0; i <= p.muestras; i++) {
     const x = x0 + (x1 - x0) * i / p.muestras;
-    const y = p.f(x);
+    const y = p.f(x, p.k);
     if (!Number.isFinite(y)) {
       lista.push(null);
       anterior = null;
@@ -1514,6 +1522,8 @@ var area = sobrePlano({
     // Un borde arriba (sobre f), para que la región se lea aunque el relleno sea claro.
     borde: true,
     muestras: 160,
+    // Como en la gráfica: f(x, k) y g(x, k), con k animable.
+    k: 0,
     etiqueta: "",
     tamanoEtiqueta: 22,
     // Dónde va el rótulo, en coordenadas del plano. null: en el medio de la región.
@@ -1543,11 +1553,11 @@ var area = sobrePlano({
       const n = Math.max(2, Math.ceil(p.muestras * ((x1 - x0) / (pl.xmax - pl.xmin))));
       const xs = Array.from({ length: n + 1 }, (_, i) => x0 + (x1 - x0) * i / n);
       arriba = xs.map((x, i) => {
-        const q = c.a(x, lim(p.f(x)));
+        const q = c.a(x, lim(p.f(x, p.k)));
         return `${i ? "L" : "M"}${r2(q.x)} ${r2(q.y)}`;
       }).join("");
       abajo = xs.reverse().map((x) => {
-        const q = c.a(x, lim(p.g ? p.g(x) : 0));
+        const q = c.a(x, lim(p.g ? p.g(x, p.k) : 0));
         return `L${r2(q.x)} ${r2(q.y)}`;
       }).join("");
     }
@@ -1563,7 +1573,7 @@ var area = sobrePlano({
       visibility: vacia || !p.borde ? "hidden" : null
     });
     const xm = p.etiquetaX ?? (x0 + x1) / 2;
-    const ym = p.etiquetaY ?? ((p.g ? p.g(xm) : 0) + p.f(xm)) / 2;
+    const ym = p.etiquetaY ?? ((p.g ? p.g(xm, p.k) : 0) + p.f(xm, p.k)) / 2;
     const e = c.a(xm, ym);
     poner(partes.etiqueta, {
       x: e.x,

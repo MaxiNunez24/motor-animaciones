@@ -1,6 +1,6 @@
 {
     "name": "motor-animaciones",
-    "version": "0.9.1",
+    "version": "0.10.0",
     "description": "Motor de animaciones web deterministas: escenas declarativas, controles, y una capa para explicar conceptos.",
     "type": "module",
     "license": "MIT",
@@ -22,7 +22,9 @@
         "./mate": "./dist/motor-mate.js",
         "./motor-mate.min.js": "./dist/motor-mate.min.js",
         "./redes": "./dist/motor-redes.js",
-        "./motor-redes.min.js": "./dist/motor-redes.min.js"
+        "./motor-redes.min.js": "./dist/motor-redes.min.js",
+        "./finanzas": "./dist/motor-finanzas.js",
+        "./motor-finanzas.min.js": "./dist/motor-finanzas.min.js"
     },
     "files": [
         "dist",

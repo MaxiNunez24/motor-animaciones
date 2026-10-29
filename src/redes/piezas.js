@@ -283,7 +283,7 @@ export const direccionIp = definirPieza({
             fondo: el('rect', { rx: 10, fill: 'var(--ma-superficie)', 'stroke-width': 3 }, grupo),
             rotulo: el('text', { 'dominant-baseline': 'central', 'font-weight': 700, 'text-anchor': 'start' }, grupo),
             decimal: el('text', { 'dominant-baseline': 'central', 'font-weight': 700, 'text-anchor': 'start', 'font-family': 'var(--ma-fuente-mono)' }, grupo),
-            bits: el('text', { 'dominant-baseline': 'central', 'text-anchor': 'start', 'font-family': 'var(--ma-fuente-mono)' }, grupo),
+            bits: el('text', { 'dominant-baseline': 'central', 'text-anchor': 'middle', 'font-family': 'var(--ma-fuente-mono)' }, grupo),
             corte: el('line', { 'stroke-width': 3, 'stroke-dasharray': '6 5' }, grupo),
         };
     },
@@ -326,8 +326,18 @@ export const direccionIp = definirPieza({
         poner(tHost, { fill: m > 0 ? aCss(p.colorHost) : aCss(p.color), 'font-weight': m > 0.5 ? 700 : 400 });
         ponerTexto(tRed, enRed);
         ponerTexto(tHost, enHost);
-        // Una línea donde termina la red. La letra monoespaciada mide unos 0,6 de su tamaño.
-        const xCorte = xBits + (corteChar + (enHost.startsWith('.') ? 0.5 : 0)) * tamBits * 0.6;
+        // Cada caracter en un lugar fijo (una lista de x por tspan): cuánto
+        // mide de verdad una letra depende de la fuente de cada compu, y en
+        // negrita más. Así la línea de corte cae siempre justo entre dos bits.
+        const paso = tamBits * 0.6;
+        // Cada uno centrado en su casillero (text-anchor middle vale para cada
+        // caracter con x propia): si la letra es más angosta o más ancha, el
+        // aire se reparte a los dos lados.
+        const lugares = (desde, n) => Array.from({ length: n }, (_, i) => Math.round((xBits + (desde + i + 0.5) * paso) * 100) / 100).join(' ');
+        poner(tRed, { x: lugares(0, Array.from(enRed).length) });
+        poner(tHost, { x: lugares(Array.from(enRed).length, Array.from(enHost).length) });
+        // Una línea donde termina la red.
+        const xCorte = xBits + (corteChar + (enHost.startsWith('.') ? 0.5 : 0)) * paso;
         poner(partes.corte, {
             x1: xCorte, x2: xCorte, y1: yBits - tamBits * 0.8, y2: yBits + tamBits * 0.8, stroke: aCss(p.colorHost),
             opacity: m * limitar(p.verBits, 0, 1), visibility: m > 0 && p.verBits > 0 ? null : 'hidden',

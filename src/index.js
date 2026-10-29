@@ -14,7 +14,7 @@ export { TEMAS } from './pintor/tema.js';
 export { registrar, MotorEscena, definirComponente } from './controles/componente.js';
 export * from './pedagogico/index.js';
 
-export const version = '0.9.1';
+export const version = '0.10.0';
 
 definirComponente();
 definirLeccion();

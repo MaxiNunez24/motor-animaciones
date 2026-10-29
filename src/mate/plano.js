@@ -263,6 +263,10 @@ export const grafica = sobrePlano({
         grosor: 4,
         punteada: false,
         muestras: 400,
+        // Un número que se le pasa a f como segundo argumento, f(x, k), y que se
+        // puede animar: la curva se va deformando de a poco (el precio de una
+        // opción a medida que pasa el tiempo, una campana que se ensancha).
+        k: 0,
         // Un rótulo al final de lo dibujado: "f(x) = x²".
         etiqueta: '',
         tamanoEtiqueta: 24,
@@ -314,7 +318,7 @@ function puntosDeGrafica(p, c) {
         const t1 = p.hasta ?? 1;
         for (let i = 0; i <= p.muestras; i++) {
             const t = t0 + ((t1 - t0) * i) / p.muestras;
-            const [x, y] = p.parametrica(t);
+            const [x, y] = p.parametrica(t, p.k);
             lista.push(Number.isFinite(x) && Number.isFinite(y) ? [x, y] : null);
         }
         return lista;
@@ -325,7 +329,7 @@ function puntosDeGrafica(p, c) {
     let anterior = null;
     for (let i = 0; i <= p.muestras; i++) {
         const x = x0 + ((x1 - x0) * i) / p.muestras;
-        const y = p.f(x);
+        const y = p.f(x, p.k);
         if (!Number.isFinite(y)) {
             lista.push(null);
             anterior = null;
@@ -633,6 +637,8 @@ export const area = sobrePlano({
         // Un borde arriba (sobre f), para que la región se lea aunque el relleno sea claro.
         borde: true,
         muestras: 160,
+        // Como en la gráfica: f(x, k) y g(x, k), con k animable.
+        k: 0,
         etiqueta: '',
         tamanoEtiqueta: 22,
         // Dónde va el rótulo, en coordenadas del plano. null: en el medio de la región.
@@ -663,11 +669,11 @@ export const area = sobrePlano({
             const n = Math.max(2, Math.ceil(p.muestras * ((x1 - x0) / (pl.xmax - pl.xmin))));
             const xs = Array.from({ length: n + 1 }, (_, i) => x0 + ((x1 - x0) * i) / n);
             arriba = xs.map((x, i) => {
-                const q = c.a(x, lim(p.f(x)));
+                const q = c.a(x, lim(p.f(x, p.k)));
                 return `${i ? 'L' : 'M'}${r(q.x)} ${r(q.y)}`;
             }).join('');
             abajo = xs.reverse().map((x) => {
-                const q = c.a(x, lim(p.g ? p.g(x) : 0));
+                const q = c.a(x, lim(p.g ? p.g(x, p.k) : 0));
                 return `L${r(q.x)} ${r(q.y)}`;
             }).join('');
         }
@@ -681,7 +687,7 @@ export const area = sobrePlano({
             visibility: vacia || !p.borde ? 'hidden' : null,
         });
         const xm = p.etiquetaX ?? (x0 + x1) / 2;
-        const ym = p.etiquetaY ?? ((p.g ? p.g(xm) : 0) + p.f(xm)) / 2;
+        const ym = p.etiquetaY ?? ((p.g ? p.g(xm, p.k) : 0) + p.f(xm, p.k)) / 2;
         const e = c.a(xm, ym);
         poner(partes.etiqueta, {
             x: e.x, y: e.y, 'font-size': p.tamanoEtiqueta, fill: aCss(p.color),

@@ -2517,6 +2517,8 @@ var flecha = definirPieza({
       a = adentro(a, p.dentro, ctx);
       b = adentro(b, p.dentro, ctx);
     }
+    if (esDePieza(p.desde)) a = { ...a, x: a.x - p.x, y: a.y - p.y };
+    if (esDePieza(p.hasta)) b = { ...b, x: b.x - p.x, y: b.y - p.y };
     const curva2 = caminoFlecha(a, b, p.curvatura, p.separacion);
     const largos = medirCurva(curva2);
     const total = largos[largos.length - 1];
@@ -2568,6 +2570,7 @@ var flecha = definirPieza({
     texto(partes.etiqueta, p.etiqueta);
   }
 });
+var esDePieza = (cual) => typeof cual === "string" || cual?.pieza != null;
 function extremo(cual, ctx) {
   const pieza = typeof cual === "string" ? cual : cual.pieza;
   if (pieza == null) return { x: cual.x, y: cual.y };
@@ -4920,7 +4923,7 @@ function crearNarrador(opciones = {}) {
 }
 
 // src/index.js
-var version = "0.9.1";
+var version = "0.10.0";
 definirComponente();
 definirLeccion();
 export {

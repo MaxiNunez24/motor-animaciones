@@ -21,7 +21,7 @@ La ruta lleva el `base` adelante, como los demás scripts de `public/`: sin él,
 1. Instalarlo, fijado a una versión (un tag del repo):
 
    ```bash
-   pnpm add github:MaxiNunez24/motor-animaciones#v0.9.1
+   pnpm add github:MaxiNunez24/motor-animaciones#v0.10.0
    ```
 
    `dist/` está subido al repo, así que no hace falta compilar nada al instalar (pnpm no corre

@@ -61,6 +61,13 @@ export const flecha = definirPieza({
             a = adentro(a, p.dentro, ctx);
             b = adentro(b, p.dentro, ctx);
         }
+        // La flecha se dibuja corrida a su x, y (como toda pieza). Un punto
+        // { x, y } está en esas coordenadas, pero una punta enganchada a una
+        // pieza ya está donde está la pieza: si la flecha también se corrió
+        // (una escena que baja todo para centrarlo), se descuenta, o la
+        // flecha quedaría corrida dos veces.
+        if (esDePieza(p.desde)) a = { ...a, x: a.x - p.x, y: a.y - p.y };
+        if (esDePieza(p.hasta)) b = { ...b, x: b.x - p.x, y: b.y - p.y };
         const curva = caminoFlecha(a, b, p.curvatura, p.separacion);
         const largos = medirCurva(curva);
         const total = largos[largos.length - 1];
@@ -126,6 +133,8 @@ export const flecha = definirPieza({
         ponerTexto(partes.etiqueta, p.etiqueta);
     },
 });
+
+const esDePieza = (cual) => typeof cual === 'string' || cual?.pieza != null;
 
 function extremo(cual, ctx) {
     const pieza = typeof cual === 'string' ? cual : cual.pieza;

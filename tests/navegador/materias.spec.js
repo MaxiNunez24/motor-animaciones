@@ -1,4 +1,4 @@
-// Las páginas de matemática (2D y 3D), estadística, regresión y redes, en un navegador de verdad:
+// Las páginas de matemática (2D y 3D), estadística, regresión, redes y finanzas, en un navegador de verdad:
 // que todas las lecciones se dibujen y se recorran enteras sin errores.
 
 import { test, expect } from '@playwright/test';
@@ -15,7 +15,7 @@ async function abrir(page, url) {
 
 for (const [pagina, cuantas] of [
     ['/ejemplos/matematica/', 9], ['/ejemplos/matematica-3d/', 4], ['/ejemplos/redes/', 9],
-    ['/ejemplos/estadistica/', 4], ['/ejemplos/regresion/', 6],
+    ['/ejemplos/estadistica/', 4], ['/ejemplos/regresion/', 6], ['/ejemplos/finanzas/', 6],
 ]) {
     test(`${pagina}: las lecciones se dibujan y se recorren sin errores`, async ({ page }) => {
         test.setTimeout(90000);
@@ -82,6 +82,26 @@ test('Go-Back-N: el paquete perdido lleva su cruz, y al final la ventana confirm
     }));
     expect(cruces).toBe(1);
     expect(base).toBe(7);
+});
+
+test('la subred: la línea de corte cae justo entre el último bit de red y el primero de host', async ({ page }) => {
+    await abrir(page, '/ejemplos/redes/');
+    const medidas = await page.evaluate(() => {
+        const m = [...document.querySelectorAll('motor-leccion')].find((x) => Object.values(x.compilada.tipos).some((t) => t.nombre === 'direccionIp'));
+        m.irA(m.duracion);
+        return [...m.shadowRoot.querySelectorAll('g[data-pieza]')].flatMap((g) => {
+            const corte = g.querySelector('line');
+            const [red, host] = g.querySelectorAll('text tspan');
+            if (!corte || !host || !red.getNumberOfChars() || !host.getNumberOfChars()) return [];
+            const fin = red.getExtentOfChar(red.getNumberOfChars() - 1);
+            return [{ corte: Number(corte.getAttribute('x1')), finRed: fin.x + fin.width, iniHost: host.getExtentOfChar(0).x }];
+        });
+    });
+    expect(medidas.length).toBeGreaterThan(0);
+    for (const { corte, finRed, iniHost } of medidas) {
+        expect(corte).toBeGreaterThanOrEqual(finRed - 0.5);
+        expect(corte).toBeLessThanOrEqual(iniHost + 0.5);
+    }
 });
 
 test('el test que rechaza: al final dice que se rechaza H₀ y el p-valor es chico', async ({ page }) => {

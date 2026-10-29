@@ -37,12 +37,12 @@ Sin dependencias. 42 KB con gzip con todo (22 KB sin la capa pedagógica, en `mo
 
 `motor.min.js` es un script clásico a propósito: anda abriendo el `.html` con doble clic
 (`file://`), donde los módulos no cargan. Con internet también se puede usar desde jsDelivr:
-`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.9.1/dist/motor.min.js`.
+`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.10.0/dist/motor.min.js`.
 
 ## Desde otro proyecto (Astro, Vite…)
 
 ```bash
-pnpm add github:MaxiNunez24/motor-animaciones#v0.9.1
+pnpm add github:MaxiNunez24/motor-animaciones#v0.10.0
 ```
 
 ```js
@@ -274,6 +274,24 @@ Los protocolos de ventana se **simulan** (`simularArq`): con los mismos datos, s
 mensajes en los mismos instantes. Las subredes (`analizarIp`, `dividirEnSubredes`) se prueban contra
 el módulo `ipaddress` de Python. Ejemplos: [redes](ejemplos/redes/).
 
+## Finanzas
+
+`dist/motor-finanzas.min.js` (aparte, 25 KB con gzip; global `MotorFinanzas`) trae las cuentas de
+la bolsa y las opciones, y escenas que las cuentan. Usa los planos de matemática, que vienen adentro.
+
+| | |
+|---|---|
+| `desdeAccion({ S0, sigma, sigmaAlta, dias })` | qué es una acción, cómo camina su precio, el rendimiento (simple y logarítmico) y la volatilidad |
+| `desdeInteres({ monto, tasa, anios, promesa })` | interés compuesto (anual, mensual, continuo) y el valor presente, e^(−rT) |
+| `desdePago({ K, prima, primaPut })` | qué paga un call y un put al vencer, la ganancia, el empate y quien lo vendió |
+| `desdeBlackScholes({ S, K, T, r, sigma })` | de dónde sale la fórmula: futuros posibles, el promedio traído a hoy, d1, d2, N(d2), y más volatilidad |
+| `desdeGriegas({ S, K, T, r, sigma })` | delta (la pendiente), gamma (la curvatura), theta (el tiempo), vega (la volatilidad) y rho (la tasa) |
+| `desdeEstrategias({ S, T, r, sigma, estrategias })` | put protector, call cubierto, straddle y spread: cada pata y su suma |
+
+Las cuentas (`blackScholes`, `griegas`, `montecarlo`, `caminoPrecio`, `volatilidad`, `valorPresente`)
+se prueban contra los ejemplos resueltos de Hull, la paridad put-call y diferencias finitas.
+Ejemplos, con el mismo cálculo en Python: [finanzas](ejemplos/finanzas/).
+
 ## 3D
 
 `dist/motor-3d.min.js` (aparte, con Three.js adentro: 145 KB con gzip) trae `Motor3D.superficie` (la
@@ -346,7 +364,7 @@ y cómo mandar un cambio.
 
 ```bash
 npm install
-npm run construir        # dist/: el motor, la versión base, la 3D, matemática y redes
+npm run construir        # dist/: el motor, la versión base, la 3D, matemática, redes y finanzas
 npm run servir           # http://localhost:4173/
 npm test                 # el núcleo, en Node
 npm run test:navegador   # los ejemplos, en Chromium
