@@ -6,8 +6,10 @@ export * from './nucleo/index.js';
 export * from './piezas/index.js';
 export { crearPintor } from './pintor/pintor.js';
 export { TEMAS } from './pintor/tema.js';
+export { registrarEstilo, resolverEstilo, cargarEstilo, usarEstilo, estilosDisponibles } from './estilos/index.js';
+export { RECETAS as SONIDOS, sintetizar, mezclarPista } from './sonido/sintetizar.js';
 export { registrar, MotorEscena, definirComponente } from './controles/componente.js';
 
-export const version = '0.10.0';
+export const version = '0.11.0';
 
 definirComponente();

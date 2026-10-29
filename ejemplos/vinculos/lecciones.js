@@ -154,12 +154,13 @@
         const yFila = (i) => 500 - (filas.length + 1) * 46 / 2 + 46 * (i + 1.5);
         // Donde arranca lo escrito en cada columna (el texto va a la izquierda de la celda).
         const xCol = (j) => 800 - 760 / 2 + (760 / 4) * j + 50;
-        const lupa = (x, y) => ({ x, y, mirarX: x, mirarY: y });
+        const lupa = (x, y) => ({ x, y });
         const piezas = {
             titulo: titulo(null, 'Una lupa sobre la tabla'),
             t,
-            // La lupa mira justo el lugar donde está: como una de verdad.
-            lupa: espejo({ ...lupa(xCol(2), yFila(0)), forma: 'circulo', ancho: 230, alto: 230, zoom: 2, aro: 8, colorAro: 'texto', opacidad: 0 }),
+            // Una lupa animada: mira siempre lo que tiene debajo (seguir) y la
+            // mueve la escena, así que no se arrastra.
+            lupa: espejo({ ...lupa(xCol(2), yFila(0)), seguir: true, forma: 'circulo', ancho: 230, alto: 230, zoom: 2, aro: 8, colorAro: 'texto', opacidad: 0 }),
         };
         const n = crearNarrador({ ritmo: 1 });
         n.decir('Un espejo redondo que mira justo el lugar donde está es una lupa: agranda lo que tiene abajo.');
@@ -169,7 +170,7 @@
             if (i > 0) n.animar({ pieza: 'lupa', a: lupa(xCol(2), yFila(i)), dur: 0.7 }, 0.2);
             n.esperar(0.9);
         });
-        n.decir('Y se puede mover a cualquier lado: arrastrala con el mouse o el dedo.');
+        n.decir('Esta lupa la mueve la animación. Para una propia, que se mueve y se agranda a gusto, está el botón de la lupa, arriba a la derecha.');
         n.animar({ pieza: 'lupa', a: lupa(xCol(0), yFila(4)), dur: 1.2 }, -2);
         return {
             titulo: 'Una lupa sobre la tabla', ancho: 1600, alto: 900, piezas, linea: n.linea, pausaFinal: 1,

@@ -1,0 +1,22 @@
+{
+    "extiende": "neon",
+    "colores": {
+        "fondo": "#0b1020",
+        "superficie": "#121a33",
+        "acento": "#a3ff12",
+        "acento2": "#ff7a18",
+        "borde": "#2f4a7a"
+    },
+    "fondo": { "degradado": ["#16224a", "#0b1020"], "forma": "lineal", "angulo": 90 },
+    "efectos": { "brillo": 0.5, "grano": { "cantidad": 0.05 } },
+    "movimiento": {
+        "curvas": { "x": { "tipo": "resorte", "rebote": 0.45, "oscilaciones": 2 }, "y": { "tipo": "resorte", "rebote": 0.45, "oscilaciones": 2 }, "escala": "gelatina" },
+        "escalonar": { "cada": 0.12, "orden": "azar", "semilla": 3 }
+    },
+    "sonidos": {
+        "aparecer": "burbuja",
+        "mover": "whoosh",
+        "paquete": { "burbuja": { "receta": "pop", "agudo": 1400, "grave": 500, "dur": 0.08 } }
+    },
+    "subtitulos": { "modo": "reel", "palabras": 4, "posicion": "abajo", "tamano": 1.5, "resaltado": "acento", "caja": "caja" }
+}

@@ -3,6 +3,7 @@
 //     node herramientas/video.js --url ejemplos/expo/pantalla.html --salida salida/expo.mp4
 //     node herramientas/video.js --url ejemplos/conceptos/ --escena 0 --narrar --salida salida/for.mp4
 //     node herramientas/video.js --url ejemplos/expo/pantalla.html --ancho 1080 --alto 1920   (vertical, para Shorts)
+//     node herramientas/video.js --url ejemplos/estilos/ --estilo reel --desenfoque 8   (con el arte de un reel)
 //
 // Deja, al lado del video:
 //   .srt               los subtítulos, para subir a YouTube aparte
@@ -18,6 +19,17 @@
 // Con --narrar, cada subtítulo se lee en voz alta con Piper (una voz que
 // corre en la compu, sin internet), y la voz entra justo cuando aparece el
 // subtítulo.
+//
+// Los efectos de sonido de la escena (y los que agrega su estilo) se fabrican
+// acá mismo, con las recetas de src/sonido/, y van en la misma pista. La
+// música de fondo, si la hay, baja sola mientras habla la voz.
+//
+// Desenfoque de movimiento (--desenfoque 8): cada cuadro es el promedio de 8
+// fotos sacadas en instantes muy cercanos, como el obturador abierto de una
+// cámara. Es posible justamente porque la escena depende solo de t: se le
+// puede pedir el instante 1,0021 igual que el 1. Tarda tantas veces más como
+// fotos por cuadro. --obturador dice cuánto del cuadro queda abierto (0,5 es
+// lo de cine: medio cuadro).
 
 import { chromium } from '@playwright/test';
 import { spawn, execFileSync } from 'node:child_process';
@@ -27,6 +39,7 @@ import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { createRequire } from 'node:module';
 import { aSrt, aVtt, capitulosYouTube, duracionWav, prepararParaVoz } from './lib/textos-video.js';
+import { mezclarPista, aWav } from '../src/sonido/sintetizar.js';
 
 const { values: op } = parseArgs({
     options: {
@@ -40,6 +53,14 @@ const { values: op } = parseArgs({
         alto: { type: 'string', default: '1080' },
         fps: { type: 'string', default: '30' },
         tema: { type: 'string', default: 'oscuro' },
+        // El arte: un estilo registrado (neon, reel, pizarra, papel) o un .json.
+        estilo: { type: 'string' },
+        // Si no se dicen, los toma del estilo (video: { desenfoque, obturador }).
+        desenfoque: { type: 'string' },
+        obturador: { type: 'string' },
+        // Los efectos de sonido de la escena. --sin-sonidos para un video mudo (o solo con voz).
+        'sin-sonidos': { type: 'boolean', default: false },
+        'volumen-sonidos': { type: 'string', default: '1' },
         // srt (aparte, lo recomendado), quemados (en la imagen), ambos, no.
         subtitulos: { type: 'string', default: 'srt' },
         narrar: { type: 'boolean', default: false },
@@ -78,7 +99,7 @@ pagina.on('pageerror', (e) => errores.push(e.message));
 await pagina.goto(`${op.base}/${op.url.replace(/^\/+/, '')}`);
 await pagina.waitForFunction((i) => document.querySelectorAll('motor-escena, motor-leccion')[i]?.compilada, Number(op.escena));
 
-const info = await pagina.evaluate(({ i, tema, quemados }) => {
+const info = await pagina.evaluate(async ({ i, tema, quemados, estilo }) => {
     const m = document.querySelectorAll('motor-escena, motor-leccion')[i];
     // Toda la ventana, sin controles, y en modo video: las preguntas no frenan,
     // se muestran como cartel durante su tramo.
@@ -89,37 +110,106 @@ const info = await pagina.evaluate(({ i, tema, quemados }) => {
     m.setAttribute('movimiento', 'completo');
     m.setAttribute('tema', tema);
     m.toggleAttribute('sin-subtitulos', !quemados);
+    if (estilo) m.setAttribute('estilo', estilo);
     m.pausar();
     // Rearmar ya, con el tamaño de pantalla completa (y su disposición).
+    const antes = m.compilada;
     m.escena = m.escena;
+    // Un estilo en un archivo llega después: se espera a que la escena se rearme con él.
+    for (let k = 0; k < 100 && estilo && m.compilada === antes; k++) await new Promise((r) => setTimeout(r, 50));
     const c = m.compilada;
+    const e = m.estiloResuelto ?? {};
     return {
         titulo: c.titulo, descripcion: c.descripcion, duracion: c.duracion, disposicion: c.disposicion,
-        capitulos: c.capitulos, subtitulos: c.subtitulos,
+        capitulos: c.capitulos, subtitulos: c.subtitulos, sonidos: c.sonidos, base: location.href,
+        musica: c.musica ? { ...c.musica, archivo: new URL(c.musica.archivo, location.href).href } : null,
+        video: e.video ?? {}, paquete: e.sonidos?.paquete ?? {}, volumenSonidos: e.sonidos?.volumenGeneral ?? 1,
     };
-}, { i: Number(op.escena), tema: op.tema, quemados: ['quemados', 'ambos'].includes(op.subtitulos) });
+}, { i: Number(op.escena), tema: op.tema, quemados: ['quemados', 'ambos'].includes(op.subtitulos), estilo: op.estilo ?? '' });
 await pagina.evaluate(() => document.fonts.ready);
+// Las fuentes de Google pueden tardar un poco más que el aviso.
+if (op.estilo) await pagina.waitForTimeout(400);
 
 const desde = Number(op.desde);
 const hasta = Math.min(op.hasta ? Number(op.hasta) : info.duracion, info.duracion);
 const duracion = hasta - desde;
 const total = Math.round(duracion * fps);
-console.log(`«${info.titulo}»: ${duracion.toFixed(1)} s, ${total} cuadros a ${fps} fps, ${op.ancho}×${op.alto} (${info.disposicion}).`);
+// Fotos por cuadro (1: sin desenfoque) y cuánto del cuadro queda abierto.
+const fotos = Math.max(1, Math.round(Number(op.desenfoque ?? info.video.desenfoque ?? 1)));
+const obturador = Math.min(Math.max(Number(op.obturador ?? info.video.obturador ?? 0.5), 0.05), 1);
+console.log(`«${info.titulo}»: ${duracion.toFixed(1)} s, ${total} cuadros a ${fps} fps, ${op.ancho}×${op.alto} (${info.disposicion})` +
+    `${op.estilo ? `, estilo ${op.estilo}` : ''}${fotos > 1 ? `, desenfoque de ${fotos} fotos por cuadro` : ''}.`);
 
 // ---------------- La voz ----------------
 const voces = op.narrar ? narrar(info.subtitulos.filter((s) => s.hasta > desde && s.desde < hasta)) : [];
 
+// ---------------- Los efectos de sonido ----------------
+// Todos mezclados acá en una sola pista: cien sonidos serían cien entradas
+// de ffmpeg, y la línea de comandos de Windows no da para tanto.
+const sonidos = op['sin-sonidos'] ? [] : info.sonidos.filter((s) => s.t >= desde && s.t < hasta);
+let pistaSonidos = null;
+if (sonidos.length) {
+    const muestras = mezclarPista(sonidos, duracion + 1, {
+        paquete: info.paquete, volumen: Number(op['volumen-sonidos']) * info.volumenSonidos, desde,
+    });
+    const cache = join(dirname(salida), '.voz');
+    mkdirSync(cache, { recursive: true });
+    pistaSonidos = join(cache, `sonidos-${createHash('sha1').update(JSON.stringify([sonidos, info.paquete, op['volumen-sonidos'], desde])).digest('hex').slice(0, 12)}.wav`);
+    writeFileSync(pistaSonidos, aWav(muestras));
+    console.log(`Sonidos: ${sonidos.length}.`);
+}
+
 // ---------------- ffmpeg ----------------
-const argumentos = ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(fps), '-c:v', 'png', '-i', '-'];
+const argumentos = ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(fps * fotos), '-c:v', 'png', '-i', '-'];
+const filtros = [];
+// El video: con desenfoque, cada cuadro es el promedio de sus fotos (tmix) y
+// de cada tanda queda uno solo (select), con el tiempo de un cuadro común.
+let videoFinal = '0:v';
+if (fotos > 1) {
+    filtros.push(`[0:v]tmix=frames=${fotos},select='eq(mod(n\\,${fotos})\\,${fotos - 1})',setpts=N/(${fps}*TB)[v]`);
+    videoFinal = '[v]';
+}
+let entrada = 1;
+const pistas = [];
 for (const v of voces) argumentos.push('-i', v.archivo);
 if (voces.length) {
     // Cada voz entra cuando aparece su subtítulo (adelay, en milisegundos), y
     // se suman todas en una sola pista.
-    const filtros = voces.map((v, i) => `[${i + 1}:a]adelay=${Math.round((v.desde - desde) * 1000)}:all=1[v${i}]`);
+    voces.forEach((v, i) => filtros.push(`[${entrada + i}:a]adelay=${Math.round((v.desde - desde) * 1000)}:all=1[v${i}]`));
     filtros.push(`${voces.map((_, i) => `[v${i}]`).join('')}amix=inputs=${voces.length}:normalize=0:dropout_transition=0[voz]`);
-    argumentos.push('-filter_complex', filtros.join(';'), '-map', '0:v', '-map', '[voz]', '-c:a', 'aac', '-b:a', '160k', '-ar', '48000');
+    entrada += voces.length;
+}
+if (pistaSonidos) {
+    argumentos.push('-i', pistaSonidos);
+    pistas.push(`[${entrada}:a]`);
+    entrada += 1;
+}
+if (info.musica) {
+    // Da vueltas si es más corta que el video, y empieza donde empieza el tramo.
+    argumentos.push('-stream_loop', '-1', '-i', info.musica.archivo);
+    const vol = Number(info.musica.volumen ?? 0.3);
+    filtros.push(`[${entrada}:a]atrim=start=${desde.toFixed(3)},asetpts=PTS-STARTPTS,volume=${vol}[musica0]`);
+    if (voces.length) {
+        // La música baja sola cuando habla la voz (el compresor escucha a la voz).
+        filtros.push('[voz]asplit=2[vozSola][vozGuia]');
+        filtros.push('[musica0][vozGuia]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=400[musica]');
+    } else filtros.push('[musica0]anull[musica]');
+    pistas.push('[musica]');
+    entrada += 1;
+}
+if (voces.length) pistas.unshift(info.musica ? '[vozSola]' : '[voz]');
+if (pistas.length > 1) filtros.push(`${pistas.join('')}amix=inputs=${pistas.length}:normalize=0:dropout_transition=0:duration=longest[audio]`);
+const audioFinal = pistas.length === 0 ? null : pistas.length === 1 ? pistas[0] : '[audio]';
+if (filtros.length) argumentos.push('-filter_complex', filtros.join(';'));
+argumentos.push('-map', videoFinal);
+if (audioFinal) {
+    // Una entrada sin filtro se nombra "1:a", no "[1:a]".
+    argumentos.push('-map', audioFinal.replace(/^\[(\d+:a)\]$/, '$1'), '-c:a', 'aac', '-b:a', '160k', '-ar', '48000');
 }
 argumentos.push(
+    // La salida, a los cuadros por segundo de siempre (la entrada, con
+    // desenfoque, trae varias fotos por cuadro).
+    '-r', String(fps),
     '-c:v', 'libx264', '-preset', 'slow', '-tune', 'animation', '-crf', op.calidad, '-pix_fmt', 'yuv420p',
     // Que se pueda ver mientras se descarga, y que dure exactamente la escena.
     '-movflags', '+faststart', '-t', duracion.toFixed(3), salida,
@@ -134,9 +224,14 @@ for (let i = 0; i < total; i++) {
     // El instante sale de multiplicar, no de ir sumando: sumando 1/30 una y
     // otra vez, los redondeos se acumulan y el cuadro 2000 cae corrido.
     const t = desde + i / fps;
-    await pagina.evaluate(({ i, t }) => document.querySelectorAll('motor-escena, motor-leccion')[i].irA(t), { i: Number(op.escena), t });
-    const cuadro = await pagina.screenshot({ type: 'png' });
-    if (!proceso.stdin.write(cuadro)) await new Promise((r) => proceso.stdin.once('drain', r));
+    for (let k = 0; k < fotos; k++) {
+        // Las fotos de un cuadro se reparten alrededor de su instante, en el
+        // tramo que el obturador queda abierto.
+        const tk = fotos > 1 ? t + (((k + 0.5) / fotos) - 0.5) * (obturador / fps) : t;
+        await pagina.evaluate(({ i, t }) => document.querySelectorAll('motor-escena, motor-leccion')[i].irA(Math.max(0, t)), { i: Number(op.escena), t: tk });
+        const cuadro = await pagina.screenshot({ type: 'png' });
+        if (!proceso.stdin.write(cuadro)) await new Promise((r) => proceso.stdin.once('drain', r));
+    }
     const avance = Math.floor(((i + 1) / total) * 10);
     if (avance > ultimoAviso) {
         ultimoAviso = avance;

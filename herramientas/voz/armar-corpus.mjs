@@ -21,7 +21,7 @@ import { prepararParaVoz } from '../lib/textos-video.js';
 
 const BASE = 'http://localhost:4173';
 // La Expo no: es de un solo evento, y sus frases no le enseñan nada nuevo a la voz.
-const PAGINAS = ['conceptos', 'funciones-y-objetos', 'sql', 'tests', 'matematica', 'matematica-3d', 'estadistica', 'regresion', 'redes', 'vinculos', 'el-nino'];
+const PAGINAS = ['conceptos', 'funciones-y-objetos', 'sql', 'tests', 'matematica', 'matematica-3d', 'estadistica', 'regresion', 'redes', 'vinculos', 'el-nino', 'finanzas', 'estilos'];
 
 const navegador = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const pagina = await navegador.newPage();

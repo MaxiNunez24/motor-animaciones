@@ -1,13 +1,18 @@
 0007920d|Y la nota, pegada arriba de guardar, la acompaña.
 003a3d1f|¿Qué devuelve la función cuando la lista está vacía?
+00b81ee2|Para ponerle precio a un call hacen falta cinco cosas.
 00be507a|STC igual a SCR más SCE: la variabilidad total es la que explica la regresión más la que queda en los errores.
 01f9618a|¡Clic!
 02cd0e1d|Hay que mirar bien la pantalla antes de apretar enter.
+036b2157|Nadie: no ejercés el derecho.
 036dfe69|¿Qué paquetes se reenvían?
 03bdf768|Arrancamos en 9 y avanzamos 5 lugares.
+0545218f|Cada estrategia es una opinión sobre lo que puede pasar, con un riesgo elegido: protegerse de una caída, cobrar algo por resignar subas, apostar a que se mueva mucho, o a que suba un poco.
+0548f3bc|Abajo, también es máxima cerca de K.
 0585d2b7|El for repitió la línea 4 una vez por cada elemento de la lista.
 05d14654|Depende de cuánto varían los paquetes.
 066321c1|Con El Niño, los alisios se debilitan.
+066fc240|Ahí delta cambia más rápido, y quien se cubre tiene que reacomodarse más seguido.
 072dfe59|¿Quién llamó a esta función, y qué le va a devolver?
 0868dc00|El año dos mil veintiséis empezó con mucho calor.
 0879305b|Yo me llamo como mi abuelo, que llegó en barco desde Galicia.
@@ -17,8 +22,10 @@
 0947119f|Con decenas de miles de datos el error estándar se achica tanto que casi cualquier pendiente da significativa.
 09c65b6f|Mil doscientos más ochocientos cincuenta da dos mil cincuenta.
 0a3b9953|2. otra y lucia son el mismo objeto: el presente se le suma a una sola alumna, que ya tenía 1.
+0ab657ef|Por eso, para pensar el precio de mañana, se lo trata como algo al azar.
 0ac4c3ca|Da 0,0017.
 0acf4732|Afuera de ese rango es extrapolar, y nada garantiza que siga siendo una recta.
+0add76a2|Miremos de cerca el día 101.
 0b2143a8|¿Quién tiene razón? Los dos, en parte.
 0bc0f295|Proyectadas sobre el piso, son las curvas de nivel.
 0bc28796|El viento sur trajo frío y el cielo quedó limpísimo.
@@ -27,10 +34,13 @@
 0cc08855|El servidor de nombres traduce un nombre en una dirección.
 0d911b38|Primero, leer. Segundo, entender. Tercero, recién ahí, escribir.
 0dfc04fc|Todas las corridas arrancan del mismo punto.
+0e59394c|Una renta extra, con techo.
 0eb64323|Son de Programación Lucía, Sofía y Pablo; de esos, solo Lucía y Sofía tienen más de 8.
 0ed3d021|Muestra la cuenta, y la función termina.
 0ef319f9|Antes de empezar, repasemos lo que vimos la clase pasada.
+0f36360f|Una idea aparece como un círculo que se dibuja.
 0f47daaa|Las animaciones de este curso se pueden pausar, recorrer hacia atrás y hacia adelante, y en cada pregunta frenan para que pienses antes de ver la respuesta.
+0ff06248|Ganás si sube, pero con techo; y lo que podés perder también es menos.
 0ff8c353|Si querés, pausá y pensalo antes de seguir.
 1002c41d|¿Por qué la lista cambió si solo tocamos la otra?
 103a1564|En el océano Pacífico, sobre el ecuador, pasa algo que cambia el clima de medio mundo.
@@ -39,23 +49,32 @@
 10915625|Si la pendiente es cero, la recta es horizontal.
 10cbe1ae|Al final de la clase, cada grupo cuenta qué hizo y qué le costó.
 11830e2d|Cada kVarh más se asocia, en promedio, con unos 1,26 kWh más de consumo.
+118403f3|Quien la tiene es dueño de una parte, chiquita, de lo que la empresa vale y de lo que gana.
 119c36ed|Llegan tres ACK duplicados: se perdió un segmento, pero los siguientes llegan.
 1291d08a|Dos elevado a la diez es mil veinticuatro.
+1297a5b0|Cuanto más suba la acción, más paga el call.
 12a7f765|En el Litoral y el noreste, donde también aumenta el riesgo de que crezcan ríos como el Paraná y el Uruguay.
 12b6178b|Recién ahora SELECT: de cada fila quedan solo las columnas pedidas, nombre.
+134a9214|Un call y un put con el mismo K: no importa para qué lado se mueva la acción, sino cuánto.
 13677df2|En el verano, la ruta a la costa se llena de autos.
 148a0de6|total vale 12 y n vale 15.
 14e4ec68|¿Y si en vez de sumar, multiplicamos?
 15d8852f|¿R es simétrica?
 16433fdc|Es el riesgo de equivocarnos que aceptamos: el error de tipo I.
 164c6d1a|Este sí: es el autoritativo de la zona, y contesta con el registro A.
+17143238|Abajo, qué tan probable es cada precio dentro de 6 meses.
 1738b878|El truco de Euclides: el mcd de 1071 y 462 es el mismo que el de 462 y 147.
+175d490d|En Python son cinco funciones de la fórmula.
 1788a7a1|El de un valor puntual.
 1797deb7|Hubo 4 retransmisiones: Go-Back-N reenvía también los que habían llegado bien después del perdido.
+17a858c7|Lo que puede perder sigue siendo la prima, pero lo que puede ganar crece.
+17e8409d|El del medio se adelanta un poco y vuelve.
 1816e0c9|El diccionario guarda pares de clave y valor.
 182f7dbe|Que coincidan no alcanza para probar que existe; que difieran sí alcanza para probar que no.
 185e77ce|Arrancamos en 2 y avanzamos 5 lugares para atrás.
 18712662|La recta de mínimos cuadrados hace que la suma de los errores al cuadrado sea mínima.
+187245a4|Miremos qué pasa si dejamos correr el reloj, sin que la acción se mueva: la curva se va hundiendo hasta pegarse a lo que paga al vencer.
+18eba12d|Son las diferencias finitas, la misma idea que la derivada.
 190f4109|factorial termina y devuelve 24.
 19b1a177|Así que seguimos con lo que sobró.
 1a00e610|Se cortó la luz justo cuando estaba por guardar el archivo.
@@ -66,7 +85,10 @@
 1af47b0b|En Go-Back-N el emisor puede tener hasta 4 paquetes en viaje sin confirmar: es su ventana, el recuadro de arriba.
 1b3bb1fc|La PC le pregunta a su resolver.
 1b832c1c|Cayó en la zona blanca, la de lo esperable.
+1bb6a678|Abajo está para cada precio: siempre negativa, y peor cerca de K.
 1c3a79e6|Con los datos, T igual a -1,53.
+1d0e7045|No tiene techo.
+1d5cd6ac|Veamos las más conocidas.
 1d7eee03|Buscamos el valor t que deja el 95 por ciento del área en el medio: 2,131.
 1d9a9847|Un intervalo de confianza del noventa y cinco por ciento no es una garantía.
 1dbdb923|Una muestra más grande da un intervalo más angosto.
@@ -92,10 +114,12 @@
 2625a2d2|El color de la barra cambia cuando se supera el umbral.
 26b23d7b|El carro de la carrera derrapó en la curva y terminó en el barro.
 270f0bb5|Una lista es mutable: se puede cambiar después de creada.
+297f3e4e|Se calcula como el desvío estándar de los rendimientos diarios, pasado a un año multiplicando por raíz de 252, los días de bolsa de un año.
 29c16987|Si el archivo no existiera, ¿qué código de estado devolvería el servidor?
 29d03a19|Como s también es una estimación, no se usa la normal sino la t de Student, con n menos 1 igual a 15 grados de libertad.
 2a029f39|En lo que sobró entran 3 de 147, y sobra 21.
 2a91229a|¡Exacto! Eso es justamente lo que hace el programa.
+2af25c6c|La que se sacude.
 2b611599|Es mucho más ancho.
 2b716796|total vale 7.
 2ba51a3d|Más seguridad, a cambio de intervalos más anchos.
@@ -118,6 +142,7 @@
 34b66c25|Una base de datos guarda la información en tablas, con filas y columnas.
 34db8d78|En slow start se duplica en cada ronda.
 34de9ba4|Uno solo no alcanza; dos tampoco; con tres, ya se ve un patrón.
+34e15955|¿Cuánto debería costar?
 358b2fbc|El ajuste es muy bueno.
 35beca23|El cliente confirma el SYN del servidor con ack igual a 5001.
 35cc417d|subtotal termina y devuelve 242.0.
@@ -127,6 +152,7 @@
 370bbadf|Da 0,1432.
 37a30d53|total vale 60.5.
 386cd216|Cero coma cinco es lo mismo que un medio.
+39c8a926|Pero la prima se paga HOY, sin saber dónde va a terminar.
 39cdbd56|Mirá la línea marcada: es la que está por ejecutarse.
 39fe6717|El máximo común divisor de doce y dieciocho es seis.
 3a19aeff|El print muestra en la pantalla lo que le pasamos entre paréntesis.
@@ -137,6 +163,7 @@
 3c151320|Y listo.
 3cace158|Un espejo redondo que mira justo el lugar donde está es una lupa: agranda lo que tiene abajo.
 3cc6aaf9|Si nadie toca el botón, ¿se ejecuta la función?
+3cfd560e|Hoy, aunque no haya inflación: la plata de hoy se puede prestar o invertir y genera interés.
 3d07924f|¡Ojo! Acá hay una trampa: la variable no se reinicia.
 3d1b6779|Cada octeto son 8 bits: en total, 32.
 3ddae8f0|Se muestra: 1, 2, 3, 4 1, 2, 3, 4 1, 2, 3, 4, 5 Terminó el programa.
@@ -144,6 +171,7 @@
 3e28fd28|Entran 2 cuadrados de 462 de lado, y sobra una tira de 147.
 3f2dac26|Se llama a marcar sobre Alumno número 1.
 3f7ec0e8|Por eso se llama de mínimos cuadrados.
+40108626|Para una propia, que se mueve y se agranda a gusto, está el botón de la lupa, arriba a la derecha.
 4019da57|Mañana a la mañana tengo turno con el médico, así que llego más tarde.
 40b5b31a|Un test que falla no es una mala noticia: encontró un error antes que los usuarios.
 40cf403c|Es reflexiva, simétrica y transitiva: R es una relación de equivalencia.
@@ -151,6 +179,7 @@
 418f2d7a|Adentro, n vale 3.
 419cdc55|Abajo van los encabezados, como Host: www.ejemplo.com.ar.
 41a6fc27|El protocolo define cómo se hablan dos computadoras.
+42658eab|Más incertidumbre, más chances de terminar muy arriba, y lo de abajo sigue acotado.
 428b08db|Con ORDER BY presentes DESC, ¿quién va a quedar primero?
 42df2d3e|DESC es de mayor a menor, y Diego tiene 14.
 42ea75a6|Ahora acercamos Q a P: h se hace cada vez más chico.
@@ -165,10 +194,12 @@
 45e6fd74|En septiembre, el centro del Pacífico estuvo dos grados más caliente que lo normal: es un Niño fuerte.
 46196a6d|La hipótesis nula dice que no hay efecto; la alternativa, que sí lo hay.
 462cda22|Las ballenas llegan a la costa de Chubut en invierno.
+46afa3e6|A esto se le dice descontar.
 479e61d0|Para MB igual a 35, la recta estima segundos aproximadamente 9,7.
 47c7d284|El espejo siguió a la marca todo el tiempo.
 47eabcd7|Todavía le falta: con más pasos, o una tasa un poco mayor, llegaría.
 47f0038b|Adentro, nombre vale 'Lucía'.
+486747f6|Esto es lo que pasa el día que vence.
 48881333|La bicicleta tiene la cadena floja y la rueda de atrás pinchada.
 48d69e41|Adentro de sumar, a vale 7 y b vale 10: devuelve 17, y eso se guarda en y.
 49133c1a|Pensalo como un rectángulo de 1071 por 462: buscamos el cuadrado más grande que lo llene justo, sin que sobre nada.
@@ -185,15 +216,18 @@
 4f17a2ae|ticket termina y devuelve 302.5.
 4f267d56|Compré pan, leche, yerba y un paquete de galletitas.
 4f3898c7|Seguimos.
+4f3ce956|Si pasa una semana y la acción no se mueve, ¿qué le pasa al precio del call?
 4f9cb63d|Cada segmento rojo es un residuo: cuánto le erra la recta a ese punto.
 4fae69ba|Antes de hablar HTTP hace falta una conexión TCP: el saludo de tres vías, al puerto 80.
 4fbbaf27|Importamos la biblioteca, llamamos a la función y guardamos lo que devuelve.
 4ff83432|Muestra el resultado.
 507f593e|Mirá qué parte se ilumina en cada momento.
+50b769b2|Día a día, el precio sube o baja según lo que compradores y vendedores creen que vale la empresa: noticias, resultados, el humor del mercado.
 50fbcf14|subtotal termina y devuelve 60.5.
 51ac3418|Clics: 2. clics guardaba 1 del clic anterior: 1 más 1 igual a 2. clics no volvió a 0: está afuera de la función, y guarda la cuenta entre un clic y otro.
 51f79c81|En cada punto, el gradiente gradiente de f apunta hacia donde f sube más rápido.
 52326872|Quedan 6 bits para los hosts.
+529f8fa6|El precio es el de la última operación: lo que alguien pagó y otro aceptó.
 52e71793|Tres segmentos, y la conexión queda abierta en los dos sentidos.
 53395b5e|La probabilidad de sacar cara al tirar una moneda es un medio.
 536c66a8|La pregunta es cuánto mejor que el promedio predice la recta.
@@ -221,6 +255,7 @@
 5c2e9d19|Vence el timer: se reenvía desde el 2.
 5cddb865|Cuando el servidor también termina, manda su FIN.
 5cf58892|Adentro, cantidad vale 1 y precio vale 50.
+5d86ab1e|Es la volatilidad implícita, el número que más se mira en una pantalla de opciones.
 5db5b73a|Para entender un error, conviene leer el mensaje entero.
 5db8a51c|El R al cuadrado nunca baja, porque mínimos cuadrados puede usar la variable nueva aunque sea para ajustar casualidades.
 5dba0877|Si en vez del 95 por ciento queremos un intervalo del 99 por ciento, ¿qué le pasa?
@@ -255,13 +290,16 @@
 67d47e0a|Sin el viento que la empuja, el agua cálida se reparte hacia el este, y frente a Perú deja de subir agua fría.
 6825f0da|Once, doce, trece, catorce, quince, dieciséis, diecisiete, dieciocho y diecinueve.
 6847115f|Está tan lejos que ni entra en el dibujo: la campana, a esa distancia, es prácticamente cero.
+68c9411c|Si la tasa sube, lo que te prometen cobrar dentro de 5 años, ¿vale hoy más o menos?
 68dcdc59|Pero todavía puede seguir mandando: la conexión se cierra de a un sentido por vez.
 691ea3ae|Repetimos con otras 24 muestras.
 695c60e4|Los domingos comemos asado en la casa de mis viejos.
 695caf96|Llamame cuando llegues, así me quedo tranquila.
+6970580d|Si se dispara, ganás; si se desploma, no la comprás y listo.
 69edad24|Cuando crecen, se corre con ellas.
 69f03eab|En naranja, los 6 bits de host: cambian de una máquina a otra.
 6b06f48d|Resultado: 1 falla, 2 pasan.
+6b358806|Por su forma le dicen palo de hockey.
 6b458d8d|Antisimétrica no: 1 y 3 son distintos, y hay flecha de ida y de vuelta.
 6b52a7bd|Se muestra: 2 Terminó el programa.
 6b6ef197|El coeficiente de determinación dice qué parte de la variabilidad explica la recta.
@@ -280,6 +318,7 @@
 6f7e2e54|cantidad pasa de 2 a 1. precio pasa de 100 a 50.
 6fa50471|Una función cuadrática tiene forma de parábola, con un vértice arriba o abajo.
 6fe9f6e8|Martín, Ana y Pablo tienen menos de 8.
+6ff2b4ee|¿Cuánto es lo máximo que puede ganar quien compró el call?
 70186580|¡Ahí está! Ese es el caso que rompía todo.
 707562a8|Quedan 62 hosts, de 192.168.10.65 a 192.168.10.126.
 70d926e8|Si hubiera caído afuera, sería una extrapolación del modelo, no algo que dicen los datos.
@@ -292,12 +331,15 @@
 72a39215|Norte, sur, este y oeste.
 72b253d0|La tasa es grande; un poco más, y diverge.
 737a384b|Un año normal, los vientos alisios soplan del este al oeste: de Sudamérica hacia Indonesia.
+73904932|En la bolsa se compran y se venden todo el día.
 73d9e6fb|Tenemos 8 mediciones.
 742897c1|sumar termina y devuelve 17.
 746aa881|Hay un pollito amarillo escondido debajo de la silla.
 748ebb58|Cada clic es una ejecución nueva de la función.
 74aeeb06|Las gallinas del gallinero pusieron siete huevos ayer.
+74c65e9d|Lo que gana uno lo pierde el otro.
 763debed|¿Cuántas filas van a cumplir presentes mayor o igual a 8?
+7664c607|Si sube gana el call; si baja, el put.
 769752d4|Lucía no está en el diccionario.
 77316f5d|A la izquierda, las curvas de nivel de la función que queremos minimizar.
 774bc5b1|Elevar al cuadrado, sacar la raíz, y volver al número del principio.
@@ -305,6 +347,7 @@
 777b73e9|La contraseña tiene que ser larga, y no conviene usar la misma en todos lados.
 78a06ea2|El caballo se escapó del corral y apareció en la playa.
 7974bca5|El celular se actualizó solo durante la noche.
+79b307d5|Es lo que hace que la curva de arriba se doble.
 7a2292d6|En la Argentina, el invierno es seco en el centro del país y lluvioso en la Patagonia andina, mientras que en el norte hace calor casi todo el año.
 7a343672|El programa arranca.
 7a792795|La derivada es eso: la pendiente de la recta que apenas toca la curva en ese punto.
@@ -321,6 +364,7 @@
 7ea99137|Empujan el agua cálida de la superficie, que se apila del lado de Indonesia.
 7f163442|Mirá la sombra en el piso: es el mismo camino que sobre las curvas de nivel.
 7f246a97|Como volvió a 1, arranca otra vez en slow start, duplicando hasta el umbral nuevo.
+800245c3|Pase lo que pase, es todo lo que podés perder.
 802c3b9a|Si la giramos, ¿qué le va a pasar a la suma de los residuos al cuadrado?
 806ed277|La ventana de congestión crece mientras no haya pérdidas.
 814d64df|Enrique tiene una guitarra de cuerdas gastadas y un parrillero en el patio.
@@ -331,11 +375,13 @@
 826997cb|Trabajen de a dos: uno escribe y el otro revisa.
 82f7e823|Las cuentas de subredes se hacen con los bits, no con los números.
 832e3ec8|El servidor lo confirma.
+83546e47|Ahora sumemos otra acción, Montaña Rusa S.A..
 8387abe4|No sobra nada.
 8448d707|Israel y Rodrigo revisaron el registro antes de reiniciar el router.
 84d13539|¿Cuántas máquinas entran en la subred?
 85b1a5cf|El 95 por ciento de 25 es 23,75: alrededor de 24, a veces uno más o uno menos.
 86ffc464|¿Qué hacemos con el resto? Lo guardamos en otra variable.
+8706aaaf|La azul es lo que vale HOY según Black-Scholes, para cada precio posible de la acción.
 883557cc|También queda 1, 2, 3, 4. a y b son la misma lista: no hay dos listas, hay una sola con dos nombres.
 887efc44|Ya no quedan elementos: el for termina.
 88902a15|Si algo no se entiende, pregunten: no hay preguntas tontas.
@@ -344,6 +390,7 @@
 88eb4c57|Con b igual a a, b no es una copia: es otro nombre para la misma lista.
 89012809|a es una lista.
 8923dd69|Es una consulta recursiva: quiere la respuesta final, no una pista.
+892f66d3|Es una apuesta a la volatilidad: pierde si la acción se queda quieta.
 89408116|¿Alcanza con un solo test, o hace falta más de uno?
 89690253|Reflexiva: todos los elementos tienen su lazo.
 89d4958c|otra no es una copia: es el mismo objeto que lucia.
@@ -361,24 +408,33 @@
 8db73087|Cuando terminemos este tema, van a poder leer un programa ajeno y entender qué hace, aunque nunca lo hayan visto antes.
 8eeeacd6|Y está dentro del rango de horas observado, de 0 a 24, así que tiene sentido interpretarlo.
 8fdda939|Para cada número de la lista, sumar uno al contador.
+8fde60db|Es la capitalización continua, y es la que usan los modelos de finanzas porque las cuentas quedan más simples.
 9097779d|Vence el timer del paquete 2.
+9125fa44|Esa es la pregunta que responde Black-Scholes.
 9165f66b|Honrar la palabra es raro en estos tiempos, decía mi abuela.
 91c48a50|Antisimétrica no: 1 y 2 son distintos, y hay flecha de ida y de vuelta.
 9216f08d|¿Qué va a mostrar la consola?
 9278ba82|Si la clave no está, Python se corta con un KeyError.
+9290f0a4|¿Qué tiene que pasar para que ganes?
 929aaf35|se corre hacia Sudamérica.
 930e4c22|La pantalla se apaga sola después de diez minutos sin usarla.
+93293f67|Y se acelera al final: el último mes se pierde mucho más que el primero.
 938f6f3e|Listo.
 939e8bf5|self tiene un atributo nuevo: nombre vale 'Lucía'.
 93a28a7f|Con estos 20 paquetes no hay evidencia suficiente para decir que la máquina esté desajustada: un promedio de 498,6 g es esperable por azar aunque llene bien.
+94577d16|La línea azul es la suma de las punteadas: la estrategia.
 948b2bdf|Cada paso es más corto que el anterior porque, cerca del mínimo, el gradiente se achica.
+94e76726|Para un put, delta es negativa: gana cuando la acción baja.
 9582353d|Asignarle algo a una clave nueva la agrega: ahora también está Cami.
 95852a88|Mi hermana estudia enfermería y trabaja de noche en el hospital.
 9601bcbf|Del 2 al 5.
 967a53f0|La pendiente dice cuánto cambia segundos, en promedio, por cada unidad de MB: 0,262.
 96af4dcb|¿Te parece que la pendiente es positiva o negativa?
 96dc3e4a|El programa terminó, y la página espera.
+96fdbd6e|Cuando es chico es casi igual, y tiene una ventaja: el de varios días es la suma de los de cada día.
 97a8cc05|factorial termina y devuelve 6.
+97c98272|Se transforma en una estrella, y después en un corazón.
+980466be|Lo que importa no es cuántos pesos subió, sino cuánto en proporción: el rendimiento, 3,31 por ciento.
 98d5a396|Recién ahora SELECT: de cada fila quedan solo las columnas pedidas, nombre y presentes.
 998df1b7|Pausá y pensalo.
 99b277f4|Los elevamos al cuadrado y los sumamos.
@@ -389,6 +445,7 @@
 9b15933e|En slow start, por cada ACK la ventana crece un segmento: en cada ronda se duplica.
 9ba95512|Converge, pero lentísimo.
 9bdb246e|Si dos nombres apuntan a la misma lista, cambiar una cambia la otra, porque en realidad no hay dos listas: hay una sola, con dos nombres.
+9cab14cf|Es la idea genial de Black y Scholes: la opción se puede cubrir comprando y vendiendo la acción, el riesgo se cancela, y entonces alcanza con r.
 9d7cae5a|Se muestra: 7 17 Terminó el programa.
 9db7c5c1|Rebota cada vez más lejos: diverge.
 9e18fd0e|La única forma de tener las dos cosas es juntar más datos: el error estándar se achica con raíz de n.
@@ -397,6 +454,8 @@
 9fb99e3c|Vos tenés que decidir qué número va a imprimir el programa.
 a0030d4b|¿Te animás a probarlo? Dale, que no se rompe nada.
 a021b5a7|Me olvidé el paraguas en el colectivo, otra vez.
+a10cdad1|La volatilidad es la medida del riesgo: con la naranja se puede ganar mucho más, y perder mucho más.
+a11d0c41|La ganancia de una combinación, al vencer, es simplemente la suma de lo que gana cada pata.
 a1654127|Que cierre no es casualidad: pasa porque los residuos de mínimos cuadrados suman cero y no tienen relación con x.
 a1a0477b|Hasta la próxima.
 a1ee88fa|La derivada es la pendiente de la recta tangente en ese punto.
@@ -409,17 +468,21 @@ a3d00334|¿Cuántas veces se repite el bucle?
 a4a8bb7f|compra es una lista con 2 elementos.
 a5383f1d|En una red, cada computadora tiene una dirección, y los paquetes saltan de una a otra hasta llegar a destino, como cartas que pasan por varias oficinas de correo.
 a5ba2176|Son cuatro números de 0 a 255, uno por octeto.
+a6241248|Los tres pasos entran escalonados; cada estilo elige cómo.
 a659e475|Es decir, el consumo promedio de todos los casos con x igual a 20.
 a6daca7d|y vale 17.
 a745f1ab|El ACK 1 se pierde: el receptor sí recibió el paquete, pero el emisor no se entera.
+a790c42e|Son derivadas parciales.
 a7a8bfbb|Ayer llovió toda la tarde y la calle quedó llena de charcos.
 a83c8f2e|La página vuelve a esperar.
 a89703f4|¿Qué paquetes va a reenviar el emisor?
 a9b63b3d|La inteligencia artificial ayuda, pero hay que revisar lo que propone.
 a9fa6008|No es lo mismo, para nada: una es una copia, y la otra es la misma lista.
+aa09e102|Ese es el precio justo de la prima.
 aa47a5e7|Fijate qué pasa con la variable cuando entra al bucle.
 aa537042|Lunes, martes, miércoles, jueves, viernes, sábado y domingo.
 aa7fad38|La torre del reloj marca la hora en el centro del pueblo.
+aadb03e0|Calls, puts y la acción se pueden combinar como piezas de un lego.
 ab551b56|Pero ojo: los datos van de 5 a 50.
 acd6d945|El llavero se cayó en la alcantarilla de la calle Mayo.
 ad470e78|Hubo 1 retransmisión.
@@ -427,6 +490,8 @@ ad65c847|¡Muy bien! Ahora probemos con un caso más difícil.
 ae039a51|Baja hasta un mínimo.
 ae10389c|Nadie escribió dónde va cada caja: solo en qué orden van.
 af264977|Adentro, a vale 7 y b vale 10.
+afafaf7a|Y al final, listo: la tilde se dibuja sola.
+b0259cb1|Acá da 22,1 por ciento y 49,6 por ciento.
 b050d5c7|En la cima y en el fondo queda horizontal: ahí las dos derivadas parciales valen 0.
 b068b9c4|Si el punto se mueve, el plano lo acompaña.
 b07805d1|Una nube sin tendencia.
@@ -450,25 +515,30 @@ b5ba9889|Leer, escribir, borrar y volver a empezar: así se programa.
 b5bb73cd|El teclado tiene la eñe en su lugar, al lado de la ele.
 b6030ef0|El plano tangente es el que apenas toca la superficie en ese punto: tiene la misma inclinación en todas las direcciones.
 b6174363|La lluvia de anoche llenó el arroyo hasta el borde.
-b61b0103|Y se puede mover a cualquier lado: arrastrala con el mouse o el dedo.
 b6dfbb38|Adentro, precio vale 50.
 b742d8b9|El precio subió un quince por ciento en un solo mes.
 b74dbaee|total vale 17.
+b751405a|Con opciones se elige la forma del riesgo.
+b77c9693|La punteada es lo que paga el call al vencer.
 b7b19486|El gradiente apunta hacia donde la función crece más rápido.
 b7e1bef1|La integral es el área debajo de la curva.
 b83369c5|Y no es una sola: depende de la hora.
+b8349cff|Delta también dice cómo cubrirse: quien vendió un call compra 0,59 acciones por cada uno, y si la acción se mueve un poco, lo que gana por un lado lo pierde por el otro.
 b864ae49|Con los datos, T igual a 3,52.
 b8702ae0|Después WHERE presentes mayor o igual a 8: revisa fila por fila, y se queda solo con las que cumplen.
 b870760d|Me llevé la silla al balcón para mirar las estrellas.
+b87c90bf|Un detalle importante: los futuros se simulan como si la acción creciera a la tasa sin riesgo r, no a lo que uno espera que rinda.
 b92e7d5e|boton es el botón de la página.
 b9338202|Quiero aprender a programar para crear mis propios juegos.
 b9bb7ca3|El perro de la vecina ladra cada vez que pasa el cartero.
+ba47d771|Abajo está delta para cada precio.
 bae2d74d|Se define la clase Alumno: es el molde, todavía no hay ningún objeto.
 bb1cf727|En Selective Repeat el receptor guarda los que llegan fuera de orden y confirma cada uno por separado.
 bb809617|La recta explica el 86,1 por ciento de la variabilidad de kWh.
 bb90e835|Después WHERE curso igual a 'Programación' AND presentes mayor que 8: revisa fila por fila, y se queda solo con las que cumplen.
 bbb2a2bf|El cuadrático supone que la tasa de cambio va cambiando, y que en algún momento se da vuelta.
 bbb727e8|Lo bueno es que la cuenta cierra también con los cuadrados.
+bc09ce0f|Una acción es un pedacito de una empresa.
 bc131f0f|Pero la recta salió de una muestra: con otros datos sería otra.
 bc5e6be8|Tres coma catorce dieciséis es una aproximación de pi.
 bc6ff85d|En decimal, 255.255.255.192.
@@ -477,6 +547,7 @@ bd4b2865|El yuyo creció tanto que tapó la ventana de la cocina.
 bd51ada9|El cliente confirma y espera un rato en TIME-WAIT, por si ese último ACK se pierde y hay que repetirlo.
 bdb74919|Tenemos una muestra de 16 mediciones de minutos.
 bddbc90c|Ese reacomodo llega hasta acá: en la Argentina, El Niño suele traer más lluvias en primavera y en verano.
+be208a8a|Ahora imaginá que en vez de la acción tenés solo el derecho a comprarla a un precio fijo, más adelante, si te conviene.
 be28c8fa|El mejor momento para escribir un test es antes de escribir el código.
 be99b4a9|Escribí tu programa a la izquierda y la animación se arma sola.
 beeef061|100 dividido 12 da 8 y sobra 4: es dar 8 vueltas enteras al reloj y avanzar 4 más.
@@ -486,6 +557,7 @@ c03547f7|Según Noá, lo más probable es que siga fuerte, o muy fuerte, hasta e
 c1693003|Queremos el máximo común divisor de 1071 y 462.
 c17d2205|El programa pregunta el nombre y lo guarda en una variable.
 c18979df|factorial termina y devuelve 2.
+c1d4d2cd|Lo mismo que la simulación.
 c1e95700|Con 99 por ciento los mismos intervalos se estiran: ahora atrapan 25 de 25.
 c288db3e|Eso es dividir: 1071 igual a 2, 462 más 147.
 c31348cb|El cuadrado de un número negativo es positivo.
@@ -495,6 +567,7 @@ c4f71949|El consumo promedio de cada hora del día.
 c529f09b|R al cuadrado no dice que kVarh cause kWh: una correlación alta puede venir de una tercera variable que mueve a las dos.
 c5d623cc|Adentro, n vale 1.
 c5ee4aa5|Al pasar el 11, se vuelve al 0.
+c600c3d8|Comprás un call y vendés otro más arriba: la prima que cobrás abarata la que pagás.
 c60c2fc6|Lo que se marca allá se marca acá.
 c60cba62|Ojo: los límites iterados dan 0 los dos, y aun así el límite no existe.
 c6223897|Dos rectas paralelas tienen la misma pendiente y nunca se cruzan.
@@ -505,15 +578,20 @@ c74bbe66|R no es de equivalencia ni de orden.
 c7bfa96e|Un objeto tiene atributos y métodos, y self es el objeto mismo.
 c8444aa2|Vence un timer: algo se perdió y no llegan ACK.
 c880a9be|Veinte, treinta, cuarenta, cincuenta, sesenta, setenta, ochenta, noventa y cien.
+c8a9d46c|Lo único que no sirve es que se quede quieta.
 c8fa1f18|Buen día a todos, hoy vamos a ver cómo funciona un bucle.
+c91b8fff|Las dos rinden lo mismo en promedio, pero la naranja se sacude mucho más: sube más fuerte, baja más fuerte.
 c930923f|Ese es el intervalo de confianza para la respuesta media: 29,66; 33,42.
 c9e86c88|Para llegar al mínimo, ¿para dónde conviene moverse?
 ca9c1d5d|Ahora entran 7 cuadrados de 21 justos: el resto es 0.
 caab01f2|¿Se puede hacer más corto? Sí, pero se entiende menos.
 cac6f9c1|Si lo calculamos para cada x, queda una banda.
 cbe47f25|La dirección de red es la IP con todos los bits de host en 0: un AND bit a bit con la máscara.
+ccb6947e|Si la volatilidad sube de 25 por ciento a 40 por ciento, ¿el call vale más o menos?
 cceb7d74|Aprender a programar no es memorizar comandos: es aprender a partir un problema grande en problemas chicos, y resolverlos de a uno.
 cd2ddf02|Rosa arregló la radio roja que estaba rota desde el martes.
+cd5c78a0|Inventemos 36 futuros posibles, sacados de esa campana.
+cd5ee175|Siempre queda por encima: todavía faltan 6 meses y puede pasar de todo.
 cd624b34|La flecha está enganchada al costado izquierdo de las dos listas.
 cdc94520|Lo de la derecha está pegado al costado derecho de a: también se corre, sin que nadie calcule cuánto.
 cdd2ff23|Adentro, cantidad vale 2 y precio vale 100.
@@ -534,9 +612,11 @@ d010d092|La llave de la puerta amarilla está arriba de la heladera.
 d0e7833e|La recta que los une es una secante.
 d1ab1488|El desvío estándar es la raíz cuadrada de la varianza.
 d1b0525a|Llegué tarde porque el subte estuvo parado veinte minutos.
+d1b21118|Lejos de K, delta casi no cambia y gamma es casi cero.
 d38657ee|Eso es todo por hoy.
 d3d0a21f|27. total más n es 12 más 15, y eso se guarda en total: 27.
 d47156c9|Un algoritmo es una receta: una serie de pasos que siempre terminan.
+d4847722|Tenés la acción y comprás un put: si se desploma, la vendés igual a K.
 d4d1e479|¿Por qué falla? Porque la lista está vacía y no lo tuvimos en cuenta.
 d546b851|Hacemos lo mismo con todos, elevamos al cuadrado y sumamos.
 d5eef1e2|La diferencia entre un buen programa y uno malo no está en que funcione, sino en que otra persona lo pueda leer, entender y cambiar sin miedo.
@@ -544,8 +624,10 @@ d62d2f8e|Eso es el 95 por ciento: no habla de UN intervalo, habla del método.
 d6e7e136|El servidor de.ar tampoco: deriva a los servidores de ejemplo.com.ar, que tienen la delegación.
 d735d34a|¡Listo! El test pasó, y la barra se puso verde.
 d7abbf20|Se pasa de largo y diverge.
+d8160b16|En opciones de pocos meses casi no se nota: es la griega que menos se mira.
 d81d56a8|El descenso del gradiente da pasos en la dirección contraria.
 d83622fe|Y en la cordillera, de Mendoza a la Patagonia, Neuquén incluido: ahí llegan más lluvias y más nevadas.
+d8af6ea2|Y fijate lo que NO está: si la acción va a subir o a bajar.
 d986d519|La rueda gira, la rampa baja, y el robot reacciona.
 d9d46bf9|La derivada dice cuánto cambia el consumo por cada hora que pasa, en kWh por hora.
 da1412ef|El error: 10 división entera 20 da 0, porque la división entera redondea para abajo, y 0 por 100 es 0.
@@ -554,8 +636,11 @@ dabd5bd7|En otoño las hojas de los plátanos tapan las veredas.
 dadc6c76|El pollo con papas es lo que más me gusta del domingo.
 db040635|Está dentro del rango de los datos, así que es una estimación razonable.
 db2f0e6d|Hay que tener paciencia: lo que se aprende de a poco, se queda.
+db7bb08e|Cero mientras S no pase a K, y de ahí sube peso por peso.
 db9e1ccd|El rastrillo, la regadera y la rastra están en el galpón de atrás.
+dc2cc166|El modelo supone que los rendimientos son normales; entonces el precio queda lognormal: una campana torcida, con la cola larga a la derecha.
 dc476b83|iva vale 10.5.
+dc50ff9b|Gana, como mucho, la prima.
 dc8cefb1|Es una congestión leve.
 dca590fd|Llegaron los 7 paquetes.
 dcd2ea94|Este ejercicio tiene trampa: lean bien qué pide.
@@ -564,11 +649,15 @@ dd54c9c0|Listo: el resultado tiene 3 filas.
 dd5d6963|La consulta toma la tabla, filtra las filas y ordena el resultado.
 deae0ad4|Sabés más de lo que creés: confiá en lo que ya aprendiste.
 deb7f968|El profesor explicó por qué el árbol binario se recorre en orden.
+dec5bf12|Con una acción que se sacude más, ese derecho vale más.
 e06425bf|Un test automático es como un compañero que revisa tu trabajo cada vez que cambiás algo, sin cansarse nunca.
 e06ebad4|Se vuelven a correr todos los tests, no solo el que fallaba.
 e0a49524|¿Cuál es el cuadrado más grande que entra en ella?
+e0ad1f7d|Su ganancia es la tuya dada vuelta, la línea naranja.
 e10b443b|Con una sola muestra, que es lo que pasa en la realidad, no sabemos si nos tocó uno verde o uno rojo.
 e14ea322|¡No, todavía no! Primero hay que guardar el valor.
+e21b1d45|¿Cuánto vale esa promesa hoy?
+e29bc93f|Ese derecho se llama opción, y es lo que sigue.
 e2f04b5f|Rojo, amarillo, verde: así se ve un test que falla, se corrige y pasa.
 e2ff91c0|¿Cuánto vale total después de la tercera vuelta?
 e36f6418|Tres por cuatro, doce; cuatro por cuatro, dieciséis.
@@ -579,6 +668,7 @@ e3ff4a05|Va tanteando cuánto aguanta la red.
 e4831407|¿Qué número es esa proporción?
 e490b720|Pasa por la columna de los presentes, fila por fila.
 e50bcb89|Hay cuatro factorial esperando, y el de arriba va a devolver 1.
+e5123f38|Nadie sabe cuál va a ser el próximo paso.
 e52390af|¿Cómo sabemos que el resultado está bien?
 e530c782|Si acercamos Q a P, ¿a qué número se va a acercar la pendiente de la secante?
 e5ecc8f0|¿Qué número de ack le va a contestar el servidor?
@@ -587,6 +677,8 @@ e64262e2|El espejo muestra agrandada la línea que corre, al lado de las variabl
 e64be9f1|¿Cuánto va a valer lucia.presentes?
 e71e2aab|Primero FROM: la consulta toma la tabla alumnos, con sus 6 filas.
 e86cc85a|Ahora el código hace lo que los tests dicen que tiene que hacer.
+e88e6fdf|Black-Scholes no necesita adivinarlo.
+e89b95f0|Cuanto más rinde la plata de hoy, menos hace falta poner para llegar a lo mismo.
 e8a54c9b|Se agranda.
 e8d48e7b|¿Dónde está el error en este programa?
 e8e3643f|En Selective Repeat el emisor puede tener hasta 4 paquetes en viaje sin confirmar: es su ventana, el recuadro de arriba.
@@ -596,6 +688,7 @@ e947d77a|Otra vez: se calcula el gradiente en el punto nuevo, y se da otro paso.
 e9e1bb02|total vale 242.0.
 eab78cee|Despacio, que estoy apurado, decía un general.
 eb26727a|La máscara de subred dice qué parte de la dirección es la red y qué parte es el equipo.
+eb5dbbd6|Si dibujamos gamma para cada precio, es una campana: es máxima cerca de K.
 ebd898a6|Más o menos 24.
 ebf1ff22|Un mensaje a esa dirección le llega a todas las máquinas de la subred.
 ec11aa37|El tren de las ocho y cuarto viene siempre lleno.
@@ -607,16 +700,21 @@ edd8ce32|Ya está: la lluvia paró y salió el sol sobre la ruta.
 edff667b|Da menos de 0,0001.
 ee42a186|El índice empieza en cero, no en uno: el tercer elemento es el número dos.
 ee850d66|La regresión arroja una recta que resume la relación entre las dos variables.
+efb9e5c4|Supongamos una tasa del 12 por ciento anual, sin riesgo.
+efc028d2|Las cinco juntas dicen cómo reacciona una opción a todo lo que se mueve.
 f034db9d|Multiplicar es sumar varias veces: 5 saltos de 4, arrancando en 0.
+f04513bf|Y cuando no hay fórmula, se calculan igual: se mueve un poquito cada cosa, se recalcula el precio y se divide.
 f051f680|La función queda esperando: corre una vez por cada clic, y si no hay clics, nunca.
 f0b8fd81|Con pegado de 1 a 0, la nota se despega de a poco y vuelve a su lugar propio.
 f0e88caa|Es congestion avoidance.
+f10f8f97|Que se mueva mucho, para cualquier lado.
 f1aebfc0|Si una crece, corre a las que vienen después.
 f2081a21|cantidad vale 2. precio vale 100.
 f22c97ab|Que la pendiente sea significativa no dice que sea grande ni que la relación sea causal: dice que, si no hubiera relación, sería rarísimo ver una pendiente así.
 f2323e6f|Se define la función subtotal: todavía no se ejecuta, queda guardada para cuando se la llame.
 f286ef79|Ricardo regaló rosas rojas a su ruidosa sobrina Romina.
 f2da16cb|Sin conexión persistente, cada recurso pagaría otra vez el saludo de tres vías.
+f32d2419|Menos.
 f33d6e97|En azul, los 26 bits de red: son iguales para toda la subred.
 f3a49334|Primero se compara, después se ordena, y por último se imprime.
 f3b320fd|Con AND, una fila tiene que cumplir las dos condiciones.
@@ -625,15 +723,19 @@ f4391892|El total pasó de 3000: el envío es gratis.
 f4423243|Copien el enunciado y piensen cinco minutos antes de escribir código.
 f471e086|Hoy cerramos el tema de funciones y la semana que viene empezamos con objetos.
 f4d045ba|La parte verde de la barra es la variabilidad que explica la recta.
+f4dce7f7|Queda menos tiempo para que la acción pase de K: el derecho vale menos.
 f577fec3|La línea punteada es el umbral: 8.
 f59b27d3|Por eso al verificarlo con los datos tiene que dar exacto, salvo redondeo.
 f5d23d6c|La temperatura bajó a menos tres grados durante la noche.
 f5f36a05|Al leer el HTML, el navegador encuentra más recursos y los pide.
+f5facdea|Esta lupa la mueve la animación.
 f617535e|El perro corrió por la orilla del río hasta el ferrocarril.
 f65b74d1|Son las nueve y media de la mañana del martes catorce.
 f67b2a9b|Con la de ruido baja de 0,8537 a 0,852: la variable no aporta.
 f67e823c|¿Cuánto tarda? Depende de cuántos datos haya.
 f6c638f3|¿Qué pasa en la línea 4?
+f71672a2|Es un seguro: se paga la prima y la pérdida queda acotada.
+f7382270|Las griegas responden una sola pregunta, cinco veces: si cambia una de las cosas de las que depende el precio, y las demás quedan quietas, ¿cuánto cambia el precio?
 f7607616|self tiene un atributo nuevo: presentes vale 0.
 f7f29ae6|Vuelve a donde se había llamado a la función.
 f8c1fd57|Acá, 9353,71 igual a 8049,52 más 1304,19.
@@ -649,6 +751,7 @@ fa9f45d0|100 y 4 están en la misma clase: dejan el mismo resto al dividir por 1
 faa9b6b0|Ahora la giramos sobre el punto promedio.
 fb6e311c|La recta queda casi plana.
 fb8c68a3|Es la señal más grave.
+fb931076|Tenés la acción y vendés un call: cobrás la prima hoy, a cambio de resignar lo que suba por encima de K.
 fcf74ff1|No se preocupen si no les sale a la primera: a nadie le sale.
 fcf781a3|Un while repite mientras la condición sea verdadera.
 fd01a47d|Esa flecha no tiene vuelta.
@@ -656,6 +759,7 @@ fd8a2e32|Así se ve TCP en una conexión larga: sube hasta que algo se pierde, b
 fdd1a7f1|El cerrajero arregló la cerradura y cobró carísimo.
 fe042eb6|En la vida real nunca la conocemos: por eso estimamos.
 fe078cc3|La estadística no da certezas: da una medida de qué tan seguros podemos estar, y eso ya es muchísimo.
+fe0b28fe|Si los intereses se suman una vez por año, al año siguiente también ganan interés: eso es el interés compuesto.
 febac0b5|Levanten la mano si el programa les tiró un error.
 ffcd8cdf|Julio, agosto, septiembre, octubre, noviembre y diciembre.
 ffd57078|El rollo de cable está en el cajón de abajo, al lado de la pinza.

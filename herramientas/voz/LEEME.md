@@ -17,9 +17,32 @@ Y en Chrome o Edge: <http://localhost:4173/herramientas/voz/grabar.html>. La pá
 vez: Espacio graba y para, E escucha, Enter guarda y pasa a la siguiente. Avisa si saturó, si quedó bajo
 o si parece cortada. Se puede cortar y seguir otro día.
 
-Las frases están en `corpus.txt` (661, unos 50 minutos de audio). Salen de dos lados:
+### Para que salga bien
 
-- lo que dicen las escenas del motor (los subtítulos de los ejemplos), que es lo que la voz va a leer después;
+Lo que más pesa en cómo va a sonar la voz entrenada no es el modelo: es que las grabaciones sean
+parejas. Una voz entrenada copia todo, también el eco del cuarto y el ruido de la heladera.
+
+- **El lugar**: el cuarto más "muerto" de la casa (con ropa, cortinas, una cama; nada de azulejos).
+  Un placard abierto lleno de ropa es una cabina casera muy buena. Apagá ventiladores, aire,
+  heladera si se puede, y silenciá el celular.
+- **El micrófono**: siempre el mismo, en el mismo lugar, a un palmo de la boca (15 a 20 cm) y un poco
+  de costado, para que las "p" no soplen. Si tiene ganancia, dejala fija para todas las sesiones:
+  la página avisa si saturó o si quedó bajo.
+- **La voz**: como si le explicaras a un alumno, no como si leyeras. Ritmo tranquilo y parejo, sin
+  impostar. Antes de grabar una frase, leela una vez en la cabeza; si te trabás, Espacio de nuevo y
+  se pisa la toma.
+- **El cuerpo**: sesiones de 20 a 30 minutos, con agua a mano (sin gas) y sin haber comido recién.
+  Sentado igual siempre: cambiar de postura cambia la voz. A la misma hora del día, si se puede: a la
+  mañana la voz es más grave.
+- **Las primeras 20**: grabalas, escuchalas con auriculares y recién ahí seguí. Si se oye eco, ruido
+  o golpes en la mesa, es el momento de cambiar algo, no después de 700 frases.
+- **Cuántas**: con 100 a 150 frases ya se puede probar un clon. Para entrenar Piper conviene llegar a
+  las 765 (unos 53 minutos); con 400 ya suena bastante.
+
+Las frases están en `corpus.txt` (765, unos 53 minutos de audio). Salen de dos lados:
+
+- lo que dicen las escenas del motor (los subtítulos de los ejemplos, finanzas y estilos incluidos),
+  que es lo que la voz va a leer después;
 - `frases-propias.txt`: la erre fuerte, la elle y la ye, el voseo, preguntas, exclamaciones, números.
 
 Para sumar frases, se agregan a `frases-propias.txt` y se rehace la lista (con el servidor andando):

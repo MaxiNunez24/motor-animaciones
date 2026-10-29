@@ -253,6 +253,70 @@ function fijo(v, decimales = 3) {
 // src/nucleo/curvas.js
 var C1 = 1.70158;
 var C3 = C1 + 1;
+function resorte({ rebote = 0.3, oscilaciones = 1.5 } = {}) {
+  if (!(rebote > 0)) {
+    const k = 8;
+    const fin = 1 - (1 + k) * Math.exp(-k);
+    return (p) => (1 - (1 + k * p) * Math.exp(-k * p)) / fin;
+  }
+  const w = 2 * Math.PI * Math.max(oscilaciones, 0.25);
+  const d = -Math.log(Math.min(rebote, 0.95)) * w / Math.PI;
+  const crudo = (p) => 1 - Math.exp(-d * p) * (Math.cos(w * p) + d / w * Math.sin(w * p));
+  const resto = 1 - crudo(1);
+  return (p) => crudo(p) + resto * p * p;
+}
+function rebotar({ botes = 3 } = {}) {
+  const n = Math.min(Math.max(Math.round(botes), 1), 4);
+  const tramos = [1];
+  for (let i = 1; i <= n; i++) tramos.push(tramos[i - 1] / 2);
+  const total = tramos[0] + 2 * tramos.slice(1).reduce((a, b) => a + b, 0);
+  return (p) => {
+    let t = p * total;
+    if (t < tramos[0]) return (t / tramos[0]) ** 2;
+    t -= tramos[0];
+    for (let i = 1; i <= n; i++) {
+      const ancho = 2 * tramos[i];
+      if (t < ancho) {
+        const u = t / ancho * 2 - 1;
+        return 1 - (tramos[i] / tramos[0]) ** 2 * (1 - u * u);
+      }
+      t -= ancho;
+    }
+    return 1;
+  };
+}
+function elastico({ amplitud = 1, oscilaciones = 3 } = {}) {
+  const w = 2 * Math.PI * oscilaciones;
+  const crudo = (p) => 1 + amplitud * 2 ** (-10 * p) * Math.sin((p - 0.075) * w);
+  const a = crudo(0);
+  const b = crudo(1) - 1;
+  return (p) => crudo(p) - a * (1 - p) - b * p;
+}
+function anticipar({ cuanto = 1, llegada = false } = {}) {
+  const c1 = C1 * cuanto;
+  const c2 = c1 * 1.525;
+  if (!llegada) return (p) => (c1 + 1) * p ** 3 - c1 * p * p;
+  return (p) => p < 0.5 ? (2 * p) ** 2 * ((c2 + 1) * 2 * p - c2) / 2 : ((2 * p - 2) ** 2 * ((c2 + 1) * (p * 2 - 2) + c2) + 2) / 2;
+}
+var curvas = {
+  lineal: (p) => p,
+  entrar: (p) => p * p * p,
+  salir: (p) => 1 - (1 - p) ** 3,
+  // La de todos los días: arranca y frena suave. Es la predeterminada porque
+  // es la que menos llama la atención sobre sí misma.
+  suave: (p) => p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2,
+  // Se pasa un poquito y vuelve: para que algo "aterrice" con gracia.
+  pasarse: (p) => 1 + C3 * (p - 1) ** 3 + C1 * (p - 1) ** 2,
+  // Cambia de golpe apenas empieza. Es la que usa el movimiento reducido.
+  salto: (p) => p > 0 ? 1 : 0,
+  resorte: resorte(),
+  // Un resorte flojo: se pasa más y tarda más en acomodarse.
+  gelatina: resorte({ rebote: 0.45, oscilaciones: 2.5 }),
+  rebote: rebotar(),
+  elastico: elastico(),
+  anticipar: anticipar(),
+  envion: anticipar({ llegada: true })
+};
 
 // src/nucleo/colores.js
 var TOKENS = [
@@ -442,11 +506,15 @@ var COMUNES = {
   pegar: null,
   // Cuánto manda el pegar sobre x e y (de 0 a 1): animándolo, se despega
   // (o se pega) de a poco.
-  pegado: 1
+  pegado: 1,
+  // De 0 a 1: cuánto de sus bordes ya se dibujó, como si alguien lo fuera
+  // trazando con una lapicera. El relleno aparece al final, cuando el borde
+  // ya está casi entero.
+  trazo: 1
 };
 function definirPieza(definicion) {
   if (!definicion.nombre) throw new Error("Una pieza necesita un nombre.");
-  const tipo = { colores: [], ...definicion };
+  const tipo = { colores: [], formas: [], ...definicion };
   const validas = /* @__PURE__ */ new Set([...Object.keys(COMUNES), ...Object.keys(definicion.predeterminados)]);
   function fabrica(props = {}) {
     for (const prop of Object.keys(props)) {
@@ -458,7 +526,7 @@ function definirPieza(definicion) {
     }
     const completas = { ...COMUNES, ...definicion.predeterminados, ...props };
     definicion.validar?.(completas);
-    return { tipo, props: completas };
+    return { tipo, props: completas, propias: Object.keys(props) };
   }
   fabrica.tipo = tipo;
   return fabrica;
@@ -1185,14 +1253,14 @@ var curvasNivel = sobrePlano({
         })
       };
     }
-    const curvas = partes.cache.curvas;
-    while (partes.lineas.childNodes.length > curvas.length) partes.lineas.lastChild.remove();
-    while (partes.lineas.childNodes.length < curvas.length) el("path", {}, partes.lineas);
-    while (partes.rotulos.childNodes.length > curvas.length) partes.rotulos.lastChild.remove();
-    while (partes.rotulos.childNodes.length < curvas.length) {
+    const curvas2 = partes.cache.curvas;
+    while (partes.lineas.childNodes.length > curvas2.length) partes.lineas.lastChild.remove();
+    while (partes.lineas.childNodes.length < curvas2.length) el("path", {}, partes.lineas);
+    while (partes.rotulos.childNodes.length > curvas2.length) partes.rotulos.lastChild.remove();
+    while (partes.rotulos.childNodes.length < curvas2.length) {
       el("text", { "font-weight": 600, "text-anchor": "middle", "dominant-baseline": "central", ...HALO, "stroke-width": 5 }, partes.rotulos);
     }
-    curvas.forEach((curva2, i) => {
+    curvas2.forEach((curva2, i) => {
       const visible = limitar(p.progreso - i, 0, 1);
       const resaltada = i === p.resaltar;
       let d = "";

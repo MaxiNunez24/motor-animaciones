@@ -81,8 +81,83 @@ ${CSS_TEMA}
 }
 .ma-raiz:not(.con-subtitulos) .ma-subtitulo,
 .ma-raiz.sin-textos .ma-subtitulo,
-.ma-raiz.sin-textos [data-accion="subtitulos"] {
+.ma-raiz.sin-textos [data-accion="subtitulos"],
+.ma-raiz:not(.con-sonidos) [data-accion="sonido"] {
     display: none;
+}
+
+/* ---- Subtítulos de reel ----
+   Grandes, encima del dibujo, de a pocas palabras, con la que se está
+   diciendo resaltada. Los pide el estilo (subtitulos: { modo: 'reel' }). */
+.ma-raiz.subs-reel .ma-subtitulo,
+:host([pantalla]) .ma-raiz.subs-reel .ma-subtitulo,
+:host(:fullscreen) .ma-raiz.subs-reel .ma-subtitulo {
+    grid-area: escena;
+    z-index: 2;
+    align-self: end;
+    justify-self: center;
+    max-width: 90%;
+    min-height: 0;
+    margin: 0 0 6%;
+    padding: 0.1em 0.4em;
+    background: none;
+    pointer-events: none;
+    font-size: calc(clamp(15px, 2.6cqi, 40px) * var(--ma-sub-tamano, 1.6));
+    font-weight: var(--ma-sub-peso, 800);
+    text-transform: var(--ma-sub-mayusculas, none);
+    line-height: 1.15;
+    letter-spacing: 0.01em;
+}
+.ma-raiz.subs-reel[data-sub-posicion="centro"] .ma-subtitulo { align-self: center; margin: 0; }
+.ma-raiz.subs-reel[data-sub-posicion="arriba"] .ma-subtitulo { align-self: start; margin: 5% 0 0; }
+.ma-raiz.subs-reel .ma-subtitulo:empty { display: none; }
+/* En un celular, dentro de la página, el dibujo es chico: los subtítulos de
+   reel encima lo taparían entero. Van abajo, como los comunes, pero grandes.
+   En pantalla completa sí van encima (sobra alto). */
+@container (max-width: 600px) {
+    :host(:not([pantalla]):not(:fullscreen)) .ma-raiz.subs-reel[data-sub-posicion] .ma-subtitulo {
+        grid-area: subtitulo;
+        align-self: center;
+        margin: 0;
+        min-height: 2.6em;
+        font-size: clamp(18px, 6cqi, 30px);
+    }
+}
+.ma-reel {
+    display: inline-block;
+    animation: ma-entra-grupo 0.22s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+/* Dos nombres de animación que se turnan: así cada grupo nuevo la reinicia. */
+.ma-reel[data-grupo="1"] { animation-name: ma-entra-grupo-b; }
+@keyframes ma-entra-grupo { from { transform: scale(0.82); opacity: 0.4; } }
+@keyframes ma-entra-grupo-b { from { transform: scale(0.82); opacity: 0.4; } }
+.ma-palabra {
+    display: inline-block;
+    /* Lo que crece la palabra resaltada, para que no se coma el espacio. */
+    margin: 0 0.06em;
+    opacity: 0.55;
+    transition: opacity 0.12s, transform 0.12s, color 0.12s;
+}
+.ma-palabra[hidden] { display: none; }
+.ma-palabra.dicha { opacity: 1; }
+.ma-palabra.actual {
+    color: var(--ma-sub-resaltado, var(--ma-acento));
+    transform: scale(1.08);
+}
+.ma-raiz.subs-reel[data-sub-caja="caja"] .ma-reel {
+    background: color-mix(in srgb, var(--ma-fondo) 80%, transparent);
+    border-radius: 0.3em;
+    padding: 0.05em 0.35em;
+}
+/* Letras con borde y sin fondo, como en los reels: se leen sobre cualquier dibujo. */
+.ma-raiz.subs-reel[data-sub-caja="contorno"] .ma-reel {
+    -webkit-text-stroke: 0.14em var(--ma-fondo);
+    paint-order: stroke fill;
+    text-shadow: 0 0.06em 0.18em color-mix(in srgb, var(--ma-fondo) 70%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+    .ma-reel, .ma-palabra { animation: none; transition: none; }
+    .ma-palabra.actual { transform: none; }
 }
 
 /* ---- Controles ---- */
@@ -130,8 +205,58 @@ ${CSS_TEMA}
 .ma-raiz.flotantes:not(.ver-controles) .ma-controles {
     transform: translateY(8px);
 }
-.ma-raiz.flotantes.sin-cursor {
+.ma-raiz.sin-cursor,
+.ma-raiz.sin-cursor .ma-lienzo,
+.ma-raiz.sin-cursor [data-arrastrable] {
     cursor: none;
+}
+
+/* ---- El hilo ----
+   Cuando los controles flotantes se esconden, queda una línea finita abajo:
+   cuánto pasó, y puntitos donde hay un capítulo o una pregunta. Apenas se ve;
+   alcanza para saber dónde se está sin tapar nada. */
+.ma-hilo {
+    grid-area: escena;
+    align-self: end;
+    position: relative;
+    z-index: 2;
+    height: 3px;
+    margin: 0 10px 6px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--ma-texto) 18%, transparent);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+.ma-raiz.flotantes:not(.ver-controles):not(.sin-controles) .ma-hilo {
+    opacity: 0.7;
+}
+.ma-hilo-avance {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--ma-acento);
+    transform-origin: left;
+    transform: scaleX(0);
+}
+.ma-hilo-marcas span {
+    position: absolute;
+    top: -1.5px;
+    width: 6px;
+    height: 6px;
+    margin-left: -3px;
+    border-radius: 50%;
+    background: var(--ma-texto);
+    opacity: 0.8;
+}
+/* Las preguntas, del color del acento y un poco más grandes. */
+.ma-hilo-marcas span[class] {
+    top: -2.5px;
+    width: 8px;
+    height: 8px;
+    margin-left: -4px;
+    background: var(--ma-acento2);
+    opacity: 1;
 }
 
 /* ---- Zoom ---- */
@@ -173,6 +298,37 @@ ${CSS_TEMA}
 .ma-raiz:not(.flotantes) .ma-zoom [data-zoom="acercar"],
 .ma-raiz:not(.flotantes) .ma-zoom [data-zoom="alejar"] {
     display: none;
+}
+/* La lupa: el botón siempre (salvo sin-lupa); su forma y su aumento, solo
+   con la lupa prendida. El de volver a su lugar, solo si se corrió algo. */
+.ma-zoom svg {
+    width: 22px;
+    height: 22px;
+    vertical-align: middle;
+}
+.ma-zoom [data-zoom="lupa"][aria-pressed="true"] {
+    background: var(--ma-acento);
+    border-color: var(--ma-acento);
+    color: var(--ma-fondo);
+}
+.ma-raiz.sin-lupa .ma-zoom [data-zoom^="lupa"],
+.ma-raiz:not(.con-lupa) .ma-zoom [data-zoom="lupa-forma"],
+.ma-raiz:not(.con-lupa) .ma-zoom [data-zoom="lupa-zoom"],
+.ma-raiz:not(.con-arrastres) .ma-zoom [data-zoom="lugar"] {
+    display: none;
+}
+/* En un celular, dentro de la página, los botones de arriba no se esconden
+   (no hay un mouse que pase): el de la lupa quedaría tapando para siempre la
+   esquina del dibujo. Ahí aparece en pantalla completa, o si ya está prendida. */
+.ma-raiz:not(.flotantes):not(.con-lupa) .ma-zoom [data-zoom="lupa"] {
+    display: none;
+}
+.ma-lupa {
+    cursor: grab;
+    touch-action: none;
+}
+.ma-lupa-asa {
+    cursor: nwse-resize;
 }
 .ma-controles button {
     min-width: 44px;
@@ -285,10 +441,11 @@ ${CSS_TEMA}
     .ma-controles {
         gap: 0 2px;
     }
-    /* 36px sigue siendo cómodo para un dedo (el mínimo de WCAG es 24) y deja
-       que los seis botones y el tiempo entren en un renglón a 360px. */
+    /* 32px sigue siendo cómodo para un dedo (el mínimo de WCAG es 24) y deja
+       que los siete botones (con el del sonido) y el tiempo entren en un
+       renglón a 360px. */
     .ma-controles button {
-        min-width: 36px;
+        min-width: 32px;
         padding: 0 2px;
     }
     .ma-tiempo {
@@ -367,11 +524,6 @@ ${CSS_TEMA}
 :host([pantalla]) .con-pregunta.ver-controles .ma-subtitulo,
 :host(:fullscreen) .con-pregunta.ver-controles .ma-subtitulo {
     transform: translateY(calc(-1 * (var(--ma-alto-pregunta, 0px) + var(--ma-alto-controles, 0px))));
-}
-/* Sin controles no hay nada que apuntar: que el mouse no quede en el medio
-   de la pantalla de la Expo. */
-:host([pantalla][sin-controles]) {
-    cursor: none;
 }
 
 .ma-oculto {

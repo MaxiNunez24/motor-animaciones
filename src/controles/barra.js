@@ -1,6 +1,6 @@
 // La barra de controles: reproducir, pausar, ir de capítulo en capítulo,
 // arrastrar a cualquier momento, cambiar la velocidad y prender o apagar los
-// subtítulos.
+// subtítulos y el sonido.
 //
 // No maneja el tiempo: le pide todo al componente (que tiene el reloj) y se
 // limita a mostrar lo que le dicen. Así hay una sola fuente de verdad sobre en
@@ -12,6 +12,8 @@ const ICONOS = {
     anterior: '<path d="M6 6h2v12H6zM9.5 12 18 6v12z"/>',
     siguiente: '<path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/>',
     pantalla: '<path d="M5 5h5v2H7v3H5zM14 5h5v5h-2V7h-3zM5 14h2v3h3v2H5zM17 14h2v5h-5v-2h3z"/>',
+    sonido: '<path d="M4 9h4l5-4v14l-5-4H4zM16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 9h4l5-4v14l-5-4H4z"/>',
+    silencio: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
 };
 
 export const VELOCIDADES = [0.5, 0.75, 1, 1.5, 2];
@@ -31,7 +33,8 @@ export function reloj(segundos) {
  * @param {{
  *     alternar: () => void, anterior: () => void, siguiente: () => void,
  *     irA: (t: number) => void, velocidad: (v: number) => void,
- *     subtitulos: (prendidos: boolean) => void, pantalla: () => void,
+ *     subtitulos: (prendidos: boolean) => void, sonido: (prendido: boolean) => void,
+ *     pantalla: () => void, hilo?: HTMLElement,
  * }} acciones
  */
 export function crearBarra(contenedor, acciones) {
@@ -46,6 +49,7 @@ export function crearBarra(contenedor, acciones) {
         <span class="ma-tiempo" aria-hidden="true">0:00 / 0:00</span>
         <button type="button" data-accion="velocidad" aria-label="Velocidad: normal">1×</button>
         <button type="button" data-accion="subtitulos" aria-pressed="true" aria-label="Subtítulos">CC</button>
+        <button type="button" data-accion="sonido" aria-pressed="true" aria-label="Sonido">${icono('sonido')}</button>
         <button type="button" data-accion="pantalla" aria-label="Pantalla completa">${icono('pantalla')}</button>
         <div class="ma-capitulo" aria-live="polite"></div>
     `;
@@ -53,10 +57,14 @@ export function crearBarra(contenedor, acciones) {
     const botonAlternar = $('[data-accion="alternar"]');
     const botonVelocidad = $('[data-accion="velocidad"]');
     const botonSubtitulos = $('[data-accion="subtitulos"]');
+    const botonSonido = $('[data-accion="sonido"]');
     const rango = /** @type {HTMLInputElement} */ ($('input'));
     const marcas = $('.ma-marcas');
     const tiempo = $('.ma-tiempo');
     const capitulo = $('.ma-capitulo');
+    // El hilo (si hay): la barra en miniatura que queda cuando los controles se esconden.
+    const hiloAvance = /** @type {HTMLElement | null} */ (acciones.hilo?.querySelector('.ma-hilo-avance') ?? null);
+    const hiloMarcas = /** @type {HTMLElement | null} */ (acciones.hilo?.querySelector('.ma-hilo-marcas') ?? null);
 
     let duracion = 0;
     let capitulos = [];
@@ -73,6 +81,8 @@ export function crearBarra(contenedor, acciones) {
         } else if (accion === 'subtitulos') {
             const prendidos = boton.getAttribute('aria-pressed') !== 'true';
             acciones.subtitulos(prendidos);
+        } else if (accion === 'sonido') {
+            acciones.sonido(boton.getAttribute('aria-pressed') !== 'true');
         } else {
             acciones[accion]();
         }
@@ -103,11 +113,18 @@ export function crearBarra(contenedor, acciones) {
                 .map((c) => `<span style="${donde(c.t)}"></span>`)
                 .concat(extras.map((m) => `<span class="${m.clase}" style="${donde(m.t)}">${m.texto ?? ''}</span>`))
                 .join('');
+            // En el hilo, las mismas marcas sin texto: puntitos.
+            if (hiloMarcas) {
+                hiloMarcas.innerHTML = capitulos.filter((c) => c.t > 0).map((c) => `<span style="${donde(c.t)}"></span>`)
+                    .concat(extras.map((m) => `<span class="${m.clase}" style="${donde(m.t)}"></span>`))
+                    .join('');
+            }
             ultimoCapitulo = null;
         },
         /** En cada cuadro. Solo toca lo que cambió. */
         mostrar(estado) {
             if (!arrastrando) rango.value = String(estado.t);
+            if (hiloAvance) hiloAvance.style.transform = `scaleX(${duracion > 0 ? (estado.t / duracion).toFixed(4) : 0})`;
             const texto = `${reloj(estado.t)} / ${reloj(duracion)}`;
             if (tiempo.textContent !== texto) tiempo.textContent = texto;
             const cap = capitulos[estado.capitulo];
@@ -131,6 +148,10 @@ export function crearBarra(contenedor, acciones) {
         },
         subtitulos(prendidos) {
             botonSubtitulos.setAttribute('aria-pressed', String(prendidos));
+        },
+        sonido(prendido) {
+            botonSonido.setAttribute('aria-pressed', String(prendido));
+            botonSonido.innerHTML = icono(prendido ? 'sonido' : 'silencio');
         },
     };
 }

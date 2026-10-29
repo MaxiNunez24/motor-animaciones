@@ -236,3 +236,55 @@ test('tiene un texto alternativo con los capítulos y lo que se cuenta', async (
     expect(descripcion).toContain('Capítulos: 1. El pedido; 2. Viaja a la cocina; 3. Queda anotado.');
     expect(descripcion).toContain('Alguien arma su pedido desde el celular.');
 });
+
+test('al entrar en pantalla completa los controles se esconden ya, aunque esté en pausa, y queda el hilo', async ({ page }) => {
+    const escena = await abrirEn(page, 0);
+    const caja = await escena.boundingBox();
+    // Con el mouse encima y en pausa, en la página los controles se ven.
+    await page.mouse.move(caja.x + caja.width / 2, caja.y + caja.height / 2);
+    const clases = () => escena.evaluate((m) => m.shadowRoot.querySelector('.ma-raiz').className);
+    await expect.poll(clases).toContain('ver-controles');
+    // El botón de pantalla completa queda con el foco después del clic: no tiene que retenerlos.
+    await escena.evaluate((m) => {
+        m.shadowRoot.querySelector('[data-accion="pantalla"]').focus();
+        m.setAttribute('pantalla', '');
+    });
+    expect(await clases()).not.toContain('ver-controles');
+    expect(await escena.evaluate((m) => getComputedStyle(m.shadowRoot.querySelector('.ma-hilo')).opacity)).not.toBe('0');
+    // Se mueve el mouse: vuelven; y el hilo avanza con el tiempo.
+    await page.mouse.move(300, 200);
+    await page.mouse.move(320, 210);
+    expect(await clases()).toContain('ver-controles');
+    await escena.evaluate((m) => m.irA(m.duracion / 2));
+    expect(await escena.evaluate((m) => m.shadowRoot.querySelector('.ma-hilo-avance').style.transform)).toMatch(/^scaleX\(0\.5/);
+});
+
+test('cuando el mouse se va de la escena, los controles se van con él', async ({ page }) => {
+    const escena = await abrirEn(page, 0);
+    const caja = await escena.boundingBox();
+    await page.mouse.move(caja.x + caja.width / 2, caja.y + caja.height / 2);
+    await escena.evaluate((m) => m.reproducir());
+    const clases = () => escena.evaluate((m) => m.shadowRoot.querySelector('.ma-raiz').className);
+    expect(await clases()).toContain('ver-controles');
+    await page.mouse.move(caja.x + caja.width / 2, caja.y + caja.height + 300);
+    expect(await clases()).not.toContain('ver-controles');
+});
+
+test('en una pantalla sin controles (la Expo), el mouse vuelve con una sacudida, no con un roce', async ({ page }) => {
+    const escena = await abrirEn(page, 2);
+    await escena.evaluate((m) => { m.setAttribute('pantalla', ''); m.setAttribute('sin-controles', ''); });
+    const sinCursor = () => escena.evaluate((m) => m.shadowRoot.querySelector('.ma-raiz').classList.contains('sin-cursor'));
+    // El mouse llega a su lugar (el salto de Playwright cuenta como sacudida)
+    // y se queda quieto hasta que se esconde.
+    await page.mouse.move(400, 300);
+    await expect.poll(sinCursor, { timeout: 5000 }).toBe(true);
+    // Un roce: unos pocos pixeles.
+    await page.mouse.move(408, 304, { steps: 2 });
+    expect(await sinCursor()).toBe(true);
+    // Una sacudida: lejos y rápido.
+    await page.mouse.move(700, 300, { steps: 3 });
+    await page.mouse.move(400, 320, { steps: 3 });
+    expect(await sinCursor()).toBe(false);
+    // Quieto un ratito: se vuelve a esconder.
+    await expect.poll(sinCursor, { timeout: 5000 }).toBe(true);
+});

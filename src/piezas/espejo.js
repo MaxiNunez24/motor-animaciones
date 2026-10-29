@@ -18,6 +18,12 @@ import { posicionAbsoluta } from './geometria.js';
 //
 // Quien mira lo puede arrastrar a otro lado si lo tapa algo (`arrastrable`).
 // Eso es de la vista, como el zoom: la escena no cambia y un video sale igual.
+// Nunca sale del dibujo, y con doble clic vuelve a su lugar.
+//
+// Una lupa animada es un espejo con `seguir`: mira siempre lo que tiene
+// debajo, vaya a donde vaya. Esa no se arrastra: la mueve la escena, y si
+// quien mira la corriera, dejaría de agrandar lo que la escena quiere mostrar.
+// (Para una lupa que maneja quien mira está el botón de la lupa, al lado del zoom.)
 export const espejo = definirPieza({
     nombre: 'espejo',
     predeterminados: {
@@ -36,6 +42,8 @@ export const espejo = definirPieza({
         marco: false,
         colorMarco: 'acento',
         arrastrable: true,
+        // Mirar lo que tiene debajo (mirarX y mirarY no se usan): una lupa.
+        seguir: false,
     },
     colores: ['colorAro', 'fondo', 'colorMarco'],
     // Lo que muestra depende de otras piezas (y de dónde lo dejó quien mira).
@@ -55,7 +63,7 @@ export const espejo = definirPieza({
         const ventana = el('g', { 'clip-path': `url(#${id})` }, grupo);
         const contenido = el('g', {}, ventana);
         const aro = el('rect', { fill: 'none' }, grupo);
-        if (p.arrastrable) {
+        if (p.arrastrable && !p.seguir) {
             grupo.setAttribute('data-arrastrable', ctx.id);
         }
         return { grupo, marco, clip, fondo, contenido, aro, usos: new Map() };
@@ -70,18 +78,19 @@ export const espejo = definirPieza({
             filter: p.sombra ? 'drop-shadow(0 8px 18px rgb(0 0 0 / 0.3))' : null,
         });
         poner(partes.aro, { ...forma, stroke: aCss(p.colorAro), 'stroke-width': p.aro, visibility: p.aro > 0 ? null : 'hidden' });
-        poner(partes.contenido, { transform: `scale(${p.zoom}) translate(${-p.mirarX} ${-p.mirarY})` });
-        ponerFuentes(partes, p, ctx);
-
         // El marco está en la escena, no en la ventana: se descuenta dónde
         // quedó el espejo (y cuánto lo corrió quien mira).
-        const corrida = ctx.arrastres?.[ctx.id] ?? { x: 0, y: 0 };
+        const corrida = (!p.seguir && ctx.arrastres?.[ctx.id]) || { x: 0, y: 0 };
         const yo = posicionAbsoluta(ctx.id, ctx.estado, ctx.tipos);
+        const mirarX = p.seguir ? yo.x : p.mirarX;
+        const mirarY = p.seguir ? yo.y : p.mirarY;
+        poner(partes.contenido, { transform: `scale(${p.zoom}) translate(${-mirarX} ${-mirarY})` });
+        ponerFuentes(partes, p, ctx);
         const ancho = forma.width / p.zoom;
         const alto = forma.height / p.zoom;
         poner(partes.marco, {
-            x: p.mirarX - ancho / 2 - yo.x - corrida.x,
-            y: p.mirarY - alto / 2 - yo.y - corrida.y,
+            x: mirarX - ancho / 2 - yo.x - corrida.x,
+            y: mirarY - alto / 2 - yo.y - corrida.y,
             width: ancho,
             height: alto,
             rx: forma.rx / p.zoom,

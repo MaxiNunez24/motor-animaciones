@@ -1,6 +1,7 @@
 import { curva } from './curvas.js';
 import { interpolar, claseDe, limitar } from './interpolar.js';
 import { revisarVinculos, hayVinculos, resolverVinculos } from './vinculos.js';
+import { azar } from './azar.js';
 
 // La línea de tiempo: convierte una escena escrita a mano en una función
 // estado(t).
@@ -16,7 +17,11 @@ import { revisarVinculos, hayVinculos, resolverVinculos } from './vinculos.js';
 
 // Estas propiedades se siguen animando con el movimiento reducido: un fundido
 // no marea. Lo que se reemplaza por un salto es lo que se DESPLAZA.
-const SUAVES_SIEMPRE = new Set(['opacidad']);
+const SUAVES_SIEMPRE = new Set(['opacidad', 'trazo']);
+
+// Dos sonidos iguales más juntos que esto suenan como uno solo (y feo): con
+// diez piezas que aparecen a la vez, un "pop", no diez encimados.
+const SONIDO_JUNTOS = 0.03;
 
 // Si un subtítulo no dice cuánto dura, dura lo que se tarda en leerlo: unos 15
 // caracteres por segundo, que es lo que se usa en subtitulado, y nunca menos
@@ -27,11 +32,13 @@ export function duracionLectura(texto, caracteresPorSegundo = 15) {
 }
 
 /**
- * @typedef {{ tipo: { nombre: string, colores?: string[] }, props: Record<string, any> }} Pieza
+ * @typedef {{ tipo: { nombre: string, colores?: string[], formas?: string[] }, props: Record<string, any>, propias?: string[] }} Pieza
  * @typedef {{
  *     titulo?: string, descripcion?: string,
  *     ancho: number, alto: number,
  *     duracion?: number, pausaFinal?: number, lectura?: number,
+ *     musica?: { archivo: string, volumen?: number } | null,
+ *     lupa?: Record<string, any> | null,
  *     piezas: Record<string, Pieza>,
  *     linea: Array<Record<string, any>>,
  * }} Definicion
@@ -44,11 +51,17 @@ export function duracionLectura(texto, caracteresPorSegundo = 15) {
  * @param {Definicion | ((d: Disposicion) => Definicion)} definicion la escena,
  *     o una función que la arma según la disposición (ancha o angosta), para
  *     que en el celular no sea la misma escena achicada hasta no leerse.
- * @param {{ movimiento?: 'completo' | 'reducido', disposicion?: Disposicion }} [opciones]
+ * @param {{ movimiento?: 'completo' | 'reducido', disposicion?: Disposicion, estilo?: Record<string, any> | null }} [opciones]
+ *     `estilo`: el arte de la escena (ver src/estilos/). Acá importa lo que
+ *     cambia el tiempo y las piezas: las curvas, el escalonado, los sonidos
+ *     automáticos y los predeterminados de cada pieza. Los colores, las
+ *     fuentes y los efectos son del dibujo, no de la línea.
  */
 export function compilar(definicion, opciones = {}) {
     const movimiento = opciones.movimiento ?? 'completo';
     const disposicion = opciones.disposicion ?? { nombre: 'ancha' };
+    const estilo = opciones.estilo ?? {};
+    const mov = estilo.movimiento ?? {};
     const def = typeof definicion === 'function' ? definicion(disposicion) : definicion;
 
     if (!def || typeof def !== 'object') throw new Error('La escena tiene que ser un objeto.');
@@ -68,8 +81,9 @@ export function compilar(definicion, opciones = {}) {
         piezas[id] = {
             id,
             tipo: pieza.tipo,
-            base: { ...pieza.props },
+            base: conPredeterminadosDelEstilo(pieza, estilo.piezas?.[pieza.tipo.nombre]),
             colores: new Set(pieza.tipo.colores ?? []),
+            formas: new Set(pieza.tipo.formas ?? []),
             segmentos: {},
         };
     }
@@ -88,6 +102,7 @@ export function compilar(definicion, opciones = {}) {
     const capitulos = [];
     const subtitulos = [];
     const marcas = [];
+    const sonidos = [];
     let fin = 0;
     let finSubtitulos = 0;
     let finUltimoSubtitulo = 0;
@@ -111,6 +126,11 @@ export function compilar(definicion, opciones = {}) {
             finSubtitulos = Math.max(finSubtitulos, inicio + dur);
             finUltimoSubtitulo = inicio + dur;
             return;
+        } else if ('sonido' in item && !('pieza' in item)) {
+            // Los sonidos van por su pista, como los subtítulos: no corren el
+            // "después de todo lo anterior".
+            sonidos.push(unSonido(item.sonido, inicio, item, donde));
+            return;
         } else if ('marca' in item) {
             // Una marca es un punto (o un tramo) con nombre y datos, que el
             // núcleo no interpreta: lo usan las capas de arriba. La capa
@@ -125,16 +145,20 @@ export function compilar(definicion, opciones = {}) {
             finItem = item.espera === 'subtitulo' ? Math.max(inicio, finUltimoSubtitulo) : inicio + item.espera;
         } else if ('pieza' in item) {
             const ids = Array.isArray(item.pieza) ? item.pieza : [item.pieza];
-            const dur = item.dur ?? 0.6;
-            const escalonar = item.escalonar ?? 0;
-            const fCurva = curva(item.curva ?? 'suave');
+            const dur = item.dur ?? mov.dur ?? 0.6;
+            const demoras = escalonado(item.escalonar ?? (ids.length > 1 ? mov.escalonar : 0) ?? 0, ids.length, i);
+            // La curva: la que pide la animación; si no, la que el estilo
+            // quiere para esa propiedad (un resorte para moverse, un fundido
+            // suave para aparecer); si no, la del estilo; si no, "suave".
+            const fCurva = item.curva != null ? curva(item.curva) : null;
+            const curvaDe = (prop) => fCurva ?? curvaDelEstilo(mov, prop);
             if (!item.a || typeof item.a !== 'object') {
                 throw new Error(`En ${donde} falta "a": a qué valores va la pieza, por ejemplo a: { opacidad: 1 }.`);
             }
             ids.forEach((id, j) => {
                 const p = piezas[id];
                 if (!p) throw new Error(`En ${donde} se anima "${id}", pero no hay ninguna pieza que se llame así.`);
-                const t0 = inicio + j * escalonar;
+                const t0 = inicio + demoras[j];
                 for (const [prop, hasta] of Object.entries(item.a)) {
                     if (!(prop in p.base)) {
                         throw new Error(
@@ -147,14 +171,21 @@ export function compilar(definicion, opciones = {}) {
                         t1: t0 + dur,
                         hasta,
                         desde: item.desde?.[prop],
-                        curva: fCurva,
+                        curva: curvaDe(prop),
                         orden: orden++,
                     });
                 }
             });
-            finItem = inicio + Math.max(ids.length - 1, 0) * escalonar + dur;
+            finItem = inicio + Math.max(0, ...demoras) + dur;
+            // Un sonido pegado a la animación: suena cuando arranca (o cuando
+            // termina), una vez o una por pieza si va escalonada.
+            if (item.sonido != null) {
+                const s = typeof item.sonido === 'string' ? { nombre: item.sonido } : item.sonido;
+                const instantes = s.cadaPieza ? demoras.map((d) => inicio + d) : [inicio];
+                for (const t of instantes) sonidos.push(unSonido(s, s.al === 'fin' ? t + dur : t, s, donde));
+            }
         } else {
-            throw new Error(`No entiendo ${donde}: tiene que ser una animación (pieza), un capitulo, un subtitulo, una marca o una espera.`);
+            throw new Error(`No entiendo ${donde}: tiene que ser una animación (pieza), un capitulo, un subtitulo, un sonido, una marca o una espera.`);
         }
 
         previo = { inicio, fin: finItem };
@@ -169,12 +200,15 @@ export function compilar(definicion, opciones = {}) {
     for (const p of Object.values(piezas)) {
         for (const [prop, segs] of Object.entries(p.segmentos)) {
             segs.sort((a, b) => a.t0 - b.t0 || a.orden - b.orden);
-            const clase = claseDe(prop, p.base[prop], p.colores);
+            const clase = claseDe(prop, p.base[prop], p.colores, p.formas);
             segs.forEach((seg, k) => {
                 if (clase === 'numero' && typeof seg.hasta !== 'number') {
                     throw new Error(`"${p.id}.${prop}" es un número y se la quiere llevar a ${JSON.stringify(seg.hasta)}.`);
                 }
                 seg.clase = clase;
+                if (clase === 'forma' && typeof seg.hasta !== 'string') {
+                    throw new Error(`"${p.id}.${prop}" es una forma (un camino de SVG, como figuras.circulo(60)), no ${JSON.stringify(seg.hasta)}.`);
+                }
                 if (seg.desde === undefined) seg.desde = valorEn(segs.slice(0, k), p.base[prop], seg.t0);
                 if (movimiento === 'reducido' && clase === 'numero' && !SUAVES_SIEMPRE.has(prop)) {
                     seg.curva = curva('salto');
@@ -183,8 +217,10 @@ export function compilar(definicion, opciones = {}) {
         }
     }
 
+    if (estilo.sonidos) sonidos.push(...sonidosAutomaticos(piezas, estilo.sonidos));
     capitulos.sort((a, b) => a.t - b.t);
     marcas.sort((a, b) => a.t - b.t);
+    const pista = sinEncimar(sonidos);
     // Que ningún subtítulo quede cortado por el final.
     const duracion = def.duracion ?? Math.max(fin, finSubtitulos) + (def.pausaFinal ?? 0);
     const ids = ordenarPadresPrimero(piezas);
@@ -204,6 +240,12 @@ export function compilar(definicion, opciones = {}) {
         subtitulos,
         /** Las marcas, en orden: { tipo, t, hasta, datos }. */
         marcas,
+        /** Los sonidos, en orden: { nombre, t, volumen, tono }. */
+        sonidos: pista.filter((s) => s.t <= duracion),
+        /** La música de fondo, si la escena (o su estilo) la pide. */
+        musica: def.musica ?? estilo.musica ?? null,
+        /** Cómo arranca la lupa de quien mira, si la escena lo dice. */
+        lupa: def.lupa ?? null,
         /** Cómo está todo en el instante t. */
         estado(t) {
             const tt = limitar(Number(t) || 0, 0, duracion);
@@ -219,11 +261,14 @@ export function compilar(definicion, opciones = {}) {
             }
             // Las pegadas y las acomodadas en filas, a partir de lo anterior.
             if (conVinculos) resolverVinculos(props, tiposPorId, enFila);
+            const sub = subtituloEn(subtitulos, tt);
             return {
                 t: tt,
                 piezas: props,
                 capitulo: capituloEn(capitulos, tt),
-                subtitulo: subtituloEn(subtitulos, tt),
+                subtitulo: sub < 0 ? '' : subtitulos[sub].texto,
+                /** Cuál de los subtítulos se ve (−1: ninguno). Para resaltar palabra por palabra. */
+                subtituloIndice: sub,
             };
         },
     };
@@ -272,15 +317,120 @@ function capituloEn(capitulos, t) {
 
 // Si dos subtítulos se pisan, se ve el que empezó último.
 function subtituloEn(subtitulos, t) {
-    let texto = '';
+    let indice = -1;
     let desde = -Infinity;
-    for (const s of subtitulos) {
+    subtitulos.forEach((s, k) => {
         if (s.desde <= t && t < s.hasta && s.desde >= desde) {
-            texto = s.texto;
+            indice = k;
             desde = s.desde;
         }
+    });
+    return indice;
+}
+
+// Lo que el estilo cambia de una pieza, salvo lo que la escena le puso a
+// mano: si una caja dice radio: 4, es porque la quiere así en cualquier estilo.
+function conPredeterminadosDelEstilo(pieza, ajustes) {
+    const base = { ...pieza.props };
+    if (!ajustes || !pieza.propias) return base;
+    const propias = new Set(pieza.propias);
+    for (const [k, v] of Object.entries(ajustes)) if (k in base && !propias.has(k)) base[k] = v;
+    return base;
+}
+
+// La curva que el estilo quiere para una propiedad. Se elige por propiedad
+// porque no todo queda bien con resorte: un fundido con resorte pasaría de
+// opaco a más que opaco, y un rango de ejes con resorte marea.
+function curvaDelEstilo(mov, prop) {
+    return curva(mov.curvas?.[prop] ?? mov.curva ?? 'suave');
+}
+
+/**
+ * Cuánto se demora cada pieza de una animación escalonada.
+ * @param {number | { cada?: number, orden?: 'inicio' | 'fin' | 'centro' | 'bordes' | 'azar', semilla?: number | string }} e
+ *     un número (segundos entre una y otra, en orden) o cómo repartirlas:
+ *     desde el final, desde el centro hacia afuera, desde los bordes hacia
+ *     adentro, o al azar (con semilla: siempre el mismo azar).
+ * @param {number} n cuántas piezas
+ * @param {number} i el paso de la línea, para que dos escalonados al azar no sean iguales
+ */
+function escalonado(e, n, i) {
+    const cada = typeof e === 'number' ? e : (e?.cada ?? 0.05);
+    const orden = typeof e === 'number' ? 'inicio' : (e?.orden ?? 'inicio');
+    const medio = (n - 1) / 2;
+    let turno;
+    if (orden === 'inicio') turno = (j) => j;
+    else if (orden === 'fin') turno = (j) => n - 1 - j;
+    else if (orden === 'centro') turno = (j) => Math.abs(j - medio);
+    else if (orden === 'bordes') turno = (j) => medio - Math.abs(j - medio);
+    else if (orden === 'azar') {
+        const r = azar(typeof e === 'object' && e.semilla != null ? e.semilla : i + 1);
+        const mezcla = Array.from({ length: n }, (_, j) => j);
+        for (let j = n - 1; j > 0; j--) {
+            const k = Math.floor(r.siguiente() * (j + 1));
+            [mezcla[j], mezcla[k]] = [mezcla[k], mezcla[j]];
+        }
+        turno = (j) => mezcla.indexOf(j);
+    } else {
+        throw new Error(`El orden de un escalonado es 'inicio', 'fin', 'centro', 'bordes' o 'azar', no "${orden}".`);
     }
-    return texto;
+    return Array.from({ length: n }, (_, j) => Math.round(turno(j) * cada * 1e6) / 1e6);
+}
+
+function unSonido(s, t, item, donde) {
+    const datos = typeof s === 'string' ? { nombre: s } : s;
+    if (!datos || typeof datos.nombre !== 'string' || !datos.nombre) {
+        throw new Error(`En ${donde}, el sonido tiene que tener un nombre: sonido: 'pop', o sonido: { nombre: 'pop', volumen: 0.5 }.`);
+    }
+    return {
+        nombre: datos.nombre,
+        t: Math.max(0, t),
+        volumen: datos.volumen ?? item.volumen ?? 1,
+        // Semitonos para arriba o para abajo: el mismo "pop" un poco más agudo
+        // para el segundo, más todavía para el tercero.
+        tono: datos.tono ?? item.tono ?? 0,
+    };
+}
+
+// Lo que el estilo hace sonar solo, mirando la línea ya armada: cuando algo
+// aparece, cuando se va, cuando se mueve lejos. Así la misma escena suena con
+// un estilo y queda en silencio con otro, sin tocarla.
+function sonidosAutomaticos(piezas, reglas) {
+    const salida = [];
+    const volumen = reglas.volumen ?? 1;
+    const lejos = reglas.distancia ?? 150;
+    for (const p of Object.values(piezas)) {
+        for (const seg of p.segmentos.opacidad ?? []) {
+            if (reglas.aparecer && seg.desde < 0.5 && seg.hasta >= 0.5) {
+                salida.push({ nombre: reglas.aparecer, t: seg.t0, volumen, tono: 0 });
+            } else if (reglas.desaparecer && seg.desde >= 0.5 && seg.hasta < 0.5) {
+                salida.push({ nombre: reglas.desaparecer, t: seg.t0, volumen, tono: 0 });
+            }
+        }
+        if (reglas.mover) {
+            const vistos = new Set();
+            for (const prop of ['x', 'y']) {
+                for (const seg of p.segmentos[prop] ?? []) {
+                    if (typeof seg.desde !== 'number' || Math.abs(seg.hasta - seg.desde) < lejos) continue;
+                    if (vistos.has(seg.t0)) continue;
+                    vistos.add(seg.t0);
+                    salida.push({ nombre: reglas.mover, t: seg.t0, volumen, tono: 0 });
+                }
+            }
+        }
+    }
+    return salida;
+}
+
+function sinEncimar(sonidos) {
+    const orden = [...sonidos].sort((a, b) => a.t - b.t || a.nombre.localeCompare(b.nombre));
+    const ultimo = new Map();
+    return orden.filter((s) => {
+        const antes = ultimo.get(s.nombre);
+        if (antes != null && s.t - antes < SONIDO_JUNTOS) return false;
+        ultimo.set(s.nombre, s.t);
+        return true;
+    });
 }
 
 // Una pieza que va "dentro" de otra se dibuja adentro de su grupo: el

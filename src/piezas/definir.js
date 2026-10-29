@@ -30,6 +30,10 @@ export const COMUNES = {
     // Cuánto manda el pegar sobre x e y (de 0 a 1): animándolo, se despega
     // (o se pega) de a poco.
     pegado: 1,
+    // De 0 a 1: cuánto de sus bordes ya se dibujó, como si alguien lo fuera
+    // trazando con una lapicera. El relleno aparece al final, cuando el borde
+    // ya está casi entero.
+    trazo: 1,
 };
 
 /**
@@ -37,6 +41,7 @@ export const COMUNES = {
  *     nombre: string,
  *     predeterminados: Record<string, any>,
  *     colores?: string[],
+ *     formas?: string[],
  *     crear: (grupo: SVGGElement, props: any, ctx: any) => any,
  *     actualizar: (partes: any, props: any, ctx: any) => void,
  *     tamano?: (props: any) => { ancho: number, alto: number },
@@ -49,7 +54,7 @@ export const COMUNES = {
  */
 export function definirPieza(definicion) {
     if (!definicion.nombre) throw new Error('Una pieza necesita un nombre.');
-    const tipo = { colores: [], ...definicion };
+    const tipo = { colores: [], formas: [], ...definicion };
     const validas = new Set([...Object.keys(COMUNES), ...Object.keys(definicion.predeterminados)]);
 
     /** @param {Record<string, any>} [props] */
@@ -63,7 +68,9 @@ export function definirPieza(definicion) {
         }
         const completas = { ...COMUNES, ...definicion.predeterminados, ...props };
         definicion.validar?.(completas);
-        return { tipo, props: completas };
+        // Lo que se le puso a mano: un estilo puede cambiar los predeterminados
+        // (el radio de las cajas, por ejemplo), pero no lo que la escena eligió.
+        return { tipo, props: completas, propias: Object.keys(props) };
     }
     fabrica.tipo = tipo;
     return fabrica;

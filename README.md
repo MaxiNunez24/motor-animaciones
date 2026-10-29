@@ -37,12 +37,12 @@ Sin dependencias. 42 KB con gzip con todo (22 KB sin la capa pedagógica, en `mo
 
 `motor.min.js` es un script clásico a propósito: anda abriendo el `.html` con doble clic
 (`file://`), donde los módulos no cargan. Con internet también se puede usar desde jsDelivr:
-`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.10.0/dist/motor.min.js`.
+`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.11.0/dist/motor.min.js`.
 
 ## Desde otro proyecto (Astro, Vite…)
 
 ```bash
-pnpm add github:MaxiNunez24/motor-animaciones#v0.10.0
+pnpm add github:MaxiNunez24/motor-animaciones#v0.11.0
 ```
 
 ```js
@@ -68,7 +68,14 @@ la plataforma del curso, con un componente de Astro listo: [docs/usar-en-el-curs
   `zoom`), sincronizada con ella: no es una copia, es la misma parte vista otra vez. `fuente` es una
   pieza (o nada: toda la escena); `marco` marca en la escena qué parte se mira; `forma: 'circulo'`
   y mirar justo donde está lo hace una lupa. Quien mira lo puede arrastrar (`arrastrable`): eso es
-  de la vista, como el zoom, y no cambia la escena.
+  de la vista, como el zoom, y no cambia la escena. Nunca sale del dibujo (ni cuando después se
+  mueve solo) y con doble clic, o con el botón ↺, vuelve a su lugar. Con `seguir: true` es una
+  **lupa animada**: mira siempre lo que tiene debajo, la mueve la escena y no se arrastra.
+- **forma**: cualquier camino de SVG (`d`), o una de las `figuras` (`circulo`, `elipse`,
+  `rectangulo`, `poligono`, `estrella`, `corazon`, `flecha`, `tilde`, `cruz`, `linea`). `d` se anima:
+  un círculo se transforma en estrella, como `Transform` de Manim.
+- **trazo** (todas las piezas): de 0 a 1, cuánto de sus bordes ya se dibujó, como con una lapicera.
+  El relleno aparece al final. Animándolo de 0 a 1, la pieza "se dibuja".
 - **pegar** (todas las piezas): `pegar: { a: 'caja', lado: 'derecha', separacion: 10, alinear:
   'inicio' }` la pega a un costado de otra pieza (`derecha`, `izquierda`, `arriba`, `abajo` o
   `centro`), y la sigue si se mueve o crece. Animando `pegado` de 1 a 0 se despega de a poco.
@@ -102,10 +109,15 @@ la plataforma del curso, con un componente de Astro listo: [docs/usar-en-el-curs
 | `movimiento="reducido\|completo"` | sin él, respeta `prefers-reduced-motion` |
 | `sin-controles`, `sin-subtitulos`, `pantalla` | para una pantalla que solo muestra |
 | `controles-fijos` | los controles van siempre abajo, sin esconderse (en `<motor-leccion>` ya es así; `controles-flotantes` la hace flotar) |
+| `estilo="neon"` | el arte: un estilo registrado o un archivo `.json` (ver [Estilos](#estilos)) |
+| `sin-sonido`, `sin-lupa` | arranca en silencio; sin el botón de la lupa |
 
 Con mouse (y siempre en pantalla completa) los controles flotan sobre la parte de abajo del dibujo
 y se esconden mientras la animación corre; vuelven al mover el mouse, al pausar o al llegar con el
-teclado. En pantalla completa el subtítulo va encima del dibujo, como en el cine, así que el
+teclado, y se van apenas el mouse sale de la escena. Escondidos, queda un hilo finito abajo con lo
+que pasó y puntitos en los capítulos y las preguntas. Al entrar en pantalla completa se esconden
+enseguida, aunque esté en pausa. En una pantalla sin controles (`pantalla sin-controles`, la Expo)
+el mouse se esconde y no vuelve con un roce: vuelve con una sacudida, cuando alguien lo busca. En pantalla completa el subtítulo va encima del dibujo, como en el cine, así que el
 dibujo ocupa toda la pantalla. En una `<motor-leccion>`, mientras hay una pregunta abierta los
 controles se esconden (vuelven si se pasa el mouse por abajo) y el subtítulo sube encima de ella.
 
@@ -113,6 +125,12 @@ controles se esconden (vuelven si se pasa el mouse por abajo) y el subtítulo su
 del celular, y en pantalla completa la rueda del mouse. En la página la rueda no hace zoom: baja
 por la página, como siempre. En pantalla completa el mouse se esconde cuando se queda quieto. Con zoom, arrastrar mueve la vista. Es solo de la vista: no
 cambia la escena.
+
+**Lupa**: el botón de la lupa, junto al zoom, prende una lupa de quien mira. Se lleva arrastrándola,
+se agranda desde el asa, y dos botones cambian su forma (redonda o rectangular) y su aumento (1,5×
+a 4×). Nunca sale del dibujo. La escena (o el estilo) puede traerla preparada:
+`lupa: { activa: true, forma: 'rect', ancho: 400, alto: 220, zoom: 3, x, y }`, o sin botón
+(`boton: false`). En un celular aparece en pantalla completa, para no tapar el dibujo.
 
 Desde JavaScript: `.escena = {...}`, `.reproducir()`, `.pausar()`, `.irA(t)`, `.t`, `.duracion`.
 Teclado: espacio reproduce y pausa, ← → saltan de capítulo, `,` `.` van cuadro por cuadro.
@@ -326,6 +344,49 @@ determinista y se graba a video como todo lo demás. Si el navegador no tiene We
 y el resto de la escena sigue andando. Ejemplo: [El Niño, explicado](ejemplos/el-nino/), que además
 tiene una pieza propia (el corte del océano) hecha con `definirPieza`.
 
+## Estilos
+
+El arte de una escena va aparte de lo que cuenta: la misma escena se ve sobria, como pizarrón, en
+neón, como papel o como un reel cambiando un atributo. Ver [ejemplos/estilos](ejemplos/estilos/).
+
+```html
+<motor-escena escena="mi-escena" estilo="pizarra"></motor-escena>
+<motor-escena escena="mi-escena" estilo="./mi-estilo.json"></motor-escena>
+<script>Motor.usarEstilo('reel');  // el de todas las que no eligieron uno</script>
+```
+
+Un estilo son datos (se guarda en un `.json` y se comparte) y puede partir de otro con `extiende`:
+
+| | |
+|---|---|
+| `colores` | la paleta, `{ claro, oscuro }` o una sola para los dos |
+| `fuentes` | `{ texto, mono, cargar: 'https://fonts.googleapis.com/...' }` |
+| `fondo` | `{ degradado: ['#1a1240', '#07060f'], forma: 'radial' }` |
+| `efectos` | `brillo`, `sombra`, `aMano` (trazo tembloroso, que puede `hervir`), `grano`, `vineta` |
+| `piezas` | predeterminados por pieza: `{ caja: { radio: 0 } }` (lo que la escena puso a mano no se toca) |
+| `movimiento` | `curva`, `curvas` por propiedad (`{ x: 'resorte', escala: 'gelatina' }`), `dur`, `escalonar` |
+| `sonidos` | los automáticos (`aparecer`, `desaparecer`, `mover`), `volumen`, y un `paquete` propio |
+| `musica` | `{ archivo, volumen }` |
+| `subtitulos` | `{ modo: 'reel', palabras: 3, posicion, tamano, peso, mayusculas, resaltado, caja }` |
+| `video` | `{ desenfoque, obturador }` para `npm run video` |
+
+**Curvas nuevas**: `resorte`, `gelatina`, `rebote`, `elastico`, `anticipar`, `envion`, y con
+parámetros: `resorte({ rebote: 0.4, oscilaciones: 2 })` (o `{ tipo: 'resorte', rebote: 0.4 }` en un
+`.json`). **Escalonado**: `escalonar: 0.08`, o `{ cada: 0.08, orden: 'centro' }` (`inicio`, `fin`,
+`centro`, `bordes`, `azar` con `semilla`).
+
+**Sonidos**: `{ sonido: 'pop', en: 2 }` en la línea, o `sonido: 'whoosh'` dentro de una animación
+(`{ nombre, al: 'fin', cadaPieza: true, volumen, tono }`). Vienen `pop`, `whoosh`, `clic`, `ding`,
+`golpe`, `exito`, `error` y `chispa`, fabricados con cuentas (sin archivos ni licencias); un estilo
+cambia sus números (`{ burbuja: { receta: 'pop', agudo: 1400 } }`) o usa un archivo (`{ archivo }`).
+En la página suenan cuando la animación pasa por ellos (no al arrastrar la barra), con un botón
+para silenciarlos; en el video van mezclados en la pista.
+
+**Atajos**, para escribir la línea más corto, al estilo de Manim:
+`dibujar('c')`, `aparecer(['a', 'b'], { crecer: true })`, `transformar('c', figuras.estrella())`,
+`mover('a', { x: 600 })`, `desaparecer`, `borrar`, `decir('...')`, `sonar('ding')`. Devuelven pasos
+comunes: se mezclan con los escritos a mano.
+
 ## Video
 
 ```bash
@@ -352,6 +413,11 @@ las preguntas no frenan, se leen y quedan como cartel, y el paso siguiente dice 
   mandarlo por mensaje o ponerlo en una presentación.
 - `--subtitulos srt|quemados|ambos|no` (srt, aparte, es lo que conviene en YouTube). También deja un
   `.vtt`, para un `<video>` en una página web.
+- `--estilo reel` graba con otro arte (un estilo registrado o un `.json`).
+- `--desenfoque 8` agrega desenfoque de movimiento: cada cuadro es el promedio de 8 fotos sacadas en
+  instantes muy cercanos (`--obturador 0.5`, medio cuadro, como en cine). Tarda 8 veces más.
+- Los efectos de sonido de la escena y del estilo van mezclados en la pista (`--sin-sonidos`,
+  `--volumen-sonidos`); la música de fondo baja sola mientras habla la voz.
 - `--desde` y `--hasta` para grabar un pedazo; `--fps`, `--tema`, `--calidad` (crf de x264).
 - Usa el ffmpeg de `ffmpeg-static` (viene con `npm install`), o el de la variable `FFMPEG`.
 - `--voz otra-voz.onnx` narra con otra voz de Piper. Para entrenar la tuya (grabar las frases, clonar o

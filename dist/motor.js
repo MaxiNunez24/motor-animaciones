@@ -1,6 +1,51 @@
 // src/nucleo/curvas.js
 var C1 = 1.70158;
 var C3 = C1 + 1;
+function resorte({ rebote = 0.3, oscilaciones = 1.5 } = {}) {
+  if (!(rebote > 0)) {
+    const k = 8;
+    const fin = 1 - (1 + k) * Math.exp(-k);
+    return (p) => (1 - (1 + k * p) * Math.exp(-k * p)) / fin;
+  }
+  const w = 2 * Math.PI * Math.max(oscilaciones, 0.25);
+  const d = -Math.log(Math.min(rebote, 0.95)) * w / Math.PI;
+  const crudo = (p) => 1 - Math.exp(-d * p) * (Math.cos(w * p) + d / w * Math.sin(w * p));
+  const resto = 1 - crudo(1);
+  return (p) => crudo(p) + resto * p * p;
+}
+function rebotar({ botes = 3 } = {}) {
+  const n3 = Math.min(Math.max(Math.round(botes), 1), 4);
+  const tramos = [1];
+  for (let i = 1; i <= n3; i++) tramos.push(tramos[i - 1] / 2);
+  const total = tramos[0] + 2 * tramos.slice(1).reduce((a, b) => a + b, 0);
+  return (p) => {
+    let t = p * total;
+    if (t < tramos[0]) return (t / tramos[0]) ** 2;
+    t -= tramos[0];
+    for (let i = 1; i <= n3; i++) {
+      const ancho = 2 * tramos[i];
+      if (t < ancho) {
+        const u = t / ancho * 2 - 1;
+        return 1 - (tramos[i] / tramos[0]) ** 2 * (1 - u * u);
+      }
+      t -= ancho;
+    }
+    return 1;
+  };
+}
+function elastico({ amplitud = 1, oscilaciones = 3 } = {}) {
+  const w = 2 * Math.PI * oscilaciones;
+  const crudo = (p) => 1 + amplitud * 2 ** (-10 * p) * Math.sin((p - 0.075) * w);
+  const a = crudo(0);
+  const b = crudo(1) - 1;
+  return (p) => crudo(p) - a * (1 - p) - b * p;
+}
+function anticipar({ cuanto = 1, llegada = false } = {}) {
+  const c1 = C1 * cuanto;
+  const c2 = c1 * 1.525;
+  if (!llegada) return (p) => (c1 + 1) * p ** 3 - c1 * p * p;
+  return (p) => p < 0.5 ? (2 * p) ** 2 * ((c2 + 1) * 2 * p - c2) / 2 : ((2 * p - 2) ** 2 * ((c2 + 1) * (p * 2 - 2) + c2) + 2) / 2;
+}
 var curvas = {
   lineal: (p) => p,
   entrar: (p) => p * p * p,
@@ -11,10 +56,26 @@ var curvas = {
   // Se pasa un poquito y vuelve: para que algo "aterrice" con gracia.
   pasarse: (p) => 1 + C3 * (p - 1) ** 3 + C1 * (p - 1) ** 2,
   // Cambia de golpe apenas empieza. Es la que usa el movimiento reducido.
-  salto: (p) => p > 0 ? 1 : 0
+  salto: (p) => p > 0 ? 1 : 0,
+  resorte: resorte(),
+  // Un resorte flojo: se pasa más y tarda más en acomodarse.
+  gelatina: resorte({ rebote: 0.45, oscilaciones: 2.5 }),
+  rebote: rebotar(),
+  elastico: elastico(),
+  anticipar: anticipar(),
+  envion: anticipar({ llegada: true })
 };
+var FABRICAS = { resorte, rebotar, rebote: rebotar, elastico, anticipar };
 function curva(cual) {
-  const f = typeof cual === "function" ? cual : curvas[cual];
+  let f;
+  if (typeof cual === "function") f = cual;
+  else if (cual && typeof cual === "object") {
+    const { tipo, ...opciones } = cual;
+    if (!FABRICAS[tipo]) {
+      throw new Error(`No conozco la curva { tipo: "${tipo}" }. Las que se arman con datos son: ${Object.keys(FABRICAS).join(", ")}.`);
+    }
+    f = FABRICAS[tipo](opciones);
+  } else f = curvas[cual];
   if (!f) {
     throw new Error(
       `No conozco la curva "${cual}". Las que hay son: ${Object.keys(curvas).join(", ")}.`
@@ -57,6 +118,260 @@ function mezclarColores(desde, hasta, p) {
   return `color-mix(in srgb, ${aCss(desde)} ${pct}%, ${aCss(hasta)})`;
 }
 
+// src/nucleo/formas.js
+var PUNTOS = 96;
+function leerCamino(d) {
+  const fichas = String(d).match(/[a-df-z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:e[-+]?\d+)?/gi) ?? [];
+  const bordes = [];
+  let actual = null;
+  let x = 0, y = 0, x0 = 0, y0 = 0;
+  let cx = 0, cy = 0, ultimo = "";
+  let i = 0;
+  let comando = "";
+  const num = () => {
+    const v = Number(fichas[i++]);
+    if (!Number.isFinite(v)) throw new Error(`El camino "${String(d).slice(0, 40)}\u2026" est\xE1 mal escrito.`);
+    return v;
+  };
+  const empezar = () => {
+    actual = { puntos: [[x, y]], cerrado: false };
+    bordes.push(actual);
+  };
+  const curva2 = (pts) => {
+    const [p0, ...resto] = pts;
+    for (let k = 1; k <= 16; k++) {
+      const t = k / 16;
+      actual.puntos.push(bezier([p0, ...resto], t));
+    }
+  };
+  while (i < fichas.length) {
+    if (/[a-z]/i.test(fichas[i])) comando = fichas[i++];
+    else if (!comando) throw new Error(`El camino "${String(d).slice(0, 40)}\u2026" tiene que empezar con M.`);
+    const rel = comando === comando.toLowerCase();
+    const C = comando.toUpperCase();
+    const bx = rel ? x : 0, by = rel ? y : 0;
+    if (C === "A") {
+      throw new Error("Las formas que se transforman no entienden arcos (A): us\xE1 figuras.circulo() o pas\xE1 el arco a curvas (C).");
+    }
+    if (C === "Z") {
+      if (actual) actual.cerrado = true;
+      x = x0;
+      y = y0;
+      ultimo = "Z";
+      comando = "";
+      continue;
+    }
+    if (C === "M") {
+      x = bx + num();
+      y = by + num();
+      x0 = x;
+      y0 = y;
+      empezar();
+      comando = rel ? "l" : "L";
+      ultimo = "M";
+      continue;
+    }
+    if (!actual) empezar();
+    if (C === "L") {
+      x = bx + num();
+      y = by + num();
+      actual.puntos.push([x, y]);
+    } else if (C === "H") {
+      x = bx + num();
+      actual.puntos.push([x, y]);
+    } else if (C === "V") {
+      y = by + num();
+      actual.puntos.push([x, y]);
+    } else if (C === "C" || C === "S") {
+      let c1;
+      if (C === "C") c1 = [bx + num(), by + num()];
+      else c1 = /[CS]/.test(ultimo) ? [2 * x - cx, 2 * y - cy] : [x, y];
+      const c2 = [bx + num(), by + num()];
+      const fin = [bx + num(), by + num()];
+      curva2([[x, y], c1, c2, fin]);
+      [cx, cy] = c2;
+      [x, y] = fin;
+    } else if (C === "Q" || C === "T") {
+      let c1;
+      if (C === "Q") c1 = [bx + num(), by + num()];
+      else c1 = /[QT]/.test(ultimo) ? [2 * x - cx, 2 * y - cy] : [x, y];
+      const fin = [bx + num(), by + num()];
+      curva2([[x, y], c1, fin]);
+      [cx, cy] = c1;
+      [x, y] = fin;
+    } else {
+      throw new Error(`El camino tiene un comando "${comando}" que no conozco.`);
+    }
+    ultimo = C;
+  }
+  return bordes.filter((b) => b.puntos.length > 1);
+}
+function bezier(pts, t) {
+  let capa = pts;
+  while (capa.length > 1) {
+    const sig = [];
+    for (let k = 0; k < capa.length - 1; k++) {
+      sig.push([capa[k][0] + (capa[k + 1][0] - capa[k][0]) * t, capa[k][1] + (capa[k + 1][1] - capa[k][1]) * t]);
+    }
+    capa = sig;
+  }
+  return capa[0];
+}
+function repartir(puntos, cerrado, n3 = PUNTOS) {
+  const pts = cerrado ? [...puntos, puntos[0]] : puntos;
+  const acum = [0];
+  for (let k = 1; k < pts.length; k++) {
+    acum.push(acum[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]));
+  }
+  const largo2 = acum.at(-1);
+  if (!(largo2 > 0)) return Array.from({ length: n3 }, () => [pts[0][0], pts[0][1]]);
+  const salida = [];
+  let j = 1;
+  const pasos = cerrado ? n3 : n3 - 1;
+  for (let k = 0; k < n3; k++) {
+    const objetivo = k / pasos * largo2;
+    while (j < acum.length - 1 && acum[j] < objetivo) j++;
+    const tramo = acum[j] - acum[j - 1] || 1;
+    const u = Math.min(Math.max((objetivo - acum[j - 1]) / tramo, 0), 1);
+    salida.push([pts[j - 1][0] + (pts[j][0] - pts[j - 1][0]) * u, pts[j - 1][1] + (pts[j][1] - pts[j - 1][1]) * u]);
+  }
+  return salida;
+}
+function alinear(a, b) {
+  const n3 = a.length;
+  let mejor = b;
+  let menor = Infinity;
+  for (const sentido of [b, [...b].reverse()]) {
+    for (let corr = 0; corr < n3; corr += 2) {
+      let suma = 0;
+      for (let k = 0; k < n3; k++) {
+        const q = sentido[(k + corr) % n3];
+        suma += (a[k][0] - q[0]) ** 2 + (a[k][1] - q[1]) ** 2;
+      }
+      if (suma < menor) {
+        menor = suma;
+        mejor = sentido.slice(corr).concat(sentido.slice(0, corr));
+      }
+    }
+  }
+  return mejor;
+}
+function centro(puntos) {
+  let sx = 0, sy = 0;
+  for (const [x, y] of puntos) {
+    sx += x;
+    sy += y;
+  }
+  return [sx / puntos.length, sy / puntos.length];
+}
+var preparados = /* @__PURE__ */ new Map();
+function preparar(d) {
+  let listo = preparados.get(d);
+  if (!listo) {
+    listo = leerCamino(d).map((b) => ({ puntos: repartir(b.puntos, b.cerrado), cerrado: b.cerrado }));
+    if (preparados.size > 400) preparados.clear();
+    preparados.set(d, listo);
+  }
+  return listo;
+}
+var pares = /* @__PURE__ */ new Map();
+function mezclarFormas(desde, hasta, p) {
+  if (p === 0 || !hasta) return desde;
+  if (p === 1 || !desde) return hasta;
+  const clave = `${desde}\0${hasta}`;
+  let par = pares.get(clave);
+  if (!par) {
+    const a = preparar(desde);
+    const b = preparar(hasta);
+    const n3 = Math.max(a.length, b.length);
+    par = [];
+    for (let k = 0; k < n3; k++) {
+      const ba = a[k] ?? encoger(b[k], a.at(-1));
+      const bb = b[k] ?? encoger(a[k], b.at(-1));
+      const cerrado = ba.cerrado || bb.cerrado;
+      par.push({ a: ba.puntos, b: cerrado ? alinear(ba.puntos, bb.puntos) : bb.puntos, cerrado });
+    }
+    if (pares.size > 400) pares.clear();
+    pares.set(clave, par);
+  }
+  return par.map(({ a, b, cerrado }) => {
+    let texto3 = "";
+    for (let k = 0; k < a.length; k++) {
+      const x = a[k][0] + (b[k][0] - a[k][0]) * p;
+      const y = a[k][1] + (b[k][1] - a[k][1]) * p;
+      texto3 += `${k === 0 ? "M" : "L"}${r(x)} ${r(y)}`;
+    }
+    return cerrado ? `${texto3}Z` : texto3;
+  }).join("");
+}
+function encoger(borde, cerca) {
+  const [x, y] = centro((cerca ?? borde).puntos);
+  return { puntos: borde.puntos.map(() => [x, y]), cerrado: borde.cerrado };
+}
+function r(n3) {
+  return Math.round(n3 * 100) / 100;
+}
+var K = 0.5523;
+var n2 = (v) => r(v);
+var figuras = {
+  /** @param {number} radio */
+  circulo(radio = 60) {
+    return figuras.elipse(radio * 2, radio * 2);
+  },
+  elipse(ancho = 160, alto = 100) {
+    const a = ancho / 2, b = alto / 2, ka = a * K, kb = b * K;
+    return `M${n2(a)} 0C${n2(a)} ${n2(kb)} ${n2(ka)} ${n2(b)} 0 ${n2(b)}C${n2(-ka)} ${n2(b)} ${n2(-a)} ${n2(kb)} ${n2(-a)} 0C${n2(-a)} ${n2(-kb)} ${n2(-ka)} ${n2(-b)} 0 ${n2(-b)}C${n2(ka)} ${n2(-b)} ${n2(a)} ${n2(-kb)} ${n2(a)} 0Z`;
+  },
+  rectangulo(ancho = 160, alto = 100, radio = 0) {
+    const a = ancho / 2, b = alto / 2, q = Math.min(radio, a, b);
+    if (q <= 0) return `M${n2(-a)} ${n2(-b)}H${n2(a)}V${n2(b)}H${n2(-a)}Z`;
+    const k = q * (1 - K);
+    return `M${n2(-a + q)} ${n2(-b)}H${n2(a - q)}C${n2(a - k)} ${n2(-b)} ${n2(a)} ${n2(-b + k)} ${n2(a)} ${n2(-b + q)}V${n2(b - q)}C${n2(a)} ${n2(b - k)} ${n2(a - k)} ${n2(b)} ${n2(a - q)} ${n2(b)}H${n2(-a + q)}C${n2(-a + k)} ${n2(b)} ${n2(-a)} ${n2(b - k)} ${n2(-a)} ${n2(b - q)}V${n2(-b + q)}C${n2(-a)} ${n2(-b + k)} ${n2(-a + k)} ${n2(-b)} ${n2(-a + q)} ${n2(-b)}Z`;
+  },
+  /** Un polígono regular: 3 es un triángulo, 6 un hexágono. */
+  poligono(lados = 6, radio = 60, giro = -90) {
+    const pts = [];
+    for (let k = 0; k < lados; k++) {
+      const a = (giro + 360 * k / lados) * Math.PI / 180;
+      pts.push(`${n2(radio * Math.cos(a))} ${n2(radio * Math.sin(a))}`);
+    }
+    return `M${pts.join("L")}Z`;
+  },
+  estrella(puntas = 5, radio = 70, adentro2 = 0.45) {
+    const pts = [];
+    for (let k = 0; k < puntas * 2; k++) {
+      const rr = k % 2 ? radio * adentro2 : radio;
+      const a = (-90 + 180 * k / puntas) * Math.PI / 180;
+      pts.push(`${n2(rr * Math.cos(a))} ${n2(rr * Math.sin(a))}`);
+    }
+    return `M${pts.join("L")}Z`;
+  },
+  corazon(tamano = 120) {
+    const s = tamano / 120;
+    const p = (x, y) => `${n2(x * s)} ${n2(y * s)}`;
+    return `M${p(0, 45)}C${p(-20, 30)} ${p(-60, 5)} ${p(-60, -18)}C${p(-60, -40)} ${p(-42, -52)} ${p(-28, -52)}C${p(-14, -52)} ${p(-4, -44)} ${p(0, -34)}C${p(4, -44)} ${p(14, -52)} ${p(28, -52)}C${p(42, -52)} ${p(60, -40)} ${p(60, -18)}C${p(60, 5)} ${p(20, 30)} ${p(0, 45)}Z`;
+  },
+  /** Una flecha gruesa que apunta a la derecha. */
+  flecha(largo2 = 160, grosor = 40) {
+    const a = largo2 / 2, g = grosor / 2, punta = Math.min(grosor * 1.2, largo2 / 2);
+    return `M${n2(-a)} ${n2(-g)}H${n2(a - punta)}V${n2(-g * 2)}L${n2(a)} 0L${n2(a - punta)} ${n2(g * 2)}V${n2(g)}H${n2(-a)}Z`;
+  },
+  /** Una tilde de "bien": es abierta, se dibuja con borde. */
+  tilde(tamano = 100) {
+    const s = tamano / 100;
+    return `M${n2(-40 * s)} ${n2(2 * s)}L${n2(-12 * s)} ${n2(30 * s)}L${n2(42 * s)} ${n2(-28 * s)}`;
+  },
+  /** Una cruz de "mal", abierta como la tilde (dos trazos). */
+  cruz(tamano = 100) {
+    const a = tamano * 0.35;
+    return `M${n2(-a)} ${n2(-a)}L${n2(a)} ${n2(a)}M${n2(a)} ${n2(-a)}L${n2(-a)} ${n2(a)}`;
+  },
+  /** Una línea recta, de (x1, y1) a (x2, y2). */
+  linea(x1 = -80, y1 = 0, x2 = 80, y2 = 0) {
+    return `M${n2(x1)} ${n2(y1)}L${n2(x2)} ${n2(y2)}`;
+  }
+};
+
 // src/nucleo/interpolar.js
 function interpolar(desde, hasta, p, clase) {
   if (clase === "numero") {
@@ -64,10 +379,12 @@ function interpolar(desde, hasta, p, clase) {
     return desde + (hasta - desde) * p;
   }
   if (clase === "color") return mezclarColores(desde, hasta, Math.min(Math.max(p, 0), 1));
+  if (clase === "forma") return mezclarFormas(desde, hasta, p);
   return p >= 1 ? hasta : desde;
 }
-function claseDe(prop, valor, colores) {
+function claseDe(prop, valor, colores, formas) {
   if (colores.has(prop)) return "color";
+  if (formas?.has(prop)) return "forma";
   if (typeof valor === "number") return "numero";
   return "discreto";
 }
@@ -118,21 +435,21 @@ function caminoFlecha(a, b, curvatura = 0, separacion = 0) {
   }
   return { p0: bordeHacia(a, c, separacion), c, p1: bordeHacia(b, c, separacion) };
 }
-function bordeHacia(r3, hacia, separacion) {
-  const dx = hacia.x - r3.x;
-  const dy = hacia.y - r3.y;
+function bordeHacia(r4, hacia, separacion) {
+  const dx = hacia.x - r4.x;
+  const dy = hacia.y - r4.y;
   const d = Math.hypot(dx, dy);
-  if (d === 0) return { x: r3.x, y: r3.y };
+  if (d === 0) return { x: r4.x, y: r4.y };
   const ux = dx / d;
   const uy = dy / d;
-  const mx = (r3.ancho ?? 0) / 2;
-  const my = (r3.alto ?? 0) / 2;
+  const mx = (r4.ancho ?? 0) / 2;
+  const my = (r4.alto ?? 0) / 2;
   const hastaBorde = Math.min(
     ux === 0 ? Infinity : mx / Math.abs(ux),
     uy === 0 ? Infinity : my / Math.abs(uy)
   );
   const t = (Number.isFinite(hastaBorde) ? hastaBorde : 0) + separacion;
-  return { x: r3.x + ux * t, y: r3.y + uy * t };
+  return { x: r4.x + ux * t, y: r4.y + uy * t };
 }
 function puntoCurva({ p0, c, p1 }, u) {
   const v = 1 - u;
@@ -193,7 +510,7 @@ function partirLineas(texto3, maxCaracteres = 0) {
 }
 function revelar(lineas, escrito) {
   if (escrito >= 1) return lineas;
-  const total = lineas.reduce((n2, l) => n2 + largo(l), 0);
+  const total = lineas.reduce((n3, l) => n3 + largo(l), 0);
   let quedan = Math.floor(total * Math.max(escrito, 0) + 1e-9);
   return lineas.map((l) => {
     const letras = Array.from(l);
@@ -322,20 +639,52 @@ function resolverVinculos(props, tipos, enFila) {
   };
   for (const id of Object.keys(props)) resolver(id);
 }
-function alineado(alinear, centro, largoOtra, largoMio) {
-  if (alinear === "inicio") return centro - largoOtra / 2 + largoMio / 2;
-  if (alinear === "fin") return centro + largoOtra / 2 - largoMio / 2;
-  return centro;
+function alineado(alinear2, centro2, largoOtra, largoMio) {
+  if (alinear2 === "inicio") return centro2 - largoOtra / 2 + largoMio / 2;
+  if (alinear2 === "fin") return centro2 + largoOtra / 2 - largoMio / 2;
+  return centro2;
+}
+
+// src/nucleo/azar.js
+function azar(semilla = 1) {
+  let a = typeof semilla === "string" ? hashTexto(semilla) : semilla >>> 0;
+  function siguiente() {
+    a = a + 1831565813 >>> 0;
+    let t = a;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+  return {
+    siguiente,
+    /** Un número con coma entre min y max. */
+    entre: (min, max) => min + siguiente() * (max - min),
+    /** Un entero entre min y max, los dos incluidos. */
+    entero: (min, max) => min + Math.floor(siguiente() * (max - min + 1)),
+    /** Un elemento cualquiera de una lista. */
+    elegir: (lista2) => lista2[Math.floor(siguiente() * lista2.length)]
+  };
+}
+function hashTexto(texto3) {
+  let h = 2166136261;
+  for (let i = 0; i < texto3.length; i++) {
+    h ^= texto3.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
 }
 
 // src/nucleo/linea.js
-var SUAVES_SIEMPRE = /* @__PURE__ */ new Set(["opacidad"]);
+var SUAVES_SIEMPRE = /* @__PURE__ */ new Set(["opacidad", "trazo"]);
+var SONIDO_JUNTOS = 0.03;
 function duracionLectura(texto3, caracteresPorSegundo = 15) {
   return Math.max(1.5, String(texto3).length / caracteresPorSegundo);
 }
 function compilar(definicion, opciones = {}) {
   const movimiento = opciones.movimiento ?? "completo";
   const disposicion = opciones.disposicion ?? { nombre: "ancha" };
+  const estilo = opciones.estilo ?? {};
+  const mov = estilo.movimiento ?? {};
   const def = typeof definicion === "function" ? definicion(disposicion) : definicion;
   if (!def || typeof def !== "object") throw new Error("La escena tiene que ser un objeto.");
   for (const medida of ["ancho", "alto"]) {
@@ -351,8 +700,9 @@ function compilar(definicion, opciones = {}) {
     piezas[id] = {
       id,
       tipo: pieza.tipo,
-      base: { ...pieza.props },
+      base: conPredeterminadosDelEstilo(pieza, estilo.piezas?.[pieza.tipo.nombre]),
       colores: new Set(pieza.tipo.colores ?? []),
+      formas: new Set(pieza.tipo.formas ?? []),
       segmentos: {}
     };
   }
@@ -368,6 +718,7 @@ function compilar(definicion, opciones = {}) {
   const capitulos = [];
   const subtitulos = [];
   const marcas = [];
+  const sonidos = [];
   let fin = 0;
   let finSubtitulos = 0;
   let finUltimoSubtitulo = 0;
@@ -385,6 +736,9 @@ function compilar(definicion, opciones = {}) {
       finSubtitulos = Math.max(finSubtitulos, inicio + dur);
       finUltimoSubtitulo = inicio + dur;
       return;
+    } else if ("sonido" in item && !("pieza" in item)) {
+      sonidos.push(unSonido(item.sonido, inicio, item, donde));
+      return;
     } else if ("marca" in item) {
       finItem = inicio + (item.dur ?? 0);
       marcas.push({ tipo: String(item.marca), t: inicio, hasta: finItem, datos: item.datos ?? null });
@@ -392,16 +746,17 @@ function compilar(definicion, opciones = {}) {
       finItem = item.espera === "subtitulo" ? Math.max(inicio, finUltimoSubtitulo) : inicio + item.espera;
     } else if ("pieza" in item) {
       const ids2 = Array.isArray(item.pieza) ? item.pieza : [item.pieza];
-      const dur = item.dur ?? 0.6;
-      const escalonar = item.escalonar ?? 0;
-      const fCurva = curva(item.curva ?? "suave");
+      const dur = item.dur ?? mov.dur ?? 0.6;
+      const demoras = escalonado(item.escalonar ?? (ids2.length > 1 ? mov.escalonar : 0) ?? 0, ids2.length, i);
+      const fCurva = item.curva != null ? curva(item.curva) : null;
+      const curvaDe = (prop) => fCurva ?? curvaDelEstilo(mov, prop);
       if (!item.a || typeof item.a !== "object") {
         throw new Error(`En ${donde} falta "a": a qu\xE9 valores va la pieza, por ejemplo a: { opacidad: 1 }.`);
       }
       ids2.forEach((id, j) => {
         const p = piezas[id];
         if (!p) throw new Error(`En ${donde} se anima "${id}", pero no hay ninguna pieza que se llame as\xED.`);
-        const t0 = inicio + j * escalonar;
+        const t0 = inicio + demoras[j];
         for (const [prop, hasta] of Object.entries(item.a)) {
           if (!(prop in p.base)) {
             throw new Error(
@@ -413,14 +768,19 @@ function compilar(definicion, opciones = {}) {
             t1: t0 + dur,
             hasta,
             desde: item.desde?.[prop],
-            curva: fCurva,
+            curva: curvaDe(prop),
             orden: orden++
           });
         }
       });
-      finItem = inicio + Math.max(ids2.length - 1, 0) * escalonar + dur;
+      finItem = inicio + Math.max(0, ...demoras) + dur;
+      if (item.sonido != null) {
+        const s = typeof item.sonido === "string" ? { nombre: item.sonido } : item.sonido;
+        const instantes = s.cadaPieza ? demoras.map((d) => inicio + d) : [inicio];
+        for (const t of instantes) sonidos.push(unSonido(s, s.al === "fin" ? t + dur : t, s, donde));
+      }
     } else {
-      throw new Error(`No entiendo ${donde}: tiene que ser una animaci\xF3n (pieza), un capitulo, un subtitulo, una marca o una espera.`);
+      throw new Error(`No entiendo ${donde}: tiene que ser una animaci\xF3n (pieza), un capitulo, un subtitulo, un sonido, una marca o una espera.`);
     }
     previo = { inicio, fin: finItem };
     fin = Math.max(fin, finItem);
@@ -428,12 +788,15 @@ function compilar(definicion, opciones = {}) {
   for (const p of Object.values(piezas)) {
     for (const [prop, segs] of Object.entries(p.segmentos)) {
       segs.sort((a, b) => a.t0 - b.t0 || a.orden - b.orden);
-      const clase = claseDe(prop, p.base[prop], p.colores);
+      const clase = claseDe(prop, p.base[prop], p.colores, p.formas);
       segs.forEach((seg, k) => {
         if (clase === "numero" && typeof seg.hasta !== "number") {
           throw new Error(`"${p.id}.${prop}" es un n\xFAmero y se la quiere llevar a ${JSON.stringify(seg.hasta)}.`);
         }
         seg.clase = clase;
+        if (clase === "forma" && typeof seg.hasta !== "string") {
+          throw new Error(`"${p.id}.${prop}" es una forma (un camino de SVG, como figuras.circulo(60)), no ${JSON.stringify(seg.hasta)}.`);
+        }
         if (seg.desde === void 0) seg.desde = valorEn(segs.slice(0, k), p.base[prop], seg.t0);
         if (movimiento === "reducido" && clase === "numero" && !SUAVES_SIEMPRE.has(prop)) {
           seg.curva = curva("salto");
@@ -441,8 +804,10 @@ function compilar(definicion, opciones = {}) {
       });
     }
   }
+  if (estilo.sonidos) sonidos.push(...sonidosAutomaticos(piezas, estilo.sonidos));
   capitulos.sort((a, b) => a.t - b.t);
   marcas.sort((a, b) => a.t - b.t);
+  const pista = sinEncimar(sonidos);
   const duracion = def.duracion ?? Math.max(fin, finSubtitulos) + (def.pausaFinal ?? 0);
   const ids = ordenarPadresPrimero(piezas);
   return {
@@ -460,6 +825,12 @@ function compilar(definicion, opciones = {}) {
     subtitulos,
     /** Las marcas, en orden: { tipo, t, hasta, datos }. */
     marcas,
+    /** Los sonidos, en orden: { nombre, t, volumen, tono }. */
+    sonidos: pista.filter((s) => s.t <= duracion),
+    /** La música de fondo, si la escena (o su estilo) la pide. */
+    musica: def.musica ?? estilo.musica ?? null,
+    /** Cómo arranca la lupa de quien mira, si la escena lo dice. */
+    lupa: def.lupa ?? null,
     /** Cómo está todo en el instante t. */
     estado(t) {
       const tt = limitar(Number(t) || 0, 0, duracion);
@@ -473,11 +844,14 @@ function compilar(definicion, opciones = {}) {
         props[id] = actual;
       }
       if (conVinculos) resolverVinculos(props, tiposPorId, enFila);
+      const sub = subtituloEn(subtitulos, tt);
       return {
         t: tt,
         piezas: props,
         capitulo: capituloEn(capitulos, tt),
-        subtitulo: subtituloEn(subtitulos, tt)
+        subtitulo: sub < 0 ? "" : subtitulos[sub].texto,
+        /** Cuál de los subtítulos se ve (−1: ninguno). Para resaltar palabra por palabra. */
+        subtituloIndice: sub
       };
     }
   };
@@ -511,15 +885,97 @@ function capituloEn(capitulos, t) {
   return i;
 }
 function subtituloEn(subtitulos, t) {
-  let texto3 = "";
+  let indice = -1;
   let desde = -Infinity;
-  for (const s of subtitulos) {
+  subtitulos.forEach((s, k) => {
     if (s.desde <= t && t < s.hasta && s.desde >= desde) {
-      texto3 = s.texto;
+      indice = k;
       desde = s.desde;
     }
+  });
+  return indice;
+}
+function conPredeterminadosDelEstilo(pieza, ajustes) {
+  const base = { ...pieza.props };
+  if (!ajustes || !pieza.propias) return base;
+  const propias = new Set(pieza.propias);
+  for (const [k, v] of Object.entries(ajustes)) if (k in base && !propias.has(k)) base[k] = v;
+  return base;
+}
+function curvaDelEstilo(mov, prop) {
+  return curva(mov.curvas?.[prop] ?? mov.curva ?? "suave");
+}
+function escalonado(e, n3, i) {
+  const cada = typeof e === "number" ? e : e?.cada ?? 0.05;
+  const orden = typeof e === "number" ? "inicio" : e?.orden ?? "inicio";
+  const medio = (n3 - 1) / 2;
+  let turno;
+  if (orden === "inicio") turno = (j) => j;
+  else if (orden === "fin") turno = (j) => n3 - 1 - j;
+  else if (orden === "centro") turno = (j) => Math.abs(j - medio);
+  else if (orden === "bordes") turno = (j) => medio - Math.abs(j - medio);
+  else if (orden === "azar") {
+    const r4 = azar(typeof e === "object" && e.semilla != null ? e.semilla : i + 1);
+    const mezcla = Array.from({ length: n3 }, (_, j) => j);
+    for (let j = n3 - 1; j > 0; j--) {
+      const k = Math.floor(r4.siguiente() * (j + 1));
+      [mezcla[j], mezcla[k]] = [mezcla[k], mezcla[j]];
+    }
+    turno = (j) => mezcla.indexOf(j);
+  } else {
+    throw new Error(`El orden de un escalonado es 'inicio', 'fin', 'centro', 'bordes' o 'azar', no "${orden}".`);
   }
-  return texto3;
+  return Array.from({ length: n3 }, (_, j) => Math.round(turno(j) * cada * 1e6) / 1e6);
+}
+function unSonido(s, t, item, donde) {
+  const datos = typeof s === "string" ? { nombre: s } : s;
+  if (!datos || typeof datos.nombre !== "string" || !datos.nombre) {
+    throw new Error(`En ${donde}, el sonido tiene que tener un nombre: sonido: 'pop', o sonido: { nombre: 'pop', volumen: 0.5 }.`);
+  }
+  return {
+    nombre: datos.nombre,
+    t: Math.max(0, t),
+    volumen: datos.volumen ?? item.volumen ?? 1,
+    // Semitonos para arriba o para abajo: el mismo "pop" un poco más agudo
+    // para el segundo, más todavía para el tercero.
+    tono: datos.tono ?? item.tono ?? 0
+  };
+}
+function sonidosAutomaticos(piezas, reglas) {
+  const salida = [];
+  const volumen = reglas.volumen ?? 1;
+  const lejos = reglas.distancia ?? 150;
+  for (const p of Object.values(piezas)) {
+    for (const seg of p.segmentos.opacidad ?? []) {
+      if (reglas.aparecer && seg.desde < 0.5 && seg.hasta >= 0.5) {
+        salida.push({ nombre: reglas.aparecer, t: seg.t0, volumen, tono: 0 });
+      } else if (reglas.desaparecer && seg.desde >= 0.5 && seg.hasta < 0.5) {
+        salida.push({ nombre: reglas.desaparecer, t: seg.t0, volumen, tono: 0 });
+      }
+    }
+    if (reglas.mover) {
+      const vistos = /* @__PURE__ */ new Set();
+      for (const prop of ["x", "y"]) {
+        for (const seg of p.segmentos[prop] ?? []) {
+          if (typeof seg.desde !== "number" || Math.abs(seg.hasta - seg.desde) < lejos) continue;
+          if (vistos.has(seg.t0)) continue;
+          vistos.add(seg.t0);
+          salida.push({ nombre: reglas.mover, t: seg.t0, volumen, tono: 0 });
+        }
+      }
+    }
+  }
+  return salida;
+}
+function sinEncimar(sonidos) {
+  const orden = [...sonidos].sort((a, b) => a.t - b.t || a.nombre.localeCompare(b.nombre));
+  const ultimo = /* @__PURE__ */ new Map();
+  return orden.filter((s) => {
+    const antes = ultimo.get(s.nombre);
+    if (antes != null && s.t - antes < SONIDO_JUNTOS) return false;
+    ultimo.set(s.nombre, s.t);
+    return true;
+  });
 }
 function ordenarPadresPrimero(piezas) {
   const listos = /* @__PURE__ */ new Set();
@@ -674,8 +1130,8 @@ function texto(nodo, valor) {
   nodo.__texto = valor;
   nodo.textContent = valor;
 }
-function redondear(n2) {
-  return String(Math.round(n2 * 100) / 100);
+function redondear(n3) {
+  return String(Math.round(n3 * 100) / 100);
 }
 var contador = 0;
 function idUnico(prefijo) {
@@ -700,22 +1156,29 @@ function renglones(nodoTexto, lineas, { x = 0, y = 0, tamano, interlineado = 1.2
 // src/pintor/pintor.js
 function crearPintor(svg, escena, opciones = {}) {
   const arrastres = opciones.arrastres ?? {};
+  const estilo = opciones.estilo ?? {};
   svg.replaceChildren();
   poner(svg, {
     viewBox: `0 0 ${escena.ancho} ${escena.alto}`,
     preserveAspectRatio: "xMidYMid meet"
   });
-  el("rect", { x: 0, y: 0, width: escena.ancho, height: escena.alto, fill: "var(--ma-fondo)" }, svg);
+  const defs = el("defs", {}, svg);
+  el("rect", { x: 0, y: 0, width: escena.ancho, height: escena.alto, fill: fondoDelEstilo(defs, estilo.fondo) }, svg);
   const marco = idUnico("ma-marco");
-  el("rect", { x: 0, y: 0, width: escena.ancho, height: escena.alto }, el("clipPath", { id: marco }, el("defs", {}, svg)));
-  const raiz = el("g", { "clip-path": `url(#${marco})` }, svg);
+  el("rect", { x: 0, y: 0, width: escena.ancho, height: escena.alto }, el("clipPath", { id: marco }, defs));
+  const recorte = el("g", { "clip-path": `url(#${marco})` }, svg);
+  const efectos = crearEfectos(defs, svg, escena, estilo.efectos ?? {});
+  const raiz = el("g", efectos.filtro ? { filter: `url(#${efectos.filtro})` } : {}, recorte);
+  efectos.encima(recorte);
+  const dibujo = el("g", { id: idUnico("ma-dibujo") }, raiz);
+  let lupa = null;
   const inicial = escena.estado(0);
   const ctx = { estado: inicial, tipos: escena.tipos, id: "", ids: escena.ids, arrastres };
   const nodos = {};
   for (const id of escena.ids) {
     const tipo = escena.tipos[id];
     const props = inicial.piezas[id];
-    const padre = props.dentro != null ? nodos[props.dentro].contenido : raiz;
+    const padre = props.dentro != null ? nodos[props.dentro].contenido : dibujo;
     const grupo = (
       /** @type {SVGGElement} */
       el("g", { "data-pieza": id }, padre)
@@ -734,14 +1197,15 @@ function crearPintor(svg, escena, opciones = {}) {
     /** @param {ReturnType<ReturnType<import('../nucleo/linea.js').compilar>['estado']>} estado */
     pintar(estado) {
       ctx.estado = estado;
+      efectos.pintar(estado.t);
       for (const id of escena.ids) {
         const nodo = nodos[id];
         const p = estado.piezas[id];
-        const invisible = p.opacidad <= 0;
-        const corrida = arrastres[id] ?? { x: 0, y: 0 };
+        const invisible = p.opacidad <= 0 || p.trazo <= 0;
+        const corrida = arrastres[id] ? adentro2(id, arrastres[id], estado) : { x: 0, y: 0 };
         poner(nodo.grupo, {
-          transform: `translate(${r(p.x + corrida.x)} ${r(p.y + corrida.y)})` + (p.rotacion ? ` rotate(${r(p.rotacion)})` : "") + (p.escala !== 1 ? ` scale(${r(p.escala)})` : ""),
-          opacity: p.opacidad >= 1 ? null : r(p.opacidad),
+          transform: `translate(${r2(p.x + corrida.x)} ${r2(p.y + corrida.y)})` + (p.rotacion ? ` rotate(${r2(p.rotacion)})` : "") + (p.escala !== 1 ? ` scale(${r2(p.escala)})` : ""),
+          opacity: p.opacidad >= 1 ? null : r2(p.opacidad),
           // Lo invisible tampoco se lee en voz alta ni se puede tocar.
           visibility: invisible ? "hidden" : null
         });
@@ -749,21 +1213,207 @@ function crearPintor(svg, escena, opciones = {}) {
         ctx.id = id;
         nodo.tipo.actualizar(nodo.partes, p, ctx);
         nodo.ultimo = p;
+        if (p.trazo < 1 || nodo.trazando) trazar(nodo, p.trazo);
       }
     },
     /** Dónde quedó una pieza, en coordenadas de la escena. */
     posicion(id) {
       return posicionAbsoluta(id, ctx.estado, escena.tipos);
+    },
+    /**
+     * La lupa de quien mira (no es de la escena: no sale en un video).
+     * @param {{ activa: boolean, x: number, y: number, ancho: number, alto: number, forma: 'circulo' | 'rect', zoom: number, pixel?: number } | null} l
+     */
+    lupa(l) {
+      if (!l?.activa) {
+        lupa?.grupo.setAttribute("visibility", "hidden");
+        return;
+      }
+      lupa ??= crearLupa(svg, defs, dibujo.id);
+      pintarLupa(lupa, l);
     }
   };
+  function adentro2(id, corrida, estado) {
+    const pos = posicionAbsoluta(id, estado, escena.tipos);
+    const limitar2 = (v, mitad, centro2, total) => {
+      if (mitad * 2 >= total) return total / 2 - centro2;
+      return Math.min(Math.max(v, mitad - centro2), total - mitad - centro2);
+    };
+    corrida.x = limitar2(corrida.x, pos.ancho / 2, pos.x, escena.ancho);
+    corrida.y = limitar2(corrida.y, pos.alto / 2, pos.y, escena.alto);
+    return corrida;
+  }
+}
+function crearLupa(svg, defs, idDibujo) {
+  const id = idUnico("ma-lupa");
+  const recorte = el("rect", {}, el("clipPath", { id }, defs));
+  const grupo = el("g", { "data-lupa": "cuerpo", class: "ma-lupa" }, svg);
+  const fondo = el("rect", { fill: "var(--ma-fondo)", filter: "drop-shadow(0 8px 18px rgb(0 0 0 / 0.35))" }, grupo);
+  const vista = el("g", { "clip-path": `url(#${id})` }, grupo);
+  const uso = el("use", { href: `#${idDibujo}` }, vista);
+  const aro = el("rect", { fill: "none", stroke: "var(--ma-texto)" }, grupo);
+  const asa = el("circle", { "data-lupa": "asa", fill: "var(--ma-acento)", stroke: "var(--ma-fondo)", class: "ma-lupa-asa" }, grupo);
+  return { grupo, recorte, fondo, uso, aro, asa };
+}
+function pintarLupa(l, d) {
+  const circulo = d.forma === "circulo";
+  const ancho = circulo ? Math.min(d.ancho, d.alto) : d.ancho;
+  const alto = circulo ? ancho : d.alto;
+  const radio = circulo ? ancho / 2 : Math.min(18, ancho / 4);
+  const forma2 = { x: d.x - ancho / 2, y: d.y - alto / 2, width: ancho, height: alto, rx: radio, ry: radio };
+  const pixel = d.pixel ?? 1;
+  l.grupo.removeAttribute("visibility");
+  poner(l.recorte, forma2);
+  poner(l.fondo, forma2);
+  poner(l.aro, { ...forma2, "stroke-width": 3 * pixel });
+  poner(l.uso, { transform: `translate(${r2(d.x)} ${r2(d.y)}) scale(${r2(d.zoom)}) translate(${r2(-d.x)} ${r2(-d.y)})` });
+  const ax = circulo ? d.x + ancho / 2 * Math.SQRT1_2 : d.x + ancho / 2;
+  const ay = circulo ? d.y + alto / 2 * Math.SQRT1_2 : d.y + alto / 2;
+  poner(l.asa, { cx: ax, cy: ay, r: 11 * pixel, "stroke-width": 3 * pixel });
+}
+var FORMAS = "path, line, polyline, polygon, rect, circle, ellipse";
+var RELLENO_DESDE = 0.7;
+function trazar(nodo, trazo) {
+  const grupo = nodo.grupo;
+  const propias = [...grupo.querySelectorAll(FORMAS)].filter((f) => f.closest("[data-pieza]") === grupo);
+  if (trazo >= 1) {
+    for (const f of propias) {
+      f.removeAttribute("pathLength");
+      f.style.removeProperty("stroke-dasharray");
+      if (
+        /** @type {any} */
+        f.__trazoPrestado
+      ) {
+        f.style.removeProperty("stroke");
+        f.style.removeProperty("stroke-width");
+        f.__trazoPrestado = false;
+      }
+    }
+    grupo.style.removeProperty("fill-opacity");
+    nodo.trazando = false;
+    return;
+  }
+  nodo.trazando = true;
+  for (const f of propias) {
+    const s = (
+      /** @type {any} */
+      f.style
+    );
+    f.setAttribute("pathLength", "1");
+    s.setProperty("stroke-dasharray", `${Math.max(trazo, 0).toFixed(4)} 1`);
+    const borde = f.getAttribute("stroke");
+    const relleno2 = f.getAttribute("fill");
+    if ((!borde || borde === "none") && relleno2 && relleno2 !== "none") {
+      s.setProperty("stroke", relleno2);
+      s.setProperty("stroke-width", "3");
+      f.__trazoPrestado = true;
+    }
+  }
+  const relleno = Math.min(Math.max((trazo - RELLENO_DESDE) / (1 - RELLENO_DESDE), 0), 1);
+  grupo.style.setProperty("fill-opacity", relleno.toFixed(3));
+}
+function fondoDelEstilo(defs, fondo) {
+  if (!fondo?.degradado) return "var(--ma-fondo)";
+  const [desde, hasta] = fondo.degradado.map(aCss);
+  const id = idUnico("ma-fondo");
+  const radial = fondo.forma === "radial";
+  const angulo = (fondo.angulo ?? 90) * Math.PI / 180;
+  const g = el(radial ? "radialGradient" : "linearGradient", radial ? { id, cx: "50%", cy: "45%", r: "75%" } : { id, x1: r2(0.5 - Math.cos(angulo) / 2), y1: r2(0.5 - Math.sin(angulo) / 2), x2: r2(0.5 + Math.cos(angulo) / 2), y2: r2(0.5 + Math.sin(angulo) / 2) }, defs);
+  el("stop", { offset: 0, "stop-color": desde }, g);
+  el("stop", { offset: 1, "stop-color": hasta }, g);
+  return `url(#${id})`;
+}
+function crearEfectos(defs, svg, escena, e) {
+  const { ancho, alto } = escena;
+  const resultado = { filtro: null, encima: (_padre) => {
+  }, pintar: (_t) => {
+  } };
+  const capas = [];
+  if (e.aMano || e.sombra || e.brillo) {
+    const id = idUnico("ma-efectos");
+    const margen = 0.06;
+    const f = el("filter", {
+      id,
+      filterUnits: "userSpaceOnUse",
+      x: -ancho * margen,
+      y: -alto * margen,
+      width: ancho * (1 + 2 * margen),
+      height: alto * (1 + 2 * margen),
+      "color-interpolation-filters": "sRGB"
+    }, defs);
+    let entrada = "SourceGraphic";
+    if (e.aMano) {
+      const m = e.aMano === true ? {} : e.aMano;
+      const ruido = el("feTurbulence", { type: "fractalNoise", baseFrequency: m.detalle ?? 0.03, numOctaves: 2, seed: 1, result: "temblor" }, f);
+      el("feDisplacementMap", { in: entrada, in2: "temblor", scale: (m.fuerza ?? 2) * 2, xChannelSelector: "R", yChannelSelector: "G", result: "amano" }, f);
+      entrada = "amano";
+      const veces = m.hervir ?? 0;
+      if (veces > 0) capas.push((t) => poner(ruido, { seed: Math.floor(t * veces) % 97 + 1 }));
+    }
+    if (e.sombra) {
+      const s = e.sombra === true ? {} : e.sombra;
+      el("feDropShadow", {
+        in: entrada,
+        dx: s.dx ?? 0,
+        dy: s.dy ?? 6,
+        stdDeviation: s.desenfoque ?? 8,
+        "flood-color": aCss(s.color ?? "#000"),
+        "flood-opacity": s.opacidad ?? 0.3,
+        result: "sombra"
+      }, f);
+      entrada = "sombra";
+    }
+    if (e.brillo) {
+      const fuerza = Math.min(Math.max(Number(e.brillo) || 0, 0), 1.5);
+      el("feGaussianBlur", { in: entrada, stdDeviation: 4 + 10 * fuerza, result: "halo" }, f);
+      el("feComponentTransfer", { in: "halo", result: "haloFuerte" }, f).appendChild(el("feFuncA", { type: "linear", slope: 0.6 + fuerza }));
+      const juntar = el("feMerge", {}, f);
+      el("feMergeNode", { in: "haloFuerte" }, juntar);
+      el("feMergeNode", { in: entrada }, juntar);
+    }
+    resultado.filtro = id;
+  }
+  resultado.encima = (padre) => {
+    if (e.vineta) {
+      const id = idUnico("ma-vineta");
+      const g = el("radialGradient", { id, cx: "50%", cy: "50%", r: "72%" }, defs);
+      el("stop", { offset: 0.55, "stop-color": "#000", "stop-opacity": 0 }, g);
+      el("stop", { offset: 1, "stop-color": "#000", "stop-opacity": Math.min(Number(e.vineta) || 0, 1) }, g);
+      el("rect", { x: 0, y: 0, width: ancho, height: alto, fill: `url(#${id})`, "pointer-events": "none", "aria-hidden": "true" }, padre);
+    }
+    if (e.grano) {
+      const g = e.grano === true ? {} : e.grano;
+      const id = idUnico("ma-grano");
+      const f = el("filter", { id, x: 0, y: 0, width: "100%", height: "100%" }, defs);
+      const ruido = el("feTurbulence", { type: "fractalNoise", baseFrequency: 0.85, numOctaves: 1, seed: 1, stitchTiles: "stitch" }, f);
+      el("feColorMatrix", { type: "saturate", values: 0 }, f);
+      el("rect", {
+        x: 0,
+        y: 0,
+        width: ancho,
+        height: alto,
+        filter: `url(#${id})`,
+        opacity: Math.min(Number(g.cantidad ?? 0.08), 0.5),
+        "pointer-events": "none",
+        "aria-hidden": "true",
+        style: "mix-blend-mode: overlay"
+      }, padre);
+      if (g.animado !== false) capas.push((t) => poner(ruido, { seed: Math.floor(t * 12) % 89 + 1 }));
+    }
+  };
+  resultado.pintar = (t) => {
+    for (const c of capas) c(t);
+  };
+  void svg;
+  return resultado;
 }
 function iguales(a, b) {
   if (!a) return false;
   for (const k in b) if (a[k] !== b[k]) return false;
   return true;
 }
-function r(n2) {
-  return Math.round(n2 * 100) / 100;
+function r2(n3) {
+  return Math.round(n3 * 100) / 100;
 }
 
 // src/controles/barra.js
@@ -772,7 +1422,9 @@ var ICONOS = {
   pausar: '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>',
   anterior: '<path d="M6 6h2v12H6zM9.5 12 18 6v12z"/>',
   siguiente: '<path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/>',
-  pantalla: '<path d="M5 5h5v2H7v3H5zM14 5h5v5h-2V7h-3zM5 14h2v3h3v2H5zM17 14h2v5h-5v-2h3z"/>'
+  pantalla: '<path d="M5 5h5v2H7v3H5zM14 5h5v5h-2V7h-3zM5 14h2v3h3v2H5zM17 14h2v5h-5v-2h3z"/>',
+  sonido: '<path d="M4 9h4l5-4v14l-5-4H4zM16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 9h4l5-4v14l-5-4H4z"/>',
+  silencio: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
 };
 var VELOCIDADES = [0.5, 0.75, 1, 1.5, 2];
 function icono(nombre) {
@@ -794,6 +1446,7 @@ function crearBarra(contenedor, acciones) {
         <span class="ma-tiempo" aria-hidden="true">0:00 / 0:00</span>
         <button type="button" data-accion="velocidad" aria-label="Velocidad: normal">1\xD7</button>
         <button type="button" data-accion="subtitulos" aria-pressed="true" aria-label="Subt\xEDtulos">CC</button>
+        <button type="button" data-accion="sonido" aria-pressed="true" aria-label="Sonido">${icono("sonido")}</button>
         <button type="button" data-accion="pantalla" aria-label="Pantalla completa">${icono("pantalla")}</button>
         <div class="ma-capitulo" aria-live="polite"></div>
     `;
@@ -804,6 +1457,7 @@ function crearBarra(contenedor, acciones) {
   const botonAlternar = $('[data-accion="alternar"]');
   const botonVelocidad = $('[data-accion="velocidad"]');
   const botonSubtitulos = $('[data-accion="subtitulos"]');
+  const botonSonido = $('[data-accion="sonido"]');
   const rango = (
     /** @type {HTMLInputElement} */
     $("input")
@@ -811,6 +1465,14 @@ function crearBarra(contenedor, acciones) {
   const marcas = $(".ma-marcas");
   const tiempo = $(".ma-tiempo");
   const capitulo = $(".ma-capitulo");
+  const hiloAvance = (
+    /** @type {HTMLElement | null} */
+    acciones.hilo?.querySelector(".ma-hilo-avance") ?? null
+  );
+  const hiloMarcas = (
+    /** @type {HTMLElement | null} */
+    acciones.hilo?.querySelector(".ma-hilo-marcas") ?? null
+  );
   let duracion = 0;
   let capitulos = [];
   let velocidad = 1;
@@ -828,6 +1490,8 @@ function crearBarra(contenedor, acciones) {
     } else if (accion === "subtitulos") {
       const prendidos = boton.getAttribute("aria-pressed") !== "true";
       acciones.subtitulos(prendidos);
+    } else if (accion === "sonido") {
+      acciones.sonido(boton.getAttribute("aria-pressed") !== "true");
     } else {
       acciones[accion]();
     }
@@ -855,11 +1519,15 @@ function crearBarra(contenedor, acciones) {
       rango.max = String(duracion);
       const donde = (t) => `left: ${(t / duracion * 100).toFixed(2)}%`;
       marcas.innerHTML = capitulos.filter((c) => c.t > 0).map((c) => `<span style="${donde(c.t)}"></span>`).concat(extras.map((m) => `<span class="${m.clase}" style="${donde(m.t)}">${m.texto ?? ""}</span>`)).join("");
+      if (hiloMarcas) {
+        hiloMarcas.innerHTML = capitulos.filter((c) => c.t > 0).map((c) => `<span style="${donde(c.t)}"></span>`).concat(extras.map((m) => `<span class="${m.clase}" style="${donde(m.t)}"></span>`)).join("");
+      }
       ultimoCapitulo = null;
     },
     /** En cada cuadro. Solo toca lo que cambió. */
     mostrar(estado) {
       if (!arrastrando) rango.value = String(estado.t);
+      if (hiloAvance) hiloAvance.style.transform = `scaleX(${duracion > 0 ? (estado.t / duracion).toFixed(4) : 0})`;
       const texto3 = `${reloj(estado.t)} / ${reloj(duracion)}`;
       if (tiempo.textContent !== texto3) tiempo.textContent = texto3;
       const cap = capitulos[estado.capitulo];
@@ -883,6 +1551,10 @@ function crearBarra(contenedor, acciones) {
     },
     subtitulos(prendidos) {
       botonSubtitulos.setAttribute("aria-pressed", String(prendidos));
+    },
+    sonido(prendido) {
+      botonSonido.setAttribute("aria-pressed", String(prendido));
+      botonSonido.innerHTML = icono(prendido ? "sonido" : "silencio");
     }
   };
 }
@@ -1014,8 +1686,83 @@ ${CSS_TEMA}
 }
 .ma-raiz:not(.con-subtitulos) .ma-subtitulo,
 .ma-raiz.sin-textos .ma-subtitulo,
-.ma-raiz.sin-textos [data-accion="subtitulos"] {
+.ma-raiz.sin-textos [data-accion="subtitulos"],
+.ma-raiz:not(.con-sonidos) [data-accion="sonido"] {
     display: none;
+}
+
+/* ---- Subt\xEDtulos de reel ----
+   Grandes, encima del dibujo, de a pocas palabras, con la que se est\xE1
+   diciendo resaltada. Los pide el estilo (subtitulos: { modo: 'reel' }). */
+.ma-raiz.subs-reel .ma-subtitulo,
+:host([pantalla]) .ma-raiz.subs-reel .ma-subtitulo,
+:host(:fullscreen) .ma-raiz.subs-reel .ma-subtitulo {
+    grid-area: escena;
+    z-index: 2;
+    align-self: end;
+    justify-self: center;
+    max-width: 90%;
+    min-height: 0;
+    margin: 0 0 6%;
+    padding: 0.1em 0.4em;
+    background: none;
+    pointer-events: none;
+    font-size: calc(clamp(15px, 2.6cqi, 40px) * var(--ma-sub-tamano, 1.6));
+    font-weight: var(--ma-sub-peso, 800);
+    text-transform: var(--ma-sub-mayusculas, none);
+    line-height: 1.15;
+    letter-spacing: 0.01em;
+}
+.ma-raiz.subs-reel[data-sub-posicion="centro"] .ma-subtitulo { align-self: center; margin: 0; }
+.ma-raiz.subs-reel[data-sub-posicion="arriba"] .ma-subtitulo { align-self: start; margin: 5% 0 0; }
+.ma-raiz.subs-reel .ma-subtitulo:empty { display: none; }
+/* En un celular, dentro de la p\xE1gina, el dibujo es chico: los subt\xEDtulos de
+   reel encima lo tapar\xEDan entero. Van abajo, como los comunes, pero grandes.
+   En pantalla completa s\xED van encima (sobra alto). */
+@container (max-width: 600px) {
+    :host(:not([pantalla]):not(:fullscreen)) .ma-raiz.subs-reel[data-sub-posicion] .ma-subtitulo {
+        grid-area: subtitulo;
+        align-self: center;
+        margin: 0;
+        min-height: 2.6em;
+        font-size: clamp(18px, 6cqi, 30px);
+    }
+}
+.ma-reel {
+    display: inline-block;
+    animation: ma-entra-grupo 0.22s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+/* Dos nombres de animaci\xF3n que se turnan: as\xED cada grupo nuevo la reinicia. */
+.ma-reel[data-grupo="1"] { animation-name: ma-entra-grupo-b; }
+@keyframes ma-entra-grupo { from { transform: scale(0.82); opacity: 0.4; } }
+@keyframes ma-entra-grupo-b { from { transform: scale(0.82); opacity: 0.4; } }
+.ma-palabra {
+    display: inline-block;
+    /* Lo que crece la palabra resaltada, para que no se coma el espacio. */
+    margin: 0 0.06em;
+    opacity: 0.55;
+    transition: opacity 0.12s, transform 0.12s, color 0.12s;
+}
+.ma-palabra[hidden] { display: none; }
+.ma-palabra.dicha { opacity: 1; }
+.ma-palabra.actual {
+    color: var(--ma-sub-resaltado, var(--ma-acento));
+    transform: scale(1.08);
+}
+.ma-raiz.subs-reel[data-sub-caja="caja"] .ma-reel {
+    background: color-mix(in srgb, var(--ma-fondo) 80%, transparent);
+    border-radius: 0.3em;
+    padding: 0.05em 0.35em;
+}
+/* Letras con borde y sin fondo, como en los reels: se leen sobre cualquier dibujo. */
+.ma-raiz.subs-reel[data-sub-caja="contorno"] .ma-reel {
+    -webkit-text-stroke: 0.14em var(--ma-fondo);
+    paint-order: stroke fill;
+    text-shadow: 0 0.06em 0.18em color-mix(in srgb, var(--ma-fondo) 70%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+    .ma-reel, .ma-palabra { animation: none; transition: none; }
+    .ma-palabra.actual { transform: none; }
 }
 
 /* ---- Controles ---- */
@@ -1063,8 +1810,58 @@ ${CSS_TEMA}
 .ma-raiz.flotantes:not(.ver-controles) .ma-controles {
     transform: translateY(8px);
 }
-.ma-raiz.flotantes.sin-cursor {
+.ma-raiz.sin-cursor,
+.ma-raiz.sin-cursor .ma-lienzo,
+.ma-raiz.sin-cursor [data-arrastrable] {
     cursor: none;
+}
+
+/* ---- El hilo ----
+   Cuando los controles flotantes se esconden, queda una l\xEDnea finita abajo:
+   cu\xE1nto pas\xF3, y puntitos donde hay un cap\xEDtulo o una pregunta. Apenas se ve;
+   alcanza para saber d\xF3nde se est\xE1 sin tapar nada. */
+.ma-hilo {
+    grid-area: escena;
+    align-self: end;
+    position: relative;
+    z-index: 2;
+    height: 3px;
+    margin: 0 10px 6px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--ma-texto) 18%, transparent);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+.ma-raiz.flotantes:not(.ver-controles):not(.sin-controles) .ma-hilo {
+    opacity: 0.7;
+}
+.ma-hilo-avance {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--ma-acento);
+    transform-origin: left;
+    transform: scaleX(0);
+}
+.ma-hilo-marcas span {
+    position: absolute;
+    top: -1.5px;
+    width: 6px;
+    height: 6px;
+    margin-left: -3px;
+    border-radius: 50%;
+    background: var(--ma-texto);
+    opacity: 0.8;
+}
+/* Las preguntas, del color del acento y un poco m\xE1s grandes. */
+.ma-hilo-marcas span[class] {
+    top: -2.5px;
+    width: 8px;
+    height: 8px;
+    margin-left: -4px;
+    background: var(--ma-acento2);
+    opacity: 1;
 }
 
 /* ---- Zoom ---- */
@@ -1106,6 +1903,37 @@ ${CSS_TEMA}
 .ma-raiz:not(.flotantes) .ma-zoom [data-zoom="acercar"],
 .ma-raiz:not(.flotantes) .ma-zoom [data-zoom="alejar"] {
     display: none;
+}
+/* La lupa: el bot\xF3n siempre (salvo sin-lupa); su forma y su aumento, solo
+   con la lupa prendida. El de volver a su lugar, solo si se corri\xF3 algo. */
+.ma-zoom svg {
+    width: 22px;
+    height: 22px;
+    vertical-align: middle;
+}
+.ma-zoom [data-zoom="lupa"][aria-pressed="true"] {
+    background: var(--ma-acento);
+    border-color: var(--ma-acento);
+    color: var(--ma-fondo);
+}
+.ma-raiz.sin-lupa .ma-zoom [data-zoom^="lupa"],
+.ma-raiz:not(.con-lupa) .ma-zoom [data-zoom="lupa-forma"],
+.ma-raiz:not(.con-lupa) .ma-zoom [data-zoom="lupa-zoom"],
+.ma-raiz:not(.con-arrastres) .ma-zoom [data-zoom="lugar"] {
+    display: none;
+}
+/* En un celular, dentro de la p\xE1gina, los botones de arriba no se esconden
+   (no hay un mouse que pase): el de la lupa quedar\xEDa tapando para siempre la
+   esquina del dibujo. Ah\xED aparece en pantalla completa, o si ya est\xE1 prendida. */
+.ma-raiz:not(.flotantes):not(.con-lupa) .ma-zoom [data-zoom="lupa"] {
+    display: none;
+}
+.ma-lupa {
+    cursor: grab;
+    touch-action: none;
+}
+.ma-lupa-asa {
+    cursor: nwse-resize;
 }
 .ma-controles button {
     min-width: 44px;
@@ -1218,10 +2046,11 @@ ${CSS_TEMA}
     .ma-controles {
         gap: 0 2px;
     }
-    /* 36px sigue siendo c\xF3modo para un dedo (el m\xEDnimo de WCAG es 24) y deja
-       que los seis botones y el tiempo entren en un rengl\xF3n a 360px. */
+    /* 32px sigue siendo c\xF3modo para un dedo (el m\xEDnimo de WCAG es 24) y deja
+       que los siete botones (con el del sonido) y el tiempo entren en un
+       rengl\xF3n a 360px. */
     .ma-controles button {
-        min-width: 36px;
+        min-width: 32px;
         padding: 0 2px;
     }
     .ma-tiempo {
@@ -1301,11 +2130,6 @@ ${CSS_TEMA}
 :host(:fullscreen) .con-pregunta.ver-controles .ma-subtitulo {
     transform: translateY(calc(-1 * (var(--ma-alto-pregunta, 0px) + var(--ma-alto-controles, 0px))));
 }
-/* Sin controles no hay nada que apuntar: que el mouse no quede en el medio
-   de la pantalla de la Expo. */
-:host([pantalla][sin-controles]) {
-    cursor: none;
-}
 
 .ma-oculto {
     position: absolute;
@@ -1317,11 +2141,519 @@ ${CSS_TEMA}
 }
 `;
 
-// src/controles/componente.js
+// src/nucleo/palabras.js
+function palabrasDe(texto3, desde, hasta, { ritmo = 15, porGrupo = 0 } = {}) {
+  const palabras = String(texto3).split(/\s+/).filter(Boolean);
+  if (!palabras.length) return [];
+  const pesos = palabras.map((p) => Array.from(p).length + 1 + (/[.!?…]$/.test(p) ? 5 : /[,;:]$/.test(p) ? 3 : 0));
+  const total = pesos.reduce((a, b) => a + b, 0);
+  const habla = Math.min(hasta - desde, total / ritmo);
+  let acum = 0;
+  let grupo = 0;
+  let enGrupo = 0;
+  return palabras.map((p, k) => {
+    const inicio = desde + habla * acum / total;
+    acum += pesos[k];
+    const fin = desde + habla * acum / total;
+    const esta = { texto: p, desde: inicio, hasta: fin, grupo };
+    enGrupo += 1;
+    const corta = porGrupo > 0 && (enGrupo >= porGrupo || /[.!?…,;:]$/.test(p));
+    if (corta && k < palabras.length - 1) {
+      grupo += 1;
+      enGrupo = 0;
+    }
+    return esta;
+  });
+}
+
+// src/estilos/index.js
 var registro = /* @__PURE__ */ new Map();
+function registrarEstilo(nombre, definicion) {
+  if (!definicion || typeof definicion !== "object") throw new Error(`El estilo "${nombre}" tiene que ser un objeto.`);
+  registro.set(nombre, definicion);
+}
+var porDefecto = null;
+function usarEstilo(cual) {
+  porDefecto = cual ?? null;
+  if (typeof document !== "undefined") document.dispatchEvent(new Event("motor-estilo"));
+}
+function estiloPorDefecto() {
+  return porDefecto;
+}
+function estilosDisponibles() {
+  return [...registro.keys()];
+}
+function resolverEstilo(cual) {
+  if (cual == null || cual === "") return {};
+  const vistos = /* @__PURE__ */ new Set();
+  const resolver = (def, donde) => {
+    if (typeof def === "string") {
+      if (vistos.has(def)) throw new Error(`El estilo "${def}" se extiende a s\xED mismo, dando una vuelta.`);
+      vistos.add(def);
+      const encontrado = registro.get(def);
+      if (!encontrado) {
+        throw new Error(`No conozco el estilo "${def}"${donde}. Los que hay son: ${estilosDisponibles().join(", ")}.`);
+      }
+      return resolver(encontrado, "");
+    }
+    const { extiende, ...propio } = def;
+    if (extiende == null) return propio;
+    return mezclar(resolver(extiende, ` (lo extiende otro estilo)`), propio);
+  };
+  return resolver(cual, "");
+}
+async function cargarEstilo(url) {
+  if (registro.has(url)) return registro.get(url);
+  const respuesta = await fetch(url);
+  if (!respuesta.ok) throw new Error(`No pude traer el estilo de ${url} (${respuesta.status}).`);
+  const def = await respuesta.json();
+  if (typeof def.extiende === "string" && esArchivo(def.extiende)) {
+    const otro = new URL(def.extiende, new URL(url, globalThis.location?.href)).href;
+    await cargarEstilo(otro);
+    def.extiende = otro;
+  }
+  registrarEstilo(url, def);
+  return def;
+}
+function esArchivo(valor) {
+  return /\.json($|\?)|\//.test(String(valor));
+}
+function mezclar(a, b) {
+  const salida = { ...a };
+  for (const [k, v] of Object.entries(b)) {
+    salida[k] = esObjeto(v) && esObjeto(a[k]) ? mezclar(a[k], v) : v;
+  }
+  return salida;
+}
+function esObjeto(v) {
+  return v != null && typeof v === "object" && !Array.isArray(v);
+}
+function paletas(estilo) {
+  const c = estilo.colores;
+  if (!c) return { claro: {}, oscuro: {} };
+  if (c.claro || c.oscuro) return { claro: c.claro ?? c.oscuro ?? {}, oscuro: c.oscuro ?? c.claro ?? {} };
+  return { claro: c, oscuro: c };
+}
+function cssDelEstilo(estilo) {
+  const { claro, oscuro } = paletas(estilo);
+  const vars = (colores, enOscuro) => Object.entries(colores).filter(([nombre]) => TOKENS.includes(nombre)).map(([nombre, valor]) => `--ma-${nombre}: ${enOscuro ? `var(--motor-${nombre}-oscuro, var(--motor-${nombre}, ${valor}))` : `var(--motor-${nombre}, ${valor})`};`).join(" ");
+  const f = estilo.fuentes ?? {};
+  const s = estilo.subtitulos ?? {};
+  const extra = [
+    f.texto && `--ma-fuente: var(--motor-fuente, ${f.texto});`,
+    f.mono && `--ma-fuente-mono: var(--motor-fuente-mono, ${f.mono});`,
+    s.tamano && `--ma-sub-tamano: ${Number(s.tamano)};`,
+    s.peso && `--ma-sub-peso: ${Number(s.peso)};`,
+    s.mayusculas && "--ma-sub-mayusculas: uppercase;",
+    s.resaltado && `--ma-sub-resaltado: ${TOKENS.includes(s.resaltado) ? `var(--ma-${s.resaltado})` : s.resaltado};`
+  ].filter(Boolean).join(" ");
+  return `.ma-raiz[data-estilo] { ${vars(claro, false)} ${extra} }
+.ma-raiz[data-estilo][data-tema="oscuro"] { ${vars(oscuro, true)} }`;
+}
+function subtitulosDelEstilo(estilo) {
+  const s = estilo.subtitulos ?? {};
+  return {
+    modo: s.modo === "reel" ? "reel" : "clasico",
+    palabras: Math.max(0, Math.round(s.palabras ?? 0)),
+    posicion: ["arriba", "centro", "abajo"].includes(s.posicion) ? s.posicion : "abajo",
+    // 'caja' (un fondo detrás), 'contorno' (letras con borde, sin fondo) o 'ninguno'.
+    caja: ["caja", "contorno", "ninguno"].includes(s.caja) ? s.caja : "caja",
+    ritmo: s.ritmo ?? 15
+  };
+}
+var fuentesPedidas = /* @__PURE__ */ new Set();
+function cargarFuentes(estilo) {
+  if (typeof document === "undefined") return;
+  for (const url of [estilo.fuentes?.cargar ?? []].flat()) {
+    if (fuentesPedidas.has(url)) continue;
+    fuentesPedidas.add(url);
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = url;
+    document.head.appendChild(link);
+  }
+}
+registrarEstilo("sobrio", {
+  // El de siempre: sin efectos, sin sonidos, con las curvas suaves. Existe
+  // para poder volver a él y para extenderlo.
+});
+registrarEstilo("pizarra", {
+  colores: {
+    fondo: "#1d3a2f",
+    superficie: "#24463a",
+    texto: "#f1eee4",
+    suave: "#b6c4b4",
+    borde: "#e2ddd0",
+    acento: "#ffd66b",
+    acento2: "#ff9eb0",
+    exito: "#a6e89a",
+    alerta: "#ffd66b",
+    error: "#ff8f85",
+    papel: "#2b4d40",
+    marco: "#11241c"
+  },
+  fuentes: {
+    texto: '"Caveat", "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive',
+    cargar: "https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap"
+  },
+  efectos: {
+    // La tiza tiembla un poquito, y cambia unas pocas veces por segundo:
+    // así parece dibujado a mano cuadro por cuadro.
+    aMano: { fuerza: 2.4, detalle: 0.035, hervir: 6 },
+    grano: { cantidad: 0.07 },
+    vineta: 0.35
+  },
+  piezas: {
+    // La letra de tiza es más chica que la común a igual tamaño.
+    caja: { relleno: "superficie", radio: 6, grosorBorde: 2.5, tamano: 40 },
+    texto: { tamano: 40 }
+  },
+  sonidos: { aparecer: "clic", volumen: 0.5 }
+});
+registrarEstilo("neon", {
+  colores: {
+    fondo: "#07060f",
+    superficie: "#120f24",
+    texto: "#f3f0ff",
+    suave: "#a59ccc",
+    borde: "#5a48b0",
+    acento: "#22e3ff",
+    acento2: "#ff3dc8",
+    exito: "#39ff9c",
+    alerta: "#ffe14d",
+    error: "#ff4d6d",
+    papel: "#1a1533",
+    marco: "#3a3170"
+  },
+  fondo: { degradado: ["#1a1240", "#07060f"], forma: "radial" },
+  efectos: { brillo: 0.8 },
+  piezas: {
+    caja: { radio: 22, grosorBorde: 2.5, borde: "acento" }
+  },
+  movimiento: {
+    curvas: { x: "resorte", y: "resorte", escala: "resorte", rotacion: "resorte" }
+  },
+  sonidos: { aparecer: "pop", mover: "whoosh", volumen: 0.7 },
+  subtitulos: { peso: 600 },
+  video: { desenfoque: 6, obturador: 0.5 }
+});
+registrarEstilo("papel", {
+  colores: {
+    fondo: "#f1e7d2",
+    superficie: "#fffaf0",
+    texto: "#3a2e22",
+    suave: "#7b6a58",
+    borde: "#a8957a",
+    acento: "#c0392b",
+    acento2: "#2e6f9e",
+    exito: "#4f7f3a",
+    alerta: "#b7791f",
+    error: "#a83226",
+    papel: "#fff6dd",
+    marco: "#4a3b2c"
+  },
+  fuentes: { texto: 'Georgia, "Iowan Old Style", "Palatino Linotype", serif' },
+  efectos: {
+    aMano: { fuerza: 1.3, detalle: 0.02 },
+    sombra: { dx: 3, dy: 5, desenfoque: 5, opacidad: 0.22 },
+    grano: { cantidad: 0.09, animado: false },
+    vineta: 0.3
+  },
+  piezas: {
+    caja: { radio: 4, grosorBorde: 2 }
+  },
+  movimiento: { curvas: { x: "pasarse", y: "pasarse" } },
+  sonidos: { aparecer: "clic", volumen: 0.35 }
+});
+registrarEstilo("reel", {
+  colores: {
+    fondo: "#111418",
+    superficie: "#1d232b",
+    texto: "#ffffff",
+    suave: "#aab3bf",
+    borde: "#38424f",
+    acento: "#ffd60a",
+    acento2: "#ff5d8f",
+    exito: "#3ddc84",
+    alerta: "#ffb703",
+    error: "#ff595e",
+    papel: "#262d36",
+    marco: "#3a4452"
+  },
+  fuentes: {
+    texto: '"Poppins", "Segoe UI", system-ui, sans-serif',
+    cargar: "https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap"
+  },
+  efectos: { sombra: { dx: 0, dy: 8, desenfoque: 14, opacidad: 0.35 } },
+  piezas: {
+    caja: { radio: 26, grosorBorde: 0, peso: 800 },
+    texto: { peso: 800 }
+  },
+  movimiento: {
+    curvas: { x: "resorte", y: "resorte", escala: "gelatina", rotacion: "resorte" },
+    escalonar: { cada: 0.07, orden: "centro" }
+  },
+  sonidos: { aparecer: "pop", mover: "whoosh", desaparecer: null, volumen: 0.8 },
+  subtitulos: { modo: "reel", palabras: 3, posicion: "abajo", tamano: 1.9, peso: 800, mayusculas: true, resaltado: "acento", caja: "contorno" },
+  video: { desenfoque: 8, obturador: 0.5 }
+});
+
+// src/sonido/sintetizar.js
+var FRECUENCIA = 48e3;
+var muestras = (seg, fm) => new Float32Array(Math.max(1, Math.round(seg * fm)));
+function pasaBajos(senal, corte, fm) {
+  const a = 1 - Math.exp(-2 * Math.PI * corte / fm);
+  let y = 0;
+  return (x) => y += a * (x - y);
+}
+var RECETAS = {
+  /** Una burbuja que revienta: un tono que cae rápido. Para que algo aparezca. */
+  pop({ tono = 0, dur = 0.11, agudo = 900, grave = 260, volumen = 0.8 } = {}, fm = FRECUENCIA) {
+    const f = 2 ** (tono / 12);
+    const s = muestras(dur, fm);
+    let fase = 0;
+    for (let i = 0; i < s.length; i++) {
+      const t = i / fm;
+      const p = t / dur;
+      const hz = (grave + (agudo - grave) * Math.exp(-p * 7)) * f;
+      fase += 2 * Math.PI * hz / fm;
+      const env = Math.min(1, t / 5e-4) * Math.exp(-p * 6);
+      s[i] = Math.sin(fase) * env * volumen;
+    }
+    return s;
+  },
+  /** Aire que pasa: un ruido que se abre y se cierra. Para algo que se mueve. */
+  whoosh({ tono = 0, dur = 0.42, brillo = 0.5, volumen = 0.55, semilla = 7 } = {}, fm = FRECUENCIA) {
+    const f = 2 ** (tono / 12);
+    const s = muestras(dur, fm);
+    const r4 = azar(semilla);
+    let y1 = 0, y2 = 0;
+    for (let i = 0; i < s.length; i++) {
+      const p = i / s.length;
+      const corte = (300 + 3200 * brillo * Math.sin(Math.PI * p)) * f;
+      const a = 1 - Math.exp(-2 * Math.PI * corte / fm);
+      const ruido = r4.siguiente() * 2 - 1;
+      y1 += a * (ruido - y1);
+      y2 += a * (y1 - y2);
+      const env = Math.sin(Math.PI * Math.min(1, p * 1.6)) ** 2 * (1 - p) ** 0.6;
+      s[i] = (y1 - y2 * 0.4) * env * volumen * 2.2;
+    }
+    return s;
+  },
+  /** Un toque seco, como una tecla o un clic de mouse. */
+  clic({ tono = 0, dur = 0.03, volumen = 0.6, semilla = 3 } = {}, fm = FRECUENCIA) {
+    const f = 2 ** (tono / 12);
+    const s = muestras(dur, fm);
+    const r4 = azar(semilla);
+    const bajos = pasaBajos(s, 2500 * f, fm);
+    let fase = 0;
+    for (let i = 0; i < s.length; i++) {
+      const p = i / s.length;
+      const ruido = r4.siguiente() * 2 - 1;
+      const agudo = ruido - bajos(ruido);
+      fase += 2 * Math.PI * 1800 * f / fm;
+      s[i] = (agudo * 0.7 + Math.sin(fase) * 0.4) * Math.exp(-p * 9) * volumen;
+    }
+    return s;
+  },
+  /** Una campanita. Para "esto es lo importante" o una respuesta. */
+  ding({ tono = 0, dur = 0.7, nota = 1320, volumen = 0.45 } = {}, fm = FRECUENCIA) {
+    const hz = nota * 2 ** (tono / 12);
+    const s = muestras(dur, fm);
+    const parciales = [[1, 1, 3.5], [2.01, 0.45, 6], [3.02, 0.22, 9], [4.17, 0.12, 12]];
+    for (let i = 0; i < s.length; i++) {
+      const t = i / fm;
+      let v = 0;
+      for (const [m, a, caida] of parciales) v += a * Math.sin(2 * Math.PI * hz * m * t) * Math.exp(-t * caida);
+      s[i] = v * Math.min(1, t / 2e-3) * volumen * 0.7;
+    }
+    return s;
+  },
+  /** Un golpe grave, como algo que cae y pesa. */
+  golpe({ tono = 0, dur = 0.25, volumen = 0.9 } = {}, fm = FRECUENCIA) {
+    const f = 2 ** (tono / 12);
+    const s = muestras(dur, fm);
+    let fase = 0;
+    for (let i = 0; i < s.length; i++) {
+      const t = i / fm;
+      const p = t / dur;
+      fase += 2 * Math.PI * (45 + 110 * Math.exp(-p * 10)) * f / fm;
+      s[i] = Math.tanh(Math.sin(fase) * 1.6) * Math.min(1, t / 1e-3) * Math.exp(-p * 5) * volumen;
+    }
+    return s;
+  },
+  /** Dos notas que suben: bien. */
+  exito({ tono = 0, volumen = 0.45 } = {}, fm = FRECUENCIA) {
+    return encadenar([
+      [0, RECETAS.ding({ tono, nota: 1046.5, dur: 0.5, volumen }, fm)],
+      [0.1, RECETAS.ding({ tono, nota: 1568, dur: 0.6, volumen }, fm)]
+    ], fm);
+  },
+  /** Dos notas graves que bajan: no era por ahí. */
+  error({ tono = 0, volumen = 0.4, dur = 0.16 } = {}, fm = FRECUENCIA) {
+    const nota = (hz, d) => {
+      const s = muestras(d, fm);
+      for (let i = 0; i < s.length; i++) {
+        const t = i / fm;
+        const x = 2 * Math.PI * hz * 2 ** (tono / 12) * t;
+        s[i] = (Math.sin(x) + Math.sin(3 * x) / 3 + Math.sin(5 * x) / 5) * Math.min(1, t / 3e-3) * Math.exp(-t * 5) * volumen;
+      }
+      return s;
+    };
+    return encadenar([[0, nota(330, dur)], [dur * 0.9, nota(247, dur * 1.6)]], fm);
+  },
+  /** Unos destellos agudos, uno detrás del otro. Para algo que brilla o se completa. */
+  chispa({ tono = 0, volumen = 0.3, cuantas = 5, semilla = 5 } = {}, fm = FRECUENCIA) {
+    const r4 = azar(semilla);
+    const partes = [];
+    for (let k = 0; k < cuantas; k++) {
+      partes.push([k * 0.045, RECETAS.ding({ tono: tono + Math.round(r4.entre(10, 22)), nota: 1046.5, dur: 0.25, volumen: volumen * (1 - k / (cuantas + 2)) }, fm)]);
+    }
+    return encadenar(partes, fm);
+  }
+};
+function encadenar(partes, fm) {
+  const largo2 = Math.max(...partes.map(([t, s]) => Math.round(t * fm) + s.length));
+  const salida = new Float32Array(largo2);
+  for (const [t, s] of partes) {
+    const desde = Math.round(t * fm);
+    for (let i = 0; i < s.length; i++) salida[desde + i] += s[i];
+  }
+  return salida;
+}
+function sintetizar(nombre, { tono = 0, paquete = {}, frecuencia = FRECUENCIA } = {}) {
+  const def = paquete[nombre];
+  if (def && typeof def === "object" && def.archivo) return null;
+  const { receta = nombre, ...ajustes } = def && typeof def === "object" ? def : {};
+  const fabricar = RECETAS[receta];
+  if (!fabricar) {
+    throw new Error(`No conozco el sonido "${nombre}". Los que trae el motor son: ${Object.keys(RECETAS).join(", ")}; un estilo puede sumar otros en sonidos.paquete.`);
+  }
+  return fabricar({ ...ajustes, tono: (ajustes.tono ?? 0) + tono }, frecuencia);
+}
+function mezclarPista(sonidos, duracion, { paquete = {}, volumen = 1, frecuencia = FRECUENCIA, desde = 0 } = {}) {
+  const pista = new Float32Array(Math.max(1, Math.ceil(duracion * frecuencia)));
+  const hechos = /* @__PURE__ */ new Map();
+  for (const s of sonidos) {
+    const clave = `${s.nombre}|${s.tono ?? 0}`;
+    if (!hechos.has(clave)) hechos.set(clave, sintetizar(s.nombre, { tono: s.tono ?? 0, paquete, frecuencia }));
+    const m = hechos.get(clave);
+    if (!m) continue;
+    const inicio = Math.round((s.t - desde) * frecuencia);
+    const g = (s.volumen ?? 1) * volumen;
+    for (let i = Math.max(0, -inicio); i < m.length && inicio + i < pista.length; i++) pista[inicio + i] += m[i] * g;
+  }
+  for (let i = 0; i < pista.length; i++) pista[i] = Math.tanh(pista[i]);
+  return pista;
+}
+
+// src/sonido/reproductor.js
+function crearReproductor() {
+  let ctx = null;
+  const buffers = /* @__PURE__ */ new Map();
+  let musica = null;
+  let paquete = {};
+  let volumen = 1;
+  let base = "";
+  function contexto() {
+    if (!ctx) {
+      const Clase = globalThis.AudioContext ?? /** @type {any} */
+      globalThis.webkitAudioContext;
+      if (!Clase) return null;
+      ctx = new Clase();
+    }
+    if (ctx.state === "suspended") ctx.resume();
+    return ctx;
+  }
+  async function buffer(nombre, tono) {
+    const clave = `${nombre}|${tono}`;
+    if (buffers.has(clave)) return buffers.get(clave);
+    const c = contexto();
+    if (!c) return null;
+    const promesa = (async () => {
+      const def = paquete[nombre];
+      if (def && typeof def === "object" && def.archivo) {
+        const r4 = await fetch(new URL(def.archivo, base || globalThis.location.href));
+        return c.decodeAudioData(await r4.arrayBuffer());
+      }
+      const m = sintetizar(nombre, { tono, paquete, frecuencia: FRECUENCIA });
+      const b = c.createBuffer(1, m.length, FRECUENCIA);
+      b.getChannelData(0).set(m);
+      return b;
+    })().catch((e) => {
+      console.warn(`No pude preparar el sonido "${nombre}":`, e);
+      return null;
+    });
+    buffers.set(clave, promesa);
+    return promesa;
+  }
+  return {
+    /**
+     * @param {{ paquete?: Record<string, any>, volumenGeneral?: number }} [sonidos] lo que dice el estilo
+     *     (volumenGeneral: el de todos los sonidos; el volumen de los automáticos lo usa la línea)
+     * @param {string} [desde] la página o el estilo, para resolver archivos relativos
+     */
+    configurar(sonidos = {}, desde = "") {
+      if (paquete !== (sonidos.paquete ?? {})) buffers.clear();
+      paquete = sonidos.paquete ?? {};
+      volumen = sonidos.volumenGeneral ?? 1;
+      base = desde;
+    },
+    /** @param {{ nombre: string, volumen?: number, tono?: number }} s */
+    async tocar(s) {
+      const c = contexto();
+      if (!c) return;
+      const b = await buffer(s.nombre, s.tono ?? 0);
+      if (!b) return;
+      const fuente = c.createBufferSource();
+      fuente.buffer = b;
+      const g = c.createGain();
+      g.gain.value = (s.volumen ?? 1) * volumen;
+      fuente.connect(g).connect(c.destination);
+      fuente.start();
+    },
+    /** Prepara los sonidos de una escena antes de que hagan falta. */
+    precargar(lista2) {
+      if (!contexto()) return;
+      for (const s of lista2) buffer(s.nombre, s.tono ?? 0);
+    },
+    /**
+     * La música de fondo, siguiendo al reloj.
+     * @param {{ archivo: string, volumen?: number } | null} m
+     * @param {number} t
+     * @param {boolean} corriendo
+     */
+    musica(m, t, corriendo) {
+      if (!m?.archivo) {
+        musica?.pause();
+        return;
+      }
+      const url = new URL(m.archivo, base || globalThis.location.href).href;
+      if (!musica || musica.dataset.url !== url) {
+        musica?.pause();
+        musica = new Audio(url);
+        musica.dataset.url = url;
+        musica.loop = true;
+      }
+      musica.volume = Math.min(Math.max((m.volumen ?? 0.3) * volumen, 0), 1);
+      if (corriendo) {
+        const donde = musica.duration > 0 ? t % musica.duration : t;
+        if (Math.abs(musica.currentTime - donde) > 0.3) musica.currentTime = donde;
+        if (musica.paused) musica.play().catch(() => {
+        });
+      } else musica.pause();
+    },
+    callar() {
+      musica?.pause();
+    }
+  };
+}
+
+// src/controles/componente.js
+var registro2 = /* @__PURE__ */ new Map();
 var esperando = /* @__PURE__ */ new Map();
 function registrar(nombre, definicion) {
-  registro.set(nombre, definicion);
+  registro2.set(nombre, definicion);
   for (const elemento of esperando.get(nombre) ?? []) elemento.escena = definicion;
   esperando.delete(nombre);
 }
@@ -1332,13 +2664,15 @@ var Base = (
 );
 var ANCHO_ANGOSTO = 600;
 var ANCHO_MEDIO = 900;
+var ESPERA_CONTROLES = 1800;
 var MotorEscena = class extends Base {
-  static observedAttributes = ["escena", "tema", "movimiento", "velocidad", "loop", "sin-controles", "sin-subtitulos", "controles-fijos", "pantalla"];
+  static observedAttributes = ["escena", "tema", "estilo", "movimiento", "velocidad", "loop", "sin-controles", "sin-subtitulos", "sin-sonido", "controles-fijos", "pantalla"];
   constructor() {
     super();
     const sombra = this.attachShadow({ mode: "open" });
     sombra.innerHTML = `
             <style>${ESTILOS}</style>
+            <style class="ma-css-estilo"></style>
             <div class="ma-raiz con-subtitulos" part="raiz">
                 <div class="ma-lienzo" tabindex="0">
                     <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="ma-titulo" aria-describedby="ma-descripcion"></svg>
@@ -1346,12 +2680,20 @@ var MotorEscena = class extends Base {
                         <!-- El de volver va primero: la botonera est\xE1 pegada a la
                              derecha, as\xED que al aparecer (o al pasar de 1,5\xD7 a 2\xD7)
                              crece hacia la izquierda y no corre al \u2212 ni al +. -->
+                        <button type="button" data-zoom="lugar" aria-label="Volver a su lugar lo que se movi\xF3" title="Volver a su lugar">\u21BA</button>
+                        <button type="button" data-zoom="lupa-forma" aria-label="Forma de la lupa: redonda" title="Forma de la lupa">\u25CB</button>
+                        <button type="button" data-zoom="lupa-zoom" aria-label="Aumento de la lupa: 2 veces" title="Aumento de la lupa">2\xD7</button>
+                        <button type="button" data-zoom="lupa" aria-pressed="false" aria-label="Lupa" title="Lupa"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M14.5 14.5 20 20" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
                         <button type="button" data-zoom="normal" aria-label="Volver al tama\xF1o normal">1\xD7</button>
                         <button type="button" data-zoom="alejar" aria-label="Alejar">\u2212</button>
                         <button type="button" data-zoom="acercar" aria-label="Acercar">+</button>
                     </div>
                 </div>
                 <div class="ma-subtitulo" part="subtitulo" aria-live="off"></div>
+                <!-- El hilo: lo que queda de la barra cuando los controles se
+                     esconden. Dice por d\xF3nde va y d\xF3nde est\xE1n los cap\xEDtulos y
+                     las preguntas, sin tapar el dibujo. -->
+                <div class="ma-hilo" aria-hidden="true"><div class="ma-hilo-avance"></div><div class="ma-hilo-marcas"></div></div>
                 <div class="ma-controles" role="group" aria-label="Controles de la animaci\xF3n"></div>
                 <div class="ma-oculto" id="ma-titulo"></div>
                 <div class="ma-oculto" id="ma-descripcion"></div>
@@ -1370,11 +2712,23 @@ var MotorEscena = class extends Base {
     sombra.querySelector("#ma-descripcion");
     this._controles = /** @type {HTMLElement} */
     sombra.querySelector(".ma-controles");
+    this._hilo = /** @type {HTMLElement} */
+    sombra.querySelector(".ma-hilo");
+    this._cssEstilo = /** @type {HTMLStyleElement} */
+    sombra.querySelector(".ma-css-estilo");
+    this._estiloPropio = null;
+    this._estilo = {};
+    this._subs = subtitulosDelEstilo({});
+    this._reel = { indice: -1, palabras: [], nodos: [], grupo: -1 };
+    this._sonido = crearReproductor();
+    this._sonidoPrendido = !this.hasAttribute("sin-sonido");
+    this._tAnterior = 0;
     this._definicion = null;
     this._compilada = null;
     this._pintor = null;
     this._arrastres = {};
     this._agarrada = null;
+    this._lupa = null;
     this._disposicion = null;
     this._pausadoPorOcultar = false;
     this._limpiar = [];
@@ -1383,17 +2737,20 @@ var MotorEscena = class extends Base {
       alCambiar: (t) => this._pintar(t),
       alCambiarEstado: (corriendo) => {
         this._barra.corriendo(corriendo);
+        if (!corriendo) this._sonido.callar();
         this._actualizarVista();
       },
       alParar: (t) => this._alParar(t)
     });
     this._barra = crearBarra(this._controles, {
+      hilo: this._hilo,
       alternar: () => this._alternarPorUsuario(),
       anterior: () => this.capituloAnterior(),
       siguiente: () => this.capituloSiguiente(),
       irA: (t) => this.irA(t),
       velocidad: (v) => this._cambiarVelocidad(v),
       subtitulos: (prendidos) => this._subtitulos(prendidos),
+      sonido: (prendido) => this._prenderSonido(prendido),
       pantalla: () => this._pantallaCompleta()
     });
     this._lienzo.addEventListener("keydown", (e) => this._tecla(e));
@@ -1421,11 +2778,20 @@ var MotorEscena = class extends Base {
     zoom.addEventListener("pointerdown", (e) => e.stopPropagation());
     this._lienzo.addEventListener("wheel", (e) => this._rueda(e), { passive: false });
     this._lienzo.addEventListener("pointerdown", (e) => this._dedoAbajo(e));
+    this._lienzo.addEventListener("dblclick", (e) => {
+      const agarrable = (
+        /** @type {Element} */
+        e.target.closest("[data-arrastrable]")
+      );
+      if (agarrable) this._volverAlLugar(agarrable.getAttribute("data-arrastrable"));
+    });
     this._lienzo.addEventListener("pointermove", (e) => this._dedoMueve(e));
     for (const fin of ["pointerup", "pointercancel"]) this._lienzo.addEventListener(fin, (e) => this._dedoArriba(e));
     this._vista = { dentro: false, reciente: false, sobreControles: false, foco: false, tactil: false, tocado: false, pregunta: false };
     this._temporizador = void 0;
+    this._sacudida = { desde: 0, recorrido: 0, x: 0, y: 0 };
     const moverse = (e) => {
+      if (e.type === "pointermove" && this.hasAttribute("sin-controles") && !this._sacudio(e)) return;
       if (e.pointerType) this._vista.tactil = e.pointerType === "touch";
       this._vista.tocado = true;
       this._vista.reciente = true;
@@ -1433,7 +2799,7 @@ var MotorEscena = class extends Base {
       this._temporizador = setTimeout(() => {
         this._vista.reciente = false;
         this._actualizarVista();
-      }, 2500);
+      }, ESPERA_CONTROLES);
       this._actualizarVista();
     };
     this.addEventListener("pointermove", moverse);
@@ -1444,7 +2810,12 @@ var MotorEscena = class extends Base {
       this._actualizarVista();
     });
     this.addEventListener("pointerleave", (e) => {
-      if (e.pointerType === "mouse") this._vista.dentro = false;
+      if (e.pointerType === "mouse") {
+        this._vista.dentro = false;
+        this._vista.reciente = false;
+        this._vista.sobreControles = false;
+        clearTimeout(this._temporizador);
+      }
       this._actualizarVista();
     });
     this._controles.addEventListener("pointerenter", () => {
@@ -1471,6 +2842,21 @@ var MotorEscena = class extends Base {
     this._definicion = definicion;
     this._disposicion = null;
     this._armar();
+  }
+  /**
+   * El estilo: un nombre ('neon'), un estilo hecho objeto, o null para
+   * volver al del atributo.
+   */
+  get estilo() {
+    return this._estiloPropio ?? this.getAttribute("estilo");
+  }
+  set estilo(valor) {
+    this._estiloPropio = valor ?? null;
+    this._armar();
+  }
+  /** El estilo con todo lo que hereda, ya resuelto. Lo usa el render a video. */
+  get estiloResuelto() {
+    return this._estilo;
   }
   /** La escena ya compilada: lo que usan los tests y el render a video. */
   get compilada() {
@@ -1526,7 +2912,13 @@ var MotorEscena = class extends Base {
     visor.observe(this);
     this._limpiar.push(() => visor.disconnect());
     this._escuchar(document, "visibilitychange", () => this._visible(!document.hidden));
-    this._escuchar(this, "fullscreenchange", () => this._armar());
+    this._escuchar(this, "fullscreenchange", () => {
+      if (document.fullscreenElement === this) this._entrarEnPantalla();
+      this._armar();
+    });
+    this._escuchar(document, "motor-estilo", () => {
+      if (!this._estiloPropio && !this.hasAttribute("estilo")) this._armar();
+    });
     this._escuchar(matchMedia("(hover: hover) and (pointer: fine)"), "change", () => this._actualizarVista());
     this._aplicarAtributos();
     if (!this._definicion) this._buscarEscena();
@@ -1540,7 +2932,11 @@ var MotorEscena = class extends Base {
   attributeChangedCallback(nombre, viejo, nuevo) {
     if (!this.isConnected) return;
     if (nombre === "escena") this._buscarEscena();
-    else if (nombre === "movimiento" || nombre === "tema" || nombre === "pantalla") this._armar();
+    else if (nombre === "pantalla") {
+      if (this.hasAttribute("pantalla")) this._entrarEnPantalla();
+      this._armar();
+    } else if (nombre === "movimiento" || nombre === "tema" || nombre === "estilo") this._armar();
+    else if (nombre === "sin-sonido") this._prenderSonido(!this.hasAttribute("sin-sonido"));
     else this._aplicarAtributos();
   }
   // ---------------- Para las capas de arriba ----------------
@@ -1574,8 +2970,8 @@ var MotorEscena = class extends Base {
   _buscarEscena() {
     const nombre = this.getAttribute("escena");
     if (!nombre) return;
-    if (registro.has(nombre)) {
-      this.escena = registro.get(nombre);
+    if (registro2.has(nombre)) {
+      this.escena = registro2.get(nombre);
     } else {
       if (!esperando.has(nombre)) esperando.set(nombre, /* @__PURE__ */ new Set());
       esperando.get(nombre).add(this);
@@ -1590,9 +2986,9 @@ var MotorEscena = class extends Base {
     this._actualizarVista();
   }
   _calcularDisposicion() {
-    const caja2 = this.getBoundingClientRect();
-    const ancho = caja2.width || ANCHO_ANGOSTO;
-    const alto = caja2.height || 0;
+    const caja3 = this.getBoundingClientRect();
+    const ancho = caja3.width || ANCHO_ANGOSTO;
+    const alto = caja3.height || 0;
     const llena = this._llena();
     const angosta = llena ? alto > ancho : ancho < ANCHO_ANGOSTO;
     const media = !llena && !angosta && ancho < ANCHO_MEDIO;
@@ -1618,20 +3014,63 @@ var MotorEscena = class extends Base {
     }
     this._raiz.dataset.tema = tema;
   }
+  // El estilo que corresponde: el de JavaScript, el del atributo o el de la
+  // página. Si es un archivo que todavía no llegó, lo pide y rearma después.
+  _buscarEstilo() {
+    const pedido = this._estiloPropio ?? this.getAttribute("estilo") ?? estiloPorDefecto();
+    if (typeof pedido === "string" && esArchivo(pedido)) {
+      const url = new URL(pedido, document.baseURI).href;
+      try {
+        return resolverEstilo(url);
+      } catch {
+        if (this._esperandoEstilo !== url) {
+          this._esperandoEstilo = url;
+          cargarEstilo(url).then(() => this._armar(), (e) => this._mostrarError(e));
+        }
+        return null;
+      }
+    }
+    return resolverEstilo(pedido);
+  }
+  _aplicarEstilo(estilo) {
+    this._estilo = estilo;
+    cargarFuentes(estilo);
+    this._cssEstilo.textContent = cssDelEstilo(estilo);
+    this._raiz.toggleAttribute("data-estilo", Object.keys(estilo).length > 0);
+    this._subs = subtitulosDelEstilo(estilo);
+    this._raiz.classList.toggle("subs-reel", this._subs.modo === "reel");
+    this._raiz.dataset.subPosicion = this._subs.posicion;
+    this._raiz.dataset.subCaja = this._subs.caja;
+    this._reel.indice = -1;
+    this._subtitulo.textContent = "";
+    this._sonido.configurar(estilo.sonidos ?? {});
+  }
   _armar() {
     this._aplicarTema();
     if (!this._definicion || !this.isConnected) return;
+    let estilo;
+    try {
+      estilo = this._buscarEstilo();
+    } catch (error) {
+      this._mostrarError(error);
+      return;
+    }
+    if (!estilo) return;
+    this._aplicarEstilo(estilo);
     const disposicion = this._calcularDisposicion();
     let compilada;
     try {
-      compilada = compilar(this._definicion, { movimiento: this._movimiento(), disposicion });
+      compilada = compilar(this._definicion, { movimiento: this._movimiento(), disposicion, estilo });
     } catch (error) {
       this._mostrarError(error);
       return;
     }
     this._compilada = compilada;
     this._disposicion = disposicion.nombre;
-    this._pintor = crearPintor(this._svg, compilada, { arrastres: this._arrastres });
+    this._pintor = crearPintor(this._svg, compilada, { arrastres: this._arrastres, estilo });
+    this._prepararLupa(compilada, estilo);
+    const conSonido = compilada.sonidos.length > 0 || !!compilada.musica;
+    this._raiz.classList.toggle("con-sonidos", conSonido);
     this._raiz.classList.toggle("sin-textos", compilada.subtitulos.length === 0);
     this._encuadre();
     this._aplicarZoom();
@@ -1657,8 +3096,73 @@ var MotorEscena = class extends Base {
       return;
     }
     this._barra.mostrar(estado);
-    if (this._subtitulo.textContent !== estado.subtitulo) this._subtitulo.textContent = estado.subtitulo;
+    if (this._subs.modo === "reel") this._subtituloReel(estado);
+    else if (this._subtitulo.textContent !== estado.subtitulo) this._subtitulo.textContent = estado.subtitulo;
+    this._sonar(estado.t);
     this._alPintar(estado);
+  }
+  // Los subtítulos de reel: grandes, de a pocas palabras, y la que se está
+  // diciendo, resaltada. Para un lector de pantalla va el texto entero, una
+  // vez, en un renglón escondido; las palabras sueltas no se leen.
+  _subtituloReel(estado) {
+    const r4 = this._reel;
+    if (estado.subtituloIndice !== r4.indice) {
+      r4.indice = estado.subtituloIndice;
+      r4.grupo = -1;
+      const s = this._compilada.subtitulos[r4.indice];
+      r4.palabras = s ? palabrasDe(s.texto, s.desde, s.hasta, { ritmo: this._subs.ritmo, porGrupo: this._subs.palabras }) : [];
+      this._subtitulo.replaceChildren();
+      if (s) {
+        const leido = document.createElement("span");
+        leido.className = "ma-oculto";
+        leido.textContent = s.texto;
+        const visto = document.createElement("span");
+        visto.className = "ma-reel";
+        visto.setAttribute("aria-hidden", "true");
+        r4.nodos = r4.palabras.map((p) => {
+          const n3 = document.createElement("span");
+          n3.className = "ma-palabra";
+          n3.textContent = p.texto;
+          visto.append(n3, " ");
+          return n3;
+        });
+        this._subtitulo.append(leido, visto);
+      } else r4.nodos = [];
+    }
+    if (!r4.palabras.length) return;
+    let actual = 0;
+    r4.palabras.forEach((p, k) => {
+      if (p.desde <= estado.t) actual = k;
+    });
+    const grupo = r4.palabras[actual].grupo;
+    r4.palabras.forEach((p, k) => {
+      const n3 = r4.nodos[k];
+      const visible = this._subs.palabras === 0 || p.grupo === grupo;
+      n3.hidden = !visible;
+      n3.classList.toggle("dicha", p.desde <= estado.t);
+      n3.classList.toggle("actual", k === actual && p.desde <= estado.t);
+    });
+    if (grupo !== r4.grupo) {
+      r4.grupo = grupo;
+      const visto = this._subtitulo.querySelector(".ma-reel");
+      if (visto) visto.setAttribute("data-grupo", String(grupo % 2));
+    }
+  }
+  // Suena lo que quedó entre el cuadro anterior y este, solo si el reloj
+  // venía corriendo hacia adelante. Un salto (la barra, un capítulo) no suena.
+  _sonar(t) {
+    const antes = this._tAnterior;
+    this._tAnterior = t;
+    const c = this._compilada;
+    if (!c || !this._sonidoPrendido || !this._reloj.corriendo || this.hasAttribute("video")) return;
+    if (c.musica) this._sonido.musica(c.musica, t, true);
+    if (!(t > antes) || t - antes > 0.5) return;
+    for (const s of c.sonidos) if (s.t > antes && s.t <= t) this._sonido.tocar(s);
+  }
+  _prenderSonido(prendido) {
+    this._sonidoPrendido = prendido;
+    this._barra.sonido(prendido);
+    if (!prendido) this._sonido.callar();
   }
   // El error se muestra EN la escena y en la consola: quien está armando una
   // escena en una página suelta muchas veces no tiene la consola abierta.
@@ -1668,6 +3172,7 @@ var MotorEscena = class extends Base {
     this._raiz.classList.add("con-subtitulos");
   }
   _alternarPorUsuario() {
+    if (this._compilada?.sonidos.length) this._sonido.precargar(this._compilada.sonidos);
     this._subtitulo.setAttribute("aria-live", "polite");
     this._pausadoPorOcultar = false;
     this._reloj.alternar();
@@ -1689,12 +3194,41 @@ var MotorEscena = class extends Base {
     this._svg.setAttribute("preserveAspectRatio", arriba ? "xMidYMin meet" : "xMidYMid meet");
   }
   // ---------------- Los controles que se esconden ----------------
+  // El foco retiene los controles solo si llegó con el teclado: quien
+  // navega con Tab tiene que verlos. Un botón que quedó con el foco
+  // porque se lo clickeó no es razón para dejarlos tapando el dibujo.
   _mirarFoco() {
     const activo = (
       /** @type {HTMLElement | null} */
       this.shadowRoot.activeElement
     );
-    this._vista.foco = !!activo && !!activo.closest(".ma-controles, .ma-zoom");
+    this._vista.foco = !!activo && !!activo.closest(".ma-controles, .ma-zoom") && activo.matches(":focus-visible");
+    this._actualizarVista();
+  }
+  /** Si el mouse se movió lejos y rápido: más de 250 px en menos de un tercio de segundo. */
+  _sacudio(e) {
+    const s = this._sacudida;
+    const ahora = e.timeStamp;
+    if (ahora - s.desde > 330) {
+      s.desde = ahora;
+      s.recorrido = 0;
+    } else {
+      s.recorrido += Math.hypot(e.clientX - s.x, e.clientY - s.y);
+    }
+    s.x = e.clientX;
+    s.y = e.clientY;
+    return s.recorrido > 250;
+  }
+  _entrarEnPantalla() {
+    this._vista.reciente = false;
+    this._vista.sobreControles = false;
+    clearTimeout(this._temporizador);
+    const activo = (
+      /** @type {HTMLElement | null} */
+      this.shadowRoot.activeElement
+    );
+    if (activo && !activo.matches(":focus-visible")) activo.blur();
+    this._vista.foco = false;
     this._actualizarVista();
   }
   _actualizarVista() {
@@ -1702,17 +3236,75 @@ var MotorEscena = class extends Base {
     const llena = this._llena();
     const flotantes = !this.hasAttribute("sin-controles") && (llena || !this._controlesFijos() && matchMedia("(hover: hover) and (pointer: fine)").matches);
     const v = this._vista;
-    const ver = v.foco || v.sobreControles || !v.pregunta && (v.reciente || !this._reloj.corriendo && (v.dentro || v.tactil || !v.tocado));
+    const enPausa = !llena && !this._reloj.corriendo && (v.dentro || v.tactil || !v.tocado);
+    const ver = v.foco || v.sobreControles || !v.pregunta && (v.reciente || enPausa);
     this._raiz.classList.toggle("flotantes", flotantes);
     this._raiz.classList.toggle("con-pregunta", v.pregunta);
     this._raiz.classList.toggle("ver-controles", ver);
-    this._raiz.classList.toggle("sin-cursor", llena && !v.reciente && !v.sobreControles && !v.foco);
+    this._raiz.classList.toggle("sin-cursor", llena && !v.reciente && !(v.sobreControles && flotantes) && !v.foco);
   }
   // ---------------- Zoom ----------------
   _accionZoom(accion) {
     if (accion === "acercar") this._zoomEn(1.5);
     else if (accion === "alejar") this._zoomEn(1 / 1.5);
+    else if (accion === "lupa") this._usarLupa(!this._lupa?.activa);
+    else if (accion === "lupa-forma") this._cambiarLupa({ forma: this._lupa.forma === "circulo" ? "rect" : "circulo" });
+    else if (accion === "lupa-zoom") {
+      const pasos = [1.5, 2, 3, 4];
+      this._cambiarLupa({ zoom: pasos[(pasos.indexOf(this._lupa.zoom) + 1) % pasos.length] });
+    } else if (accion === "lugar") this._volverAlLugar();
     else this._zoomEn(0);
+  }
+  // ---------------- La lupa de quien mira ----------------
+  _prepararLupa(compilada, estilo) {
+    const pedida = { ...estilo.lupa ?? {}, ...compilada.lupa ?? {} };
+    const lado = Math.min(compilada.ancho, compilada.alto) * 0.34;
+    if (!this._lupa) {
+      this._lupa = {
+        activa: !!pedida.activa && !this.hasAttribute("video"),
+        x: pedida.x ?? compilada.ancho / 2,
+        y: pedida.y ?? compilada.alto / 2,
+        ancho: pedida.ancho ?? pedida.tamano ?? lado,
+        alto: pedida.alto ?? pedida.tamano ?? lado,
+        forma: pedida.forma === "rect" ? "rect" : "circulo",
+        zoom: pedida.zoom ?? 2
+      };
+    }
+    this._raiz.classList.toggle("sin-lupa", this.hasAttribute("sin-lupa") || pedida.boton === false);
+    this._cambiarLupa({});
+  }
+  _usarLupa(activa) {
+    if (!this._lupa) return;
+    this._cambiarLupa({ activa });
+  }
+  _cambiarLupa(cambios) {
+    const l = this._lupa;
+    const c = this._compilada;
+    if (!l || !c) return;
+    Object.assign(l, cambios);
+    const max = Math.min(c.ancho, c.alto);
+    l.ancho = Math.min(Math.max(l.ancho, 60), l.forma === "circulo" ? max : c.ancho);
+    l.alto = Math.min(Math.max(l.alto, 60), l.forma === "circulo" ? max : c.alto);
+    if (l.forma === "circulo") l.ancho = l.alto = Math.min(l.ancho, l.alto);
+    l.x = Math.min(Math.max(l.x, l.ancho / 2), c.ancho - l.ancho / 2);
+    l.y = Math.min(Math.max(l.y, l.alto / 2), c.alto - l.alto / 2);
+    const m = this._svg.getScreenCTM();
+    this._pintor?.lupa({ ...l, pixel: m && m.a > 0 ? 1 / m.a : 1 });
+    this._raiz.classList.toggle("con-lupa", l.activa);
+    const $ = (s) => this.shadowRoot.querySelector(s);
+    $('[data-zoom="lupa"]').setAttribute("aria-pressed", String(l.activa));
+    const forma2 = $('[data-zoom="lupa-forma"]');
+    forma2.textContent = l.forma === "circulo" ? "\u25CB" : "\u25AD";
+    forma2.setAttribute("aria-label", `Forma de la lupa: ${l.forma === "circulo" ? "redonda" : "rectangular"}`);
+    const aumento = $('[data-zoom="lupa-zoom"]');
+    aumento.textContent = `${String(l.zoom).replace(".", ",")}\xD7`;
+    aumento.setAttribute("aria-label", `Aumento de la lupa: ${String(l.zoom).replace(".", ",")} veces`);
+  }
+  /** Vuelve a su lugar una pieza que se arrastró, o todas. */
+  _volverAlLugar(id) {
+    for (const k of Object.keys(this._arrastres)) if (id == null || k === id) delete this._arrastres[k];
+    this._raiz.classList.toggle("con-arrastres", Object.keys(this._arrastres).length > 0);
+    this._pintar(this._reloj.t);
   }
   /**
    * Agranda (factor > 1) o achica la vista, dejando quieto el punto de la
@@ -1752,8 +3344,8 @@ var MotorEscena = class extends Base {
     const alto = c.alto / z.escala;
     z.x = Math.min(Math.max(z.x, 0), c.ancho - ancho);
     z.y = Math.min(Math.max(z.y, 0), c.alto - alto);
-    const r3 = (v) => Math.round(v * 100) / 100;
-    this._svg.setAttribute("viewBox", `${r3(z.x)} ${r3(z.y)} ${r3(ancho)} ${r3(alto)}`);
+    const r4 = (v) => Math.round(v * 100) / 100;
+    this._svg.setAttribute("viewBox", `${r4(z.x)} ${r4(z.y)} ${r4(ancho)} ${r4(alto)}`);
     this._raiz.classList.toggle("con-zoom", z.escala > 1.001);
     const normal = this.shadowRoot.querySelector('[data-zoom="normal"]');
     normal.textContent = `${String(Math.round(z.escala * 10) / 10).replace(".", ",")}\xD7`;
@@ -1769,6 +3361,16 @@ var MotorEscena = class extends Base {
       e.target
     );
     if (objetivo.closest(".ma-pregunta, .ma-zoom")) return;
+    const parteLupa = this._lupa?.activa && objetivo.closest("[data-lupa]");
+    if (parteLupa) {
+      const asa = (
+        /** @type {Element} */
+        objetivo.getAttribute("data-lupa") === "asa"
+      );
+      this._agarrada = { id: asa ? "__asa" : "__lupa", pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+      this._lienzo.setPointerCapture(e.pointerId);
+      return;
+    }
     const agarrable = this._dedos.size === 0 && objetivo.closest("[data-arrastrable]");
     if (agarrable) {
       this._agarrada = { id: agarrable.getAttribute("data-arrastrable"), pointerId: e.pointerId, x: e.clientX, y: e.clientY };
@@ -1785,10 +3387,27 @@ var MotorEscena = class extends Base {
   }
   _dedoMueve(e) {
     const a = this._agarrada;
+    if (a && a.pointerId === e.pointerId && (a.id === "__lupa" || a.id === "__asa")) {
+      const m2 = this._svg.getScreenCTM();
+      if (!m2) return;
+      const dx = (e.clientX - a.x) / m2.a;
+      const dy = (e.clientY - a.y) / m2.d;
+      [a.x, a.y] = [e.clientX, e.clientY];
+      const l = this._lupa;
+      if (a.id === "__lupa") this._cambiarLupa({ x: l.x + dx, y: l.y + dy });
+      else if (l.forma === "circulo") {
+        const d = Math.max(dx, dy) * 2;
+        this._cambiarLupa({ ancho: l.ancho + d, alto: l.alto + d });
+      } else this._cambiarLupa({ ancho: l.ancho + dx * 2, alto: l.alto + dy * 2 });
+      this._arrastro = true;
+      this._raiz.classList.add("arrastrando");
+      return;
+    }
     if (a && a.pointerId === e.pointerId) {
       const m2 = this._svg.getScreenCTM();
       if (!m2) return;
       const corrida = this._arrastres[a.id] ??= { x: 0, y: 0 };
+      this._raiz.classList.add("con-arrastres");
       corrida.x += (e.clientX - a.x) / m2.a;
       corrida.y += (e.clientY - a.y) / m2.d;
       [a.x, a.y] = [e.clientX, e.clientY];
@@ -2274,33 +3893,44 @@ function definirLeccion(nombre = "motor-leccion") {
   customElements.define(nombre, MotorLeccion);
 }
 
-// src/nucleo/azar.js
-function azar(semilla = 1) {
-  let a = typeof semilla === "string" ? hashTexto(semilla) : semilla >>> 0;
-  function siguiente() {
-    a = a + 1831565813 >>> 0;
-    let t = a;
-    t = Math.imul(t ^ t >>> 15, t | 1);
-    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  }
+// src/nucleo/atajos.js
+var comunes = ({ crecer, ...resto } = {}) => resto;
+function aparecer(pieza, op = {}) {
+  const crecer = op.crecer === true ? 0.6 : op.crecer;
   return {
-    siguiente,
-    /** Un número con coma entre min y max. */
-    entre: (min, max) => min + siguiente() * (max - min),
-    /** Un entero entre min y max, los dos incluidos. */
-    entero: (min, max) => min + Math.floor(siguiente() * (max - min + 1)),
-    /** Un elemento cualquiera de una lista. */
-    elegir: (lista2) => lista2[Math.floor(siguiente() * lista2.length)]
+    pieza,
+    desde: { opacidad: 0, ...crecer ? { escala: crecer } : {} },
+    a: { opacidad: 1, ...crecer ? { escala: 1 } : {} },
+    ...comunes(op)
   };
 }
-function hashTexto(texto3) {
-  let h = 2166136261;
-  for (let i = 0; i < texto3.length; i++) {
-    h ^= texto3.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
+function desaparecer(pieza, op = {}) {
+  const achicar = op.crecer === true ? 0.6 : op.crecer;
+  return { pieza, a: { opacidad: 0, ...achicar ? { escala: achicar } : {} }, ...comunes(op) };
+}
+function dibujar(pieza, op = {}) {
+  return { pieza, desde: { trazo: 0, opacidad: 1 }, a: { trazo: 1, opacidad: 1 }, dur: 1.2, curva: "suave", ...comunes(op) };
+}
+function borrar(pieza, op = {}) {
+  return { pieza, a: { trazo: 0 }, dur: 0.8, ...comunes(op) };
+}
+function mover(pieza, a, op = {}) {
+  return { pieza, a, ...comunes(op) };
+}
+function transformar(pieza, d, op = {}) {
+  const { relleno, borde, ...resto } = op;
+  return {
+    pieza,
+    a: { d, ...relleno ? { relleno } : {}, ...borde ? { borde } : {} },
+    dur: 1,
+    ...comunes(resto)
+  };
+}
+function decir(texto3, op = {}) {
+  return { subtitulo: texto3, ...op };
+}
+function sonar(nombre, op = {}) {
+  return { sonido: nombre, ...op };
 }
 
 // src/piezas/definir.js
@@ -2319,11 +3949,15 @@ var COMUNES = {
   pegar: null,
   // Cuánto manda el pegar sobre x e y (de 0 a 1): animándolo, se despega
   // (o se pega) de a poco.
-  pegado: 1
+  pegado: 1,
+  // De 0 a 1: cuánto de sus bordes ya se dibujó, como si alguien lo fuera
+  // trazando con una lapicera. El relleno aparece al final, cuando el borde
+  // ya está casi entero.
+  trazo: 1
 };
 function definirPieza(definicion) {
   if (!definicion.nombre) throw new Error("Una pieza necesita un nombre.");
-  const tipo = { colores: [], ...definicion };
+  const tipo = { colores: [], formas: [], ...definicion };
   const validas = /* @__PURE__ */ new Set([...Object.keys(COMUNES), ...Object.keys(definicion.predeterminados)]);
   function fabrica(props = {}) {
     for (const prop of Object.keys(props)) {
@@ -2335,7 +3969,7 @@ function definirPieza(definicion) {
     }
     const completas = { ...COMUNES, ...definicion.predeterminados, ...props };
     definicion.validar?.(completas);
-    return { tipo, props: completas };
+    return { tipo, props: completas, propias: Object.keys(props) };
   }
   fabrica.tipo = tipo;
   return fabrica;
@@ -2575,18 +4209,18 @@ function extremo(cual, ctx) {
   const pieza = typeof cual === "string" ? cual : cual.pieza;
   if (pieza == null) return { x: cual.x, y: cual.y };
   if (!ctx.estado.piezas[pieza]) throw new Error(`La flecha apunta a "${pieza}", y no hay ninguna pieza que se llame as\xED.`);
-  const r3 = posicionAbsoluta(pieza, ctx.estado, ctx.tipos);
-  if (typeof cual === "string") return r3;
-  return puntoDelLado(r3, cual.lado, cual.dx ?? 0, cual.dy ?? 0);
+  const r4 = posicionAbsoluta(pieza, ctx.estado, ctx.tipos);
+  if (typeof cual === "string") return r4;
+  return puntoDelLado(r4, cual.lado, cual.dx ?? 0, cual.dy ?? 0);
 }
-function puntoDelLado(r3, lado = "centro", dx = 0, dy = 0) {
-  const x = r3.x + (lado === "derecha" ? r3.ancho / 2 : lado === "izquierda" ? -r3.ancho / 2 : 0);
-  const y = r3.y + (lado === "abajo" ? r3.alto / 2 : lado === "arriba" ? -r3.alto / 2 : 0);
+function puntoDelLado(r4, lado = "centro", dx = 0, dy = 0) {
+  const x = r4.x + (lado === "derecha" ? r4.ancho / 2 : lado === "izquierda" ? -r4.ancho / 2 : 0);
+  const y = r4.y + (lado === "abajo" ? r4.alto / 2 : lado === "arriba" ? -r4.alto / 2 : 0);
   return { x: x + dx, y: y + dy };
 }
-function adentro(r3, contenedor, ctx) {
-  const { x, y, escala } = aCoordenadasDe(r3, contenedor, ctx.estado, ctx.tipos);
-  return { x, y, ancho: (r3.ancho ?? 0) / escala, alto: (r3.alto ?? 0) / escala };
+function adentro(r4, contenedor, ctx) {
+  const { x, y, escala } = aCoordenadasDe(r4, contenedor, ctx.estado, ctx.tipos);
+  return { x, y, ancho: (r4.ancho ?? 0) / escala, alto: (r4.alto ?? 0) / escala };
 }
 function n(v) {
   return Math.round(v * 100) / 100;
@@ -2629,8 +4263,8 @@ var tabla = definirPieza({
     const total = anchos.reduce((a, b) => a + b, 0);
     const izq = -total / 2;
     const arriba = p.anclaje === "arriba" ? 0 : -((p.filas.length + 1) * p.altoFila) / 2;
-    const forma = `${p.columnas.length}x${p.filas.length}`;
-    if (partes.forma !== forma) {
+    const forma2 = `${p.columnas.length}x${p.filas.length}`;
+    if (partes.forma !== forma2) {
       partes.grupo.replaceChildren();
       partes.filas = [];
       for (let i = 0; i <= p.filas.length; i++) {
@@ -2639,7 +4273,7 @@ var tabla = definirPieza({
         const celdas = p.columnas.map(() => el("text", { "dominant-baseline": "central" }, g));
         partes.filas.push({ g, fondo, celdas });
       }
-      partes.forma = forma;
+      partes.forma = forma2;
     }
     partes.filas.forEach((fila2, i) => {
       const esEncabezado = i === 0;
@@ -2787,20 +4421,20 @@ var camara = definirPieza({
   },
   actualizar(partes, p) {
     const recorta = p.ancho > 0 && p.alto > 0;
-    const forma = ventanaDe(p);
-    poner(partes.recorte, forma);
+    const forma2 = ventanaDe(p);
+    poner(partes.recorte, forma2);
     poner(partes.ventana, { "clip-path": recorta ? `url(#${partes.id})` : null });
     poner(partes.contenido, {
       transform: `scale(${p.zoom}) translate(${-p.mirarX} ${-p.mirarY})`
     });
     poner(partes.sombra, {
-      ...forma,
+      ...forma2,
       fill: p.fondo ? aCss(p.fondo) : "var(--ma-fondo)",
       visibility: recorta && (p.sombra || p.fondo) ? null : "hidden",
       filter: p.sombra ? "drop-shadow(0 6px 14px rgb(0 0 0 / 0.28))" : null
     });
     poner(partes.aro, {
-      ...forma,
+      ...forma2,
       stroke: aCss(p.colorAro),
       "stroke-width": p.aro,
       visibility: recorta && p.aro > 0 ? null : "hidden"
@@ -2836,7 +4470,9 @@ var espejo = definirPieza({
     sombra: true,
     marco: false,
     colorMarco: "acento",
-    arrastrable: true
+    arrastrable: true,
+    // Mirar lo que tiene debajo (mirarX y mirarY no se usan): una lupa.
+    seguir: false
   },
   colores: ["colorAro", "fondo", "colorMarco"],
   // Lo que muestra depende de otras piezas (y de dónde lo dejó quien mira).
@@ -2853,32 +4489,34 @@ var espejo = definirPieza({
     const ventana = el("g", { "clip-path": `url(#${id})` }, grupo);
     const contenido = el("g", {}, ventana);
     const aro = el("rect", { fill: "none" }, grupo);
-    if (p.arrastrable) {
+    if (p.arrastrable && !p.seguir) {
       grupo.setAttribute("data-arrastrable", ctx.id);
     }
     return { grupo, marco, clip, fondo, contenido, aro, usos: /* @__PURE__ */ new Map() };
   },
   actualizar(partes, p, ctx) {
-    const forma = ventanaDe2(p);
-    poner(partes.clip, forma);
+    const forma2 = ventanaDe2(p);
+    poner(partes.clip, forma2);
     poner(partes.fondo, {
-      ...forma,
+      ...forma2,
       fill: aCss(p.fondo),
       filter: p.sombra ? "drop-shadow(0 8px 18px rgb(0 0 0 / 0.3))" : null
     });
-    poner(partes.aro, { ...forma, stroke: aCss(p.colorAro), "stroke-width": p.aro, visibility: p.aro > 0 ? null : "hidden" });
-    poner(partes.contenido, { transform: `scale(${p.zoom}) translate(${-p.mirarX} ${-p.mirarY})` });
-    ponerFuentes(partes, p, ctx);
-    const corrida = ctx.arrastres?.[ctx.id] ?? { x: 0, y: 0 };
+    poner(partes.aro, { ...forma2, stroke: aCss(p.colorAro), "stroke-width": p.aro, visibility: p.aro > 0 ? null : "hidden" });
+    const corrida = !p.seguir && ctx.arrastres?.[ctx.id] || { x: 0, y: 0 };
     const yo = posicionAbsoluta(ctx.id, ctx.estado, ctx.tipos);
-    const ancho = forma.width / p.zoom;
-    const alto = forma.height / p.zoom;
+    const mirarX = p.seguir ? yo.x : p.mirarX;
+    const mirarY = p.seguir ? yo.y : p.mirarY;
+    poner(partes.contenido, { transform: `scale(${p.zoom}) translate(${-mirarX} ${-mirarY})` });
+    ponerFuentes(partes, p, ctx);
+    const ancho = forma2.width / p.zoom;
+    const alto = forma2.height / p.zoom;
     poner(partes.marco, {
-      x: p.mirarX - ancho / 2 - yo.x - corrida.x,
-      y: p.mirarY - alto / 2 - yo.y - corrida.y,
+      x: mirarX - ancho / 2 - yo.x - corrida.x,
+      y: mirarY - alto / 2 - yo.y - corrida.y,
       width: ancho,
       height: alto,
-      rx: forma.rx / p.zoom,
+      rx: forma2.rx / p.zoom,
       stroke: aCss(p.colorMarco),
       visibility: p.marco ? null : "hidden"
     });
@@ -3095,7 +4733,7 @@ var grafo = definirPieza({
   },
   colores: ["relleno", "borde", "color", "colorArista", "colorResaltado"],
   validar(p) {
-    const ids = new Set(normalizarNodos(p).map((n2) => n2.id));
+    const ids = new Set(normalizarNodos(p).map((n3) => n3.id));
     for (const a of normalizarAristas(p.aristas)) {
       for (const extremo2 of [a.de, a.a]) {
         if (!ids.has(extremo2)) throw new Error(`La arista ${a.de}\u2192${a.a} usa "${extremo2}", que no es ning\xFAn nodo del grafo.`);
@@ -3108,7 +4746,7 @@ var grafo = definirPieza({
   actualizar(partes, p) {
     const nodos = normalizarNodos(p);
     const aristas = normalizarAristas(p.aristas);
-    const donde = Object.fromEntries(nodos.map((n2) => [n2.id, n2]));
+    const donde = Object.fromEntries(nodos.map((n3) => [n3.id, n3]));
     const resaltar = new Set(p.resaltar);
     const apagar = new Set(p.apagar);
     reusar(partes.aristas, aristas.length, (g) => {
@@ -3135,18 +4773,18 @@ var grafo = definirPieza({
       let ang;
       let medio;
       if (a.de === a.a) {
-        const n2 = donde[a.de];
-        const hacia = Math.atan2(n2.y, n2.x) || -Math.PI / 2;
+        const n3 = donde[a.de];
+        const hacia = Math.atan2(n3.y, n3.x) || -Math.PI / 2;
         const R = p.radioNodo * 0.62;
-        const cx = n2.x + Math.cos(hacia) * (p.radioNodo + R * 0.55);
-        const cy = n2.y + Math.sin(hacia) * (p.radioNodo + R * 0.55);
+        const cx = n3.x + Math.cos(hacia) * (p.radioNodo + R * 0.55);
+        const cy = n3.y + Math.sin(hacia) * (p.radioNodo + R * 0.55);
         const inicio = hacia + Math.PI * 0.75;
         const fin = inicio + Math.PI * 1.5 * avance;
         const x0 = cx + Math.cos(inicio) * R;
         const y0 = cy + Math.sin(inicio) * R;
         const x1 = cx + Math.cos(fin) * R;
         const y1 = cy + Math.sin(fin) * R;
-        d = `M${r2(x0)} ${r2(y0)}A${r2(R)} ${r2(R)} 0 ${fin - inicio > Math.PI ? 1 : 0} 1 ${r2(x1)} ${r2(y1)}`;
+        d = `M${r3(x0)} ${r3(y0)}A${r3(R)} ${r3(R)} 0 ${fin - inicio > Math.PI ? 1 : 0} 1 ${r3(x1)} ${r3(y1)}`;
         tip = { x: x1, y: y1 };
         ang = fin + Math.PI / 2;
         medio = { x: cx + Math.cos(hacia) * (R + p.tamanoEtiqueta * 0.8), y: cy + Math.sin(hacia) * (R + p.tamanoEtiqueta * 0.8) };
@@ -3168,7 +4806,7 @@ var grafo = definirPieza({
         d = "";
         for (let k = 0; k <= pasos; k++) {
           const q = puntoCurva(curva2, u0 + (uFin - u0) * k / pasos);
-          d += `${k === 0 ? "M" : "L"}${r2(q.x)} ${r2(q.y)}`;
+          d += `${k === 0 ? "M" : "L"}${r3(q.x)} ${r3(q.y)}`;
         }
         tip = puntoCurva(curva2, uFin);
         ang = anguloCurva(curva2, uFin);
@@ -3182,7 +4820,7 @@ var grafo = definirPieza({
       const bx = tip.x - Math.cos(ang) * L;
       const by = tip.y - Math.sin(ang) * L;
       poner(punta, {
-        d: `M${r2(tip.x)} ${r2(tip.y)}L${r2(bx - Math.sin(ang) * W)} ${r2(by + Math.cos(ang) * W)}L${r2(bx + Math.sin(ang) * W)} ${r2(by - Math.cos(ang) * W)}Z`,
+        d: `M${r3(tip.x)} ${r3(tip.y)}L${r3(bx - Math.sin(ang) * W)} ${r3(by + Math.cos(ang) * W)}L${r3(bx + Math.sin(ang) * W)} ${r3(by - Math.cos(ang) * W)}Z`,
         fill: aCss(color),
         visibility: p.dirigido && avance > 0.3 ? null : "hidden"
       });
@@ -3201,7 +4839,7 @@ var grafo = definirPieza({
       el("text", { "text-anchor": "middle", "dominant-baseline": "central" }, g);
       el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-weight": 600 }, g);
     });
-    nodos.forEach((n2, i) => {
+    nodos.forEach((n3, i) => {
       const g = (
         /** @type {Element} */
         partes.nodos.childNodes[i]
@@ -3211,45 +4849,45 @@ var grafo = definirPieza({
         [...g.childNodes]
       );
       const visible = limitar(p.nodosVisibles - i, 0, 1);
-      const destacado = resaltar.has(n2.id);
-      poner(g, { opacity: visible * (apagar.has(n2.id) ? 0.3 : 1), visibility: visible > 0 ? null : "hidden" });
-      poner(anillo, { cx: n2.x, cy: n2.y, r: p.radioNodo + 9, stroke: aCss(p.colorResaltado), visibility: destacado ? null : "hidden" });
+      const destacado = resaltar.has(n3.id);
+      poner(g, { opacity: visible * (apagar.has(n3.id) ? 0.3 : 1), visibility: visible > 0 ? null : "hidden" });
+      poner(anillo, { cx: n3.x, cy: n3.y, r: p.radioNodo + 9, stroke: aCss(p.colorResaltado), visibility: destacado ? null : "hidden" });
       poner(circulo, {
-        cx: n2.x,
-        cy: n2.y,
+        cx: n3.x,
+        cy: n3.y,
         r: p.radioNodo,
         fill: aCss(p.relleno),
         stroke: aCss(destacado ? p.colorResaltado : p.borde),
         "stroke-width": 3.5
       });
-      poner(icono2, { x: n2.x, y: n2.y, "font-size": p.radioNodo * 1.05, visibility: n2.icono ? null : "hidden" });
-      texto(icono2, n2.icono ?? "");
+      poner(icono2, { x: n3.x, y: n3.y, "font-size": p.radioNodo * 1.05, visibility: n3.icono ? null : "hidden" });
+      texto(icono2, n3.icono ?? "");
       poner(rotulo, {
-        x: n2.x,
-        y: n2.icono ? n2.y + p.radioNodo + p.tamano * 0.75 : n2.y,
-        "font-size": n2.icono ? p.tamano * 0.8 : p.tamano,
+        x: n3.x,
+        y: n3.icono ? n3.y + p.radioNodo + p.tamano * 0.75 : n3.y,
+        "font-size": n3.icono ? p.tamano * 0.8 : p.tamano,
         fill: aCss(p.color)
       });
-      texto(rotulo, n2.texto);
+      texto(rotulo, n3.texto);
     });
   },
   tamano(p) {
     const nodos = normalizarNodos(p);
-    const xs = nodos.map((n2) => Math.abs(n2.x));
-    const ys = nodos.map((n2) => Math.abs(n2.y));
+    const xs = nodos.map((n3) => Math.abs(n3.x));
+    const ys = nodos.map((n3) => Math.abs(n3.y));
     return { ancho: 2 * (Math.max(0, ...xs) + p.radioNodo), alto: 2 * (Math.max(0, ...ys) + p.radioNodo) };
   }
 });
 function normalizarNodos(p) {
-  const lista2 = p.nodos.map((n2) => typeof n2 === "object" ? { ...n2, id: String(n2.id) } : { id: String(n2) });
-  return lista2.map((n2, i) => {
+  const lista2 = p.nodos.map((n3) => typeof n3 === "object" ? { ...n3, id: String(n3.id) } : { id: String(n3) });
+  return lista2.map((n3, i) => {
     const ang = -Math.PI / 2 + 2 * Math.PI * i / Math.max(lista2.length, 1);
     return {
-      id: n2.id,
-      texto: n2.texto ?? n2.id,
-      icono: n2.icono,
-      x: n2.x ?? (lista2.length > 1 ? Math.cos(ang) * p.radio : 0),
-      y: n2.y ?? (lista2.length > 1 ? Math.sin(ang) * p.radio : 0)
+      id: n3.id,
+      texto: n3.texto ?? n3.id,
+      icono: n3.icono,
+      x: n3.x ?? (lista2.length > 1 ? Math.cos(ang) * p.radio : 0),
+      y: n3.y ?? (lista2.length > 1 ? Math.sin(ang) * p.radio : 0)
     };
   });
 }
@@ -3260,8 +4898,66 @@ function reusar(grupo, cuantos, armar) {
   while (grupo.childNodes.length > cuantos) grupo.lastChild.remove();
   while (grupo.childNodes.length < cuantos) armar(el("g", {}, grupo));
 }
-function r2(v) {
+function r3(v) {
   return Math.round(v * 100) / 100;
+}
+
+// src/piezas/forma.js
+var forma = definirPieza({
+  nombre: "forma",
+  predeterminados: {
+    d: figuras.circulo(60),
+    relleno: "acento",
+    borde: "ninguno",
+    grosor: 4,
+    // Las puntas de las líneas abiertas (una tilde): redondeadas.
+    puntas: "redondas"
+  },
+  colores: ["relleno", "borde"],
+  formas: ["d"],
+  validar(p) {
+    leerCamino(p.d);
+  },
+  crear(grupo) {
+    return { camino: el("path", { "stroke-linejoin": "round" }, grupo) };
+  },
+  actualizar(partes, p) {
+    poner(partes.camino, {
+      d: p.d,
+      fill: aCss(p.relleno),
+      stroke: aCss(p.borde),
+      "stroke-width": p.grosor,
+      "stroke-linecap": p.puntas === "redondas" ? "round" : "butt"
+    });
+  },
+  // Para enganchar flechas: el rectángulo que la contiene.
+  tamano(p) {
+    const c = caja2(p.d);
+    return { ancho: c.ancho, alto: c.alto };
+  },
+  centro(p) {
+    const c = caja2(p.d);
+    return { x: c.x, y: c.y };
+  }
+});
+var cajas = /* @__PURE__ */ new Map();
+function caja2(d) {
+  let c = cajas.get(d);
+  if (!c) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const borde of leerCamino(d)) {
+      for (const [x, y] of borde.puntos) {
+        x0 = Math.min(x0, x);
+        x1 = Math.max(x1, x);
+        y0 = Math.min(y0, y);
+        y1 = Math.max(y1, y);
+      }
+    }
+    c = Number.isFinite(x0) ? { x: (x0 + x1) / 2, y: (y0 + y1) / 2, ancho: x1 - x0, alto: y1 - y0 } : { x: 0, y: 0, ancho: 0, alto: 0 };
+    if (cajas.size > 200) cajas.clear();
+    cajas.set(d, c);
+  }
+  return c;
 }
 
 // src/pedagogico/resaltar.js
@@ -3535,8 +5231,8 @@ var codigo = definirPieza({
       visibility: p.titulo ? null : "hidden"
     });
     texto(partes.pestana, p.titulo);
-    const n2 = medidas2.lineas.length;
-    const y = arriba + medidas2.encabezado + medidas2.margen + (limitar(p.linea, 1, Math.max(n2, 1)) - 1) * altoLinea;
+    const n3 = medidas2.lineas.length;
+    const y = arriba + medidas2.encabezado + medidas2.margen + (limitar(p.linea, 1, Math.max(n3, 1)) - 1) * altoLinea;
     const marca = limitar(p.marca, 0, 1);
     poner(partes.barra, {
       x: izq + 2,
@@ -3689,22 +5385,22 @@ var lista = definirPieza({
     };
   },
   actualizar(partes, p) {
-    const n2 = p.items.length;
-    const w = Math.max(n2, 1) * p.celda;
+    const n3 = p.items.length;
+    const w = Math.max(n3, 1) * p.celda;
     const izq = -w / 2;
     const h = p.alto;
     const etiqueta = p.tamano * 0.75;
     poner(partes.nombre, { x: izq + 4, y: -h / 2 - etiqueta * 0.8, "font-size": etiqueta, fill: "var(--ma-texto)" });
     texto(partes.nombre, p.nombre);
-    if (partes.forma !== n2) {
+    if (partes.forma !== n3) {
       partes.celdas.replaceChildren();
-      partes.filas = Array.from({ length: n2 }, () => ({
+      partes.filas = Array.from({ length: n3 }, () => ({
         caja: el("rect", {}, partes.celdas),
         valor: el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-family": "var(--ma-fuente-mono)" }, partes.celdas),
         indice: el("text", { "text-anchor": "middle", "dominant-baseline": "central", "font-family": "var(--ma-fuente-mono)" }, partes.celdas)
       }));
       partes.vacia = el("rect", { "stroke-dasharray": "8 6", fill: "none" }, partes.celdas);
-      partes.forma = n2;
+      partes.forma = n3;
     }
     poner(partes.vacia, {
       x: izq,
@@ -3714,7 +5410,7 @@ var lista = definirPieza({
       rx: 8,
       stroke: aCss(p.borde),
       "stroke-width": 2,
-      visibility: n2 === 0 ? null : "hidden"
+      visibility: n3 === 0 ? null : "hidden"
     });
     const senalada = Math.round(p.senalar);
     partes.filas.forEach((fila2, i) => {
@@ -3742,8 +5438,8 @@ var lista = definirPieza({
       });
       texto(fila2.indice, String(i));
     });
-    const visible = p.senalar >= 0 && n2 > 0;
-    const xf = izq + (Math.min(Math.max(p.senalar, 0), n2 - 1) + 0.5) * p.celda;
+    const visible = p.senalar >= 0 && n3 > 0;
+    const xf = izq + (Math.min(Math.max(p.senalar, 0), n3 - 1) + 0.5) * p.celda;
     const yf = h / 2 + p.tamano * 1.1;
     if (!partes.punta) {
       partes.punta = el("path", {}, partes.flecha);
@@ -3929,7 +5625,7 @@ var pila = definirPieza({
   // Lo que ocupa, por si se le engancha una flecha.
   tamano(p) {
     const { altoFila, encabezado, separacion } = medidas(p);
-    const alto = p.marcos.reduce((n2, m) => n2 + encabezado + Math.max(m.filas.length + (m.retorno !== void 0 ? 1 : 0), 1) * altoFila + 10 + separacion, 0);
+    const alto = p.marcos.reduce((n3, m) => n3 + encabezado + Math.max(m.filas.length + (m.retorno !== void 0 ? 1 : 0), 1) * altoFila + 10 + separacion, 0);
     return { ancho: p.ancho, alto };
   }
 });
@@ -3948,9 +5644,9 @@ function queEs(v) {
   return "la misma lista";
 }
 function crear(nombre, v, otras) {
-  const gemela = v.ref !== void 0 && Object.entries(otras).find(([n2, o]) => n2 !== nombre && o.ref === v.ref);
+  const gemela = v.ref !== void 0 && Object.entries(otras).find(([n3, o]) => n3 !== nombre && o.ref === v.ref);
   if (gemela) return `${nombre} no es una copia: es ${queEs(v)} que ${gemela[0]}.`;
-  const copia = v.ref !== void 0 && Object.entries(otras).find(([n2, o]) => n2 !== nombre && o.ref !== void 0 && o.ref !== v.ref && o.repr === v.repr);
+  const copia = v.ref !== void 0 && Object.entries(otras).find(([n3, o]) => n3 !== nombre && o.ref !== void 0 && o.ref !== v.ref && o.repr === v.repr);
   if (copia) return `${nombre} es una copia: tiene lo mismo que ${copia[0]}, pero es otra ${v.atributos ? "cosa" : "lista"}.`;
   if (v.atributos) return `${nombre} es un objeto ${v.tipo}.`;
   if (v.items) {
@@ -4148,7 +5844,7 @@ function desdeTraza(opciones) {
   const conError = traza.some((p) => p.excepcion);
   const conPila = traza.some((p) => p.pila?.length);
   const compartidas = /* @__PURE__ */ new Set();
-  const pares = /* @__PURE__ */ new Map();
+  const pares2 = /* @__PURE__ */ new Map();
   for (const paso of traza) {
     const porRef = /* @__PURE__ */ new Map();
     const anotar = (nombre, v, global) => {
@@ -4156,15 +5852,15 @@ function desdeTraza(opciones) {
       if (!porRef.has(v.ref)) porRef.set(v.ref, []);
       porRef.get(v.ref).push({ nombre, global, v });
     };
-    for (const [n2, v] of Object.entries(paso.variables ?? {})) anotar(n2, v, true);
-    for (const m of paso.pila ?? []) for (const [n2, v] of Object.entries(m.variables)) anotar(n2, v, false);
+    for (const [n3, v] of Object.entries(paso.variables ?? {})) anotar(n3, v, true);
+    for (const m of paso.pila ?? []) for (const [n3, v] of Object.entries(m.variables)) anotar(n3, v, false);
     for (const [ref, nombres] of porRef) {
       if (nombres.length < 2) continue;
       compartidas.add(ref);
       const globales = nombres.filter((x) => x.global);
       for (let k = 1; k < globales.length; k++) {
         const clave = `${globales[0].nombre}|${globales[k].nombre}`;
-        if (!pares.has(clave)) pares.set(clave, { a: globales[0].nombre, b: globales[k].nombre, que: queEs2(globales[0].v) });
+        if (!pares2.has(clave)) pares2.set(clave, { a: globales[0].nombre, b: globales[k].nombre, que: queEs2(globales[0].v) });
       }
     }
   }
@@ -4274,7 +5970,7 @@ function desdeTraza(opciones) {
       piezas.pila = pila({ x: col.x, y: y - (angosta ? 10 : 20), ancho: Math.min(col.ancho, angosta ? 560 : 600), tamano: angosta ? 22 : media ? 25 : 32 });
     }
     const costado = (id) => ({ pieza: id, lado: "izquierda", dx: -12 });
-    for (const [clave, par] of pares) {
+    for (const [clave, par] of pares2) {
       piezas["alias_" + clave.replace("|", "_")] = flecha({
         desde: costado(lugarVariable[par.a]),
         hasta: costado(lugarVariable[par.b]),
@@ -4425,7 +6121,7 @@ function desdeTraza(opciones) {
           estabaDentro = dentro;
         }
       }
-      for (const [clave, par] of pares) {
+      for (const [clave, par] of pares2) {
         const a = vars[par.a];
         const b = vars[par.b];
         const juntas = a?.ref !== void 0 && a.ref === b?.ref;
@@ -4499,11 +6195,11 @@ var TRAZADOR_PY = '# -*- coding: utf-8 -*-\n# El trazador: corre un programa de 
 function trazarConPyodide(pyodide, codigo2, opciones = {}) {
   const { maxPasos = 400, entradas = [] } = opciones;
   pyodide.runPython(TRAZADOR_PY);
-  const trazar = pyodide.globals.get("_motor_trazar");
+  const trazar2 = pyodide.globals.get("_motor_trazar");
   try {
-    return JSON.parse(trazar(codigo2, maxPasos, entradas));
+    return JSON.parse(trazar2(codigo2, maxPasos, entradas));
   } finally {
-    trazar.destroy?.();
+    trazar2.destroy?.();
   }
 }
 function probarConPyodide(pyodide, codigo2) {
@@ -4533,7 +6229,7 @@ function ejecutarConsulta(sql, t) {
   const seleccion = columnasTexto.trim() === "*" ? [...t.columnas] : columnasTexto.split(",").map((c) => t.columnas[indice(c.trim())]);
   const condicion = dondeTexto ? condicionDesde(dondeTexto, indice) : null;
   const recorrido = t.filas.map((fila2) => ({ fila: fila2, cumple: condicion ? condicion(fila2) : true }));
-  let resultado = recorrido.filter((r3) => r3.cumple).map((r3) => r3.fila);
+  let resultado = recorrido.filter((r4) => r4.cumple).map((r4) => r4.fila);
   const filtradas = resultado;
   const conColumnas = resultado.map((f) => seleccion.map((c) => f[indice(c)]));
   let ordenadas = conColumnas;
@@ -4587,7 +6283,7 @@ function desdeConsulta(opciones) {
   const { tabla: t, titulo = "", descripcion = "", archivo = "consulta.sql", ritmo = 0.9, lectura = 13, preguntas = {} } = opciones;
   const sql = String(opciones.sql).trim().replace(/\s+(FROM|WHERE|ORDER BY|LIMIT)\s+/gi, (_, p) => `
 ${p.toUpperCase()} `).replace(/^select\s+/i, "SELECT ");
-  const r3 = ejecutarConsulta(sql, t);
+  const r4 = ejecutarConsulta(sql, t);
   const lineas = sql.split("\n");
   const lineaDe = (palabra) => lineas.findIndex((l) => l.toUpperCase().startsWith(palabra)) + 1;
   return function(disposicion) {
@@ -4601,11 +6297,11 @@ ${p.toUpperCase()} `).replace(/^select\s+/i, "SELECT ");
     const piezaCodigo = codigo({ x: cod.x, y: 0, ancho: cod.ancho, tamano: cod.tamano, codigo: sql, lenguaje: "sql", titulo: archivo, marca: 0 });
     const altoCodigo = piezaCodigo.tipo.tamano(piezaCodigo.props).alto;
     piezaCodigo.props.y = arriba + altoCodigo / 2;
-    const n2 = t.filas.length;
-    const altoFila = angosta ? Math.min(36, 230 / (n2 + 1)) : Math.min(54, 400 / (n2 + 1));
+    const n3 = t.filas.length;
+    const altoFila = angosta ? Math.min(36, 230 / (n3 + 1)) : Math.min(54, 400 / (n3 + 1));
     const tamTabla = angosta ? 18 : 27;
     const origen = angosta ? { x: 320, y: arriba + altoCodigo + 50, ancho: 610 } : { x: 430, y: arriba + altoCodigo + 60, ancho: 800 };
-    const destino = angosta ? { x: 320, y: origen.y + (n2 + 1) * altoFila + 60, ancho: 610 } : { x: 1210, y: arriba + 40, ancho: 680 };
+    const destino = angosta ? { x: 320, y: origen.y + (n3 + 1) * altoFila + 60, ancho: 610 } : { x: 1210, y: arriba + 40, ancho: 680 };
     const piezas = {};
     if (titulo) piezas.titulo = texto2({ x: W / 2, y: angosta ? 50 : 52, texto: titulo, tamano: angosta ? 30 : 40, peso: 800, anchoMax: W - 40 });
     piezas.codigo = piezaCodigo;
@@ -4638,12 +6334,12 @@ ${p.toUpperCase()} `).replace(/^select\s+/i, "SELECT ");
     });
     const linea = [];
     let tiempo = 0.3;
-    const decir = (subtitulo, extra = 0.4) => {
+    const decir2 = (subtitulo, extra = 0.4) => {
       const dur = Math.max(ritmo * 2, duracionLectura(subtitulo, lectura));
       linea.push({ subtitulo, en: tiempo, dur });
       tiempo += dur + extra;
     };
-    const marcar = (n3, en = tiempo) => linea.push({ pieza: "codigo", a: { linea: n3, marca: 1 }, dur: 0.35, en });
+    const marcar = (n4, en = tiempo) => linea.push({ pieza: "codigo", a: { linea: n4, marca: 1 }, dur: 0.35, en });
     const preguntar = (clave) => {
       const p = preguntas[clave];
       if (!p) return "";
@@ -4654,21 +6350,21 @@ ${p.toUpperCase()} `).replace(/^select\s+/i, "SELECT ");
       return p.opciones && p.correcta !== void 0 ? `Respuesta: ${p.opciones[p.correcta]}. ${p.explicacion ?? ""} ` : "";
     };
     linea.push({ capitulo: "Se escribe en un orden...", en: 0 });
-    decir("SQL se escribe empezando por SELECT, pero la base lo ejecuta en otro orden. Mir\xE1 qu\xE9 parte se ilumina en cada momento.");
+    decir2("SQL se escribe empezando por SELECT, pero la base lo ejecuta en otro orden. Mir\xE1 qu\xE9 parte se ilumina en cada momento.");
     linea.push({ capitulo: `FROM ${t.nombre}`, en: tiempo });
     marcar(lineaDe("FROM"));
     linea.push({ pieza: ["rotuloOrigen", "origen"], a: { opacidad: 1 }, dur: 0.5, en: tiempo });
-    decir(`Primero FROM: la consulta toma la tabla ${t.nombre}, con sus ${n2} filas.`);
-    if (r3.donde) {
+    decir2(`Primero FROM: la consulta toma la tabla ${t.nombre}, con sus ${n3} filas.`);
+    if (r4.donde) {
       const respuesta = preguntar("donde");
-      linea.push({ capitulo: `WHERE ${r3.donde}`, en: tiempo });
+      linea.push({ capitulo: `WHERE ${r4.donde}`, en: tiempo });
       marcar(lineaDe("WHERE"));
       linea.push({ pieza: "origen", a: { columnas: [...t.columnas, "\xBFcumple?"], filas: t.filas.map((f) => [...f.map(celda), ""]) }, dur: 0, en: tiempo });
       linea.push({ pieza: ["rotuloDestino", "destino"], a: { opacidad: 1 }, dur: 0.5, en: tiempo });
-      decir(`${respuesta}Despu\xE9s WHERE ${r3.donde}: revisa fila por fila, y se queda solo con las que cumplen.`, 0);
+      decir2(`${respuesta}Despu\xE9s WHERE ${r4.donde}: revisa fila por fila, y se queda solo con las que cumplen.`, 0);
       const marcas = t.filas.map((f) => [...f.map(celda), ""]);
       const elegidas = [];
-      r3.recorrido.forEach(({ fila: fila2, cumple }, i) => {
+      r4.recorrido.forEach(({ fila: fila2, cumple }, i) => {
         marcas[i] = [...fila2.map(celda), cumple ? "\u2713 s\xED" : "\u2717 no"];
         linea.push({ pieza: "origen", a: { resaltarFila: i, filas: marcas.map((x) => [...x]) }, dur: 0, en: tiempo });
         if (cumple) {
@@ -4679,32 +6375,32 @@ ${p.toUpperCase()} `).replace(/^select\s+/i, "SELECT ");
         tiempo += ritmo;
       });
       linea.push({ pieza: "origen", a: { resaltarFila: -1 }, dur: 0, en: tiempo });
-      decir(`Cumplen ${r3.filtradas.length} de ${n2}.`);
+      decir2(`Cumplen ${r4.filtradas.length} de ${n3}.`);
     } else {
       linea.push({ pieza: ["rotuloDestino", "destino"], a: { opacidad: 1 }, dur: 0.5, en: tiempo });
-      linea.push({ pieza: "destino", a: { filas: t.filas.map((f) => f.map(celda)), filasVisibles: n2 }, dur: 0.8, en: tiempo });
+      linea.push({ pieza: "destino", a: { filas: t.filas.map((f) => f.map(celda)), filasVisibles: n3 }, dur: 0.8, en: tiempo });
       tiempo += 1;
     }
     const respuestaSeleccion = preguntar("seleccion");
-    linea.push({ capitulo: `SELECT ${r3.seleccion.join(", ")}`, en: tiempo });
+    linea.push({ capitulo: `SELECT ${r4.seleccion.join(", ")}`, en: tiempo });
     marcar(lineaDe("SELECT"));
-    linea.push({ pieza: "destino", a: { columnas: r3.seleccion, filas: r3.conColumnas.map((f) => f.map(celda)), filasVisibles: r3.conColumnas.length }, dur: 0, en: tiempo + 0.5 });
-    decir(`${respuestaSeleccion}Reci\xE9n ahora SELECT: de cada fila quedan solo las columnas pedidas, ${r3.seleccion.join(" y ")}.`);
-    if (r3.orden) {
+    linea.push({ pieza: "destino", a: { columnas: r4.seleccion, filas: r4.conColumnas.map((f) => f.map(celda)), filasVisibles: r4.conColumnas.length }, dur: 0, en: tiempo + 0.5 });
+    decir2(`${respuestaSeleccion}Reci\xE9n ahora SELECT: de cada fila quedan solo las columnas pedidas, ${r4.seleccion.join(" y ")}.`);
+    if (r4.orden) {
       const respuestaOrden = preguntar("orden");
-      linea.push({ capitulo: `ORDER BY ${r3.orden.columna}`, en: tiempo });
+      linea.push({ capitulo: `ORDER BY ${r4.orden.columna}`, en: tiempo });
       marcar(lineaDe("ORDER BY"));
-      linea.push({ pieza: "destino", a: { filas: r3.ordenadas.map((f) => f.map(celda)) }, dur: 0, en: tiempo + 0.6 });
-      decir(`${respuestaOrden}ORDER BY ${r3.orden.columna}${r3.orden.descendente ? " DESC" : ""}: ordena el resultado ${r3.orden.descendente ? "de mayor a menor" : "de menor a mayor"}.`);
+      linea.push({ pieza: "destino", a: { filas: r4.ordenadas.map((f) => f.map(celda)) }, dur: 0, en: tiempo + 0.6 });
+      decir2(`${respuestaOrden}ORDER BY ${r4.orden.columna}${r4.orden.descendente ? " DESC" : ""}: ordena el resultado ${r4.orden.descendente ? "de mayor a menor" : "de menor a mayor"}.`);
     }
-    if (r3.limite !== null) {
-      linea.push({ capitulo: `LIMIT ${r3.limite}`, en: tiempo });
+    if (r4.limite !== null) {
+      linea.push({ capitulo: `LIMIT ${r4.limite}`, en: tiempo });
       marcar(lineaDe("LIMIT"));
-      linea.push({ pieza: "destino", a: { filas: r3.resultado.map((f) => f.map(celda)), filasVisibles: r3.resultado.length }, dur: 0, en: tiempo + 0.6 });
-      decir(`Y LIMIT ${r3.limite}: se queda con las primeras ${r3.limite}.`);
+      linea.push({ pieza: "destino", a: { filas: r4.resultado.map((f) => f.map(celda)), filasVisibles: r4.resultado.length }, dur: 0, en: tiempo + 0.6 });
+      decir2(`Y LIMIT ${r4.limite}: se queda con las primeras ${r4.limite}.`);
     }
     linea.push({ pieza: "codigo", a: { marca: 0 }, dur: 0.4, en: tiempo });
-    decir(`Listo: el resultado tiene ${r3.resultado.length} ${r3.resultado.length === 1 ? "fila" : "filas"}.`);
+    decir2(`Listo: el resultado tiene ${r4.resultado.length} ${r4.resultado.length === 1 ? "fila" : "filas"}.`);
     return {
       titulo: titulo || "Una consulta, paso a paso",
       descripcion: descripcion || `La consulta ${sql.replace(/\n/g, " ")} sobre la tabla ${t.nombre}, en el orden en que la ejecuta la base.`,
@@ -4786,7 +6482,7 @@ function desdeTests(opciones) {
     });
     const linea = [];
     let t = 0.3;
-    const decir = (subtitulo, extra = 0.3) => {
+    const decir2 = (subtitulo, extra = 0.3) => {
       const dur = Math.max(ritmo * 1.6, duracionLectura(subtitulo, lectura));
       linea.push({ subtitulo, en: t, dur });
       t += dur + extra;
@@ -4801,13 +6497,13 @@ function desdeTests(opciones) {
       if (c > 0) {
         linea.push({ pieza: "codigo", a: { codigo: programas[c], marca: 0, colorMarca: "acento" }, dur: 0, en: t });
         linea.push({ pieza: ["detalle", "resumen"], a: { opacidad: 0 }, dur: 0.3, en: t });
-        if (corrida.explicacion) decir(corrida.explicacion);
+        if (corrida.explicacion) decir2(corrida.explicacion);
       }
       tests.forEach((test, i) => ponerTest(i, "espera", test.nombre));
       for (let i = tests.length; i < maxTests; i++) linea.push({ pieza: "test" + i, a: { opacidad: 0 }, dur: 0, en: t });
       linea.push({ pieza: ["rotulo", ...tests.map((_, i) => "test" + i)], a: { opacidad: 1 }, dur: 0.4, en: t });
-      if (c === 0) decir("pytest busca las funciones que empiezan con test_, y las corre una por una.");
-      else decir("Se vuelven a correr todos los tests, no solo el que fallaba.");
+      if (c === 0) decir2("pytest busca las funciones que empiezan con test_, y las corre una por una.");
+      else decir2("Se vuelven a correr todos los tests, no solo el que fallaba.");
       tests.forEach((test, i) => {
         ponerTest(i, "corre", test.nombre);
         linea.push({ pieza: "codigo", a: { linea: test.linea, marca: 1, colorMarca: "acento" }, dur: 0.35, en: t });
@@ -4837,12 +6533,12 @@ function desdeTests(opciones) {
             dur: 0,
             en: t + 0.4
           });
-          decir(a.ok ? `${respuesta}${llamada} da ${a.obtenido}, como se esperaba.` : `${respuesta}${llamada} dio ${a.obtenido}, y se esperaba ${a.esperado}: el test falla.`);
+          decir2(a.ok ? `${respuesta}${llamada} da ${a.obtenido}, como se esperaba.` : `${respuesta}${llamada} dio ${a.obtenido}, y se esperaba ${a.esperado}: el test falla.`);
           respuesta = "";
         }
         if (test.estado === "error") {
           linea.push({ pieza: "detalle", a: { texto: `\u{1F4A5} ${test.error}`, borde: "error", color: "error", opacidad: 1 }, dur: 0, en: t });
-          decir(`El test se rompi\xF3 antes de terminar: ${test.error}.`);
+          decir2(`El test se rompi\xF3 antes de terminar: ${test.error}.`);
         }
         ponerTest(i, test.estado, test.nombre);
         t += ritmo * 0.4;
@@ -4852,7 +6548,7 @@ function desdeTests(opciones) {
       const resumen = fallan ? `${fallan} ${fallan === 1 ? "falla" : "fallan"}, ${pasan} ${pasan === 1 ? "pasa" : "pasan"}` : `${pasan} de ${tests.length}: todos pasan`;
       linea.push({ pieza: "codigo", a: { marca: 0 }, dur: 0.3, en: t });
       linea.push({ pieza: "resumen", a: { texto: resumen, color: fallan ? "error" : "exito", opacidad: 1 }, dur: 0.4, en: t });
-      decir(fallan ? `Resultado: ${resumen}. Un test que falla no es una mala noticia: encontr\xF3 un error antes que los usuarios.` : `Resultado: ${resumen}. Ahora el c\xF3digo hace lo que los tests dicen que tiene que hacer.`);
+      decir2(fallan ? `Resultado: ${resumen}. Un test que falla no es una mala noticia: encontr\xF3 un error antes que los usuarios.` : `Resultado: ${resumen}. Ahora el c\xF3digo hace lo que los tests dicen que tiene que hacer.`);
     });
     return {
       titulo: titulo || "Tests, paso a paso",
@@ -4874,15 +6570,15 @@ function crearNarrador(opciones = {}) {
   const preguntas = opciones.preguntas ?? {};
   const linea = [];
   let respuestaPendiente = "";
-  const n2 = {
+  const n3 = {
     linea,
     tiempo: opciones.inicio ?? 0.3,
     ritmo,
     lectura,
     /** Agrega una animación (o varias) que arranca ahora, o `demora` segundos después. */
     animar(item, demora = 0) {
-      for (const i of [item].flat()) linea.push({ en: n2.tiempo + demora, ...i });
-      return n2;
+      for (const i of [item].flat()) linea.push({ en: n3.tiempo + demora, ...i });
+      return n3;
     },
     /**
      * Un subtítulo. Dura lo que se tarda en leerlo (nunca menos de dos
@@ -4893,16 +6589,16 @@ function crearNarrador(opciones = {}) {
       const subtitulo = respuestaPendiente + texto3;
       respuestaPendiente = "";
       const dur = Math.max(ritmo * 2, duracionLectura(subtitulo, lectura));
-      linea.push({ subtitulo, en: n2.tiempo, dur });
-      n2.tiempo += dur + extra;
+      linea.push({ subtitulo, en: n3.tiempo, dur });
+      n3.tiempo += dur + extra;
       return dur;
     },
     /** Deja pasar un rato sin decir nada (para mirar algo que se mueve). */
     esperar(segundos) {
-      n2.tiempo += segundos * ritmo;
+      n3.tiempo += segundos * ritmo;
     },
     capitulo(nombre) {
-      linea.push({ capitulo: nombre, en: n2.tiempo });
+      linea.push({ capitulo: nombre, en: n3.tiempo });
     },
     /**
      * Si hay una pregunta con esa clave, la hace (frena la lección) y
@@ -4913,17 +6609,17 @@ function crearNarrador(opciones = {}) {
       if (!p) return false;
       const enunciado = `${p.pregunta} Paus\xE1 y pensalo.`;
       const dur = Math.max(p.dur ?? 4, duracionLectura(enunciado, lectura) + 1.5);
-      linea.push({ marca: "pregunta", datos: p, en: n2.tiempo, dur }, { subtitulo: enunciado, en: n2.tiempo, dur });
-      n2.tiempo += dur + 0.2;
+      linea.push({ marca: "pregunta", datos: p, en: n3.tiempo, dur }, { subtitulo: enunciado, en: n3.tiempo, dur });
+      n3.tiempo += dur + 0.2;
       respuestaPendiente = p.opciones && p.correcta !== void 0 ? `Respuesta: ${p.opciones[p.correcta]}. ${p.explicacion ? `${p.explicacion} ` : ""}` : "";
       return true;
     }
   };
-  return n2;
+  return n3;
 }
 
 // src/index.js
-var version = "0.10.0";
+var version = "0.11.0";
 definirComponente();
 definirLeccion();
 export {
@@ -4933,16 +6629,21 @@ export {
   MotorLeccion,
   PANTALLA,
   Reloj,
+  RECETAS as SONIDOS,
   TEMAS,
   TOKENS,
   TRAZADOR_PY,
   aCoordenadasDe,
   aCss,
+  anticipar,
+  aparecer,
   azar,
+  borrar,
   caja,
   camara,
   caminoFlecha,
   caracteresPorLinea,
+  cargarEstilo,
   celular,
   cilindro,
   codigo,
@@ -4953,39 +6654,59 @@ export {
   crearPintor,
   curva,
   curvas,
+  decir,
   definirComponente,
   definirLeccion,
   definirPieza,
+  desaparecer,
   desdeConsulta,
   desdeTests,
   desdeTraza,
   detectarPunteros,
+  dibujar,
   duracionLectura,
   ejecutarConsulta,
   el,
+  elastico,
   espejo,
+  estilosDisponibles,
   explicarPaso,
+  figuras,
   fila,
   flecha,
+  forma,
   formatearNumero,
   grafo,
   interpolar,
+  leerCamino,
   limitar,
   lineaDeCodigo,
   lista,
   mezclarColores,
+  mezclarFormas,
+  mezclarPista,
+  mover,
+  palabrasDe,
   partirLineas,
   pila,
   poner,
   posicionAbsoluta,
   probarConPyodide,
+  rebotar,
   registrar,
+  registrarEstilo,
   renglones,
+  resolverEstilo,
+  resorte,
   revelar,
+  sintetizar,
+  sonar,
   tabla,
   texto2 as texto,
   tokenizar,
+  transformar,
   trazarConPyodide,
+  usarEstilo,
   variable,
   version
 };

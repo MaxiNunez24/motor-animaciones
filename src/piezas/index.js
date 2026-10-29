@@ -10,5 +10,6 @@ export { fila } from './fila.js';
 export { contador, formatearNumero } from './contador.js';
 export { cilindro } from './cilindro.js';
 export { grafo } from './grafo.js';
+export { forma } from './forma.js';
 export { el, poner, renglones } from './svg.js';
 export { partirLineas, revelar, caminoFlecha, posicionAbsoluta, aCoordenadasDe } from './geometria.js';
