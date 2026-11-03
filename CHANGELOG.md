@@ -1,13 +1,22 @@
 # Cambios
 
-Lo que cambió en cada versión. Cada versión publicada tiene su tag en Git (`v0.12.0`), y es lo que
+Lo que cambió en cada versión. Cada versión publicada tiene su tag en Git (`v0.12.1`), y es lo que
 conviene fijar desde otro proyecto:
 
 ```bash
-pnpm add github:MaxiNunez24/motor-animaciones#v0.12.0
+pnpm add github:MaxiNunez24/motor-animaciones#v0.12.1
 ```
 
-o `https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.12.0/dist/motor.min.js`.
+o `https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.12.1/dist/motor.min.js`.
+
+## v0.12.1 · 2026-11-03
+
+- Subtítulos que esquivan, también en columnas: si no hay una franja libre a lo ancho, el subtítulo
+  se angosta (con su alto medido de verdad) y se corre al costado que esté libre, sin montarse sobre
+  lo de al lado.
+- La lupa de quien mira arranca sobre lo que conviene mirar: la línea marcada de un código, o lo
+  último que cambió. Ya no en el centro, que en una traza es el hueco entre el código y las variables.
+  Las piezas pueden decir dónde está lo suyo con `foco(props)`.
 
 ## v0.12.0 · 2026-10-29
 

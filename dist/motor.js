@@ -2728,14 +2728,22 @@ function cruce(a, b) {
   return ancho > 0 && alto > 0 ? ancho * alto : 0;
 }
 function queTapa(compilada, zona, desde, hasta, paso = 0.25) {
+  return tapaEn(muestrear(compilada, desde, hasta, paso), zona);
+}
+function muestrear(compilada, desde, hasta, paso = 0.25) {
+  const muestras2 = [];
+  for (let t = desde; t < hasta + 1e-9; t += paso) muestras2.push(cajasEn(compilada, Math.min(t, hasta - 1e-6)));
+  return muestras2;
+}
+function tapaEn(muestras2, zona, roce = 0.12) {
   const areaZona = (zona.x1 - zona.x0) * (zona.y1 - zona.y0) || 1;
   let peor = 0;
   const piezas = /* @__PURE__ */ new Set();
-  for (let t = desde; t < hasta + 1e-9; t += paso) {
+  for (const cajas2 of muestras2) {
     let suma = 0;
-    for (const c of cajasEn(compilada, Math.min(t, hasta - 1e-6))) {
+    for (const c of cajas2) {
       const comun = cruce(zona, c);
-      if (comun > 0.12 * Math.min(areaZona, (c.x1 - c.x0) * (c.y1 - c.y0))) {
+      if (comun > roce * Math.min(areaZona, (c.x1 - c.x0) * (c.y1 - c.y0))) {
         suma += comun;
         piezas.add(c.id);
       }
@@ -2751,20 +2759,81 @@ function zonaDeSubtitulo(compilada, donde, renglones2 = 2) {
   const y0 = donde === "abajo" ? alto - m - h : m;
   return { x0: ancho * 0.12, x1: ancho * 0.88, y0, y1: y0 + h };
 }
-function lugarLibre(compilada, zona, desde, hasta) {
-  const alto = zona.y1 - zona.y0;
+function lugarLibre(compilada, zona, desde, hasta, opciones = {}) {
+  const anchoBase = zona.x1 - zona.x0;
+  const altoBase = zona.y1 - zona.y0;
+  const relleno = opciones.relleno ?? 0;
+  const renglon = opciones.renglon ?? altoBase;
+  const anchos = opciones.anchos ?? [1, 0.75, 0.6, 0.45];
+  const margen = compilada.ancho * 0.02;
+  const centro2 = (zona.x0 + zona.x1) / 2;
   const paso = compilada.alto * 0.03;
-  const max = Math.max(0, zona.y0 - compilada.alto * 0.02);
+  const muestras2 = muestrear(compilada, desde, hasta);
+  const aire = opciones.aire ?? compilada.ancho * 0.01;
+  const conAire = (z) => ({ x0: z.x0 - aire, x1: z.x1 + aire, y0: z.y0 - aire, y1: z.y1 + aire });
+  const altoCon = (f) => {
+    if (f === 1) return altoBase;
+    if (opciones.altoPara) return opciones.altoPara(anchoBase * f);
+    const renglones2 = Math.max(1, Math.round((altoBase - relleno) / renglon));
+    return relleno + Math.ceil(renglones2 / f - 1e-9) * renglon;
+  };
+  let elegido = null;
+  for (const f of anchos) {
+    const ancho = anchoBase * f;
+    const alto = altoCon(f);
+    if (ancho < compilada.ancho * 0.2) continue;
+    const xs = f === 1 ? [centro2] : [centro2, compilada.ancho - margen - ancho / 2, margen + ancho / 2];
+    for (const [k, x] of xs.entries()) {
+      const max2 = Math.max(0, zona.y1 - alto - compilada.alto * 0.02);
+      for (let subir = 0; subir <= max2 + 1e-9; subir += paso) {
+        const z = { x0: x - ancho / 2, x1: x + ancho / 2, y0: zona.y1 - subir - alto, y1: zona.y1 - subir };
+        if (f === 1 ? tapaEn(muestras2, z).peor >= 0.02 : tapaEn(muestras2, conAire(z), 0).peor > 0) continue;
+        const costo = subir / compilada.alto + (1 - f) * 0.6 + (k > 0 ? 0.05 : 0);
+        if (!elegido || costo < elegido.costo) elegido = { costo, subir, correr: x - centro2, ancho, alto };
+        break;
+      }
+    }
+  }
+  if (elegido) return { subir: elegido.subir, correr: elegido.correr, ancho: elegido.ancho, alto: elegido.alto, libre: true, tapa: [] };
   let mejor = null;
+  const max = Math.max(0, zona.y0 - compilada.alto * 0.02);
   for (let subir = 0; subir <= max + 1e-9; subir += paso) {
-    const z = { ...zona, y0: zona.y0 - subir, y1: zona.y0 - subir + alto };
-    const r4 = queTapa(compilada, z, desde, hasta);
-    if (r4.peor < 0.02) return { subir, libre: true, tapa: [] };
+    const r4 = tapaEn(muestras2, { ...zona, y0: zona.y0 - subir, y1: zona.y1 - subir });
     if (!mejor || r4.peor < mejor.peor - 1e-9) mejor = { subir, peor: r4.peor, tapa: r4.piezas };
   }
-  const abajo = queTapa(compilada, zona, desde, hasta);
-  if (mejor && mejor.peor < abajo.peor * 0.5) return { subir: mejor.subir, libre: false, tapa: mejor.tapa };
-  return { subir: 0, libre: false, tapa: abajo.piezas };
+  const abajo = tapaEn(muestras2, zona);
+  const sube = mejor && mejor.peor < abajo.peor * 0.5;
+  return { subir: sube ? mejor.subir : 0, correr: 0, ancho: anchoBase, alto: altoBase, libre: false, tapa: sube ? mejor.tapa : abajo.piezas };
+}
+function focoEn(compilada, t) {
+  const estado = compilada.estado(t);
+  const visibles = new Map(cajasEn(compilada, t).map((c2) => [c2.id, c2]));
+  const igual = (a, b) => a === b || typeof a === "object" && JSON.stringify(a) === JSON.stringify(b);
+  const cambio2 = (antes) => [...visibles.keys()].filter((id2) => {
+    const p2 = estado.piezas[id2];
+    const q = antes.piezas[id2];
+    return Object.keys(p2).some((k) => typeof p2[k] !== "function" && !igual(p2[k], q[k]));
+  });
+  let candidatas = [];
+  for (let dt = 0.25; dt <= 15 && t - dt >= -0.25 && !candidatas.length; dt += 0.25) {
+    candidatas = cambio2(compilada.estado(Math.max(0, t - dt)));
+  }
+  if (!candidatas.length) candidatas = [...visibles.keys()];
+  if (!candidatas.length) return null;
+  const area = (id2) => {
+    const c2 = visibles.get(id2);
+    return (c2.x1 - c2.x0) * (c2.y1 - c2.y0);
+  };
+  const id = candidatas.find((x) => compilada.tipos[x].foco?.(estado.piezas[x])) ?? candidatas.sort((a, b) => area(a) - area(b))[0];
+  const p = estado.piezas[id];
+  const propio = compilada.tipos[id].foco?.(p);
+  if (propio) {
+    const falso = { piezas: { ...estado.piezas, __foco: { x: propio.x, y: propio.y, escala: 1, dentro: p.dentro } } };
+    const r4 = posicionAbsoluta("__foco", falso, { ...compilada.tipos, __foco: {} });
+    return { x: r4.x, y: r4.y, id };
+  }
+  const c = visibles.get(id);
+  return { x: (c.x0 + c.x1) / 2, y: (c.y0 + c.y1) / 2, id };
 }
 function revisarSuperposiciones(compilada, { paso = 0.25 } = {}) {
   const subtitulos = [];
@@ -3333,6 +3402,8 @@ var MotorEscena = class extends Base {
         this._esquiva.clave = "nada";
         this._raiz.style.removeProperty("--ma-sub-esquiva");
         this._raiz.classList.remove("sub-tapa");
+        this._subtitulo.style.removeProperty("max-width");
+        this._subtitulo.style.removeProperty("translate");
       }
       return;
     }
@@ -3341,6 +3412,8 @@ var MotorEscena = class extends Base {
     this._esquiva.clave = clave;
     const m = this._svg.getScreenCTM();
     const sub = this._subtitulo;
+    sub.style.removeProperty("max-width");
+    sub.style.removeProperty("translate");
     const padre = (
       /** @type {HTMLElement | null} */
       sub.offsetParent
@@ -3355,9 +3428,22 @@ var MotorEscena = class extends Base {
       y0: (arr - m.f) / m.d,
       y1: (arr + sub.offsetHeight - m.f) / m.d
     };
-    const lugar = lugarLibre(c, zona, s.desde, s.hasta);
+    const css = getComputedStyle(sub);
+    const renglon = (parseFloat(css.lineHeight) || parseFloat(css.fontSize) * 1.3) / m.d;
+    const relleno = (parseFloat(css.paddingTop) + parseFloat(css.paddingBottom)) / m.d;
+    const altoPara = (ancho) => {
+      sub.style.maxWidth = `${Math.floor(ancho * m.a)}px`;
+      const alto = sub.offsetHeight / m.d;
+      sub.style.removeProperty("max-width");
+      return alto;
+    };
+    const lugar = lugarLibre(c, zona, s.desde, s.hasta, { renglon, relleno, altoPara });
     sub.style.transition = "none";
     this._raiz.style.setProperty("--ma-sub-esquiva", `${Math.round(lugar.subir * m.d)}px`);
+    if (lugar.ancho < zona.x1 - zona.x0 - 0.5) {
+      sub.style.maxWidth = `${Math.floor(lugar.ancho * m.a)}px`;
+      sub.style.translate = `${Math.round(lugar.correr * m.a)}px 0`;
+    }
     void sub.offsetWidth;
     sub.style.transition = "";
     this._raiz.classList.toggle("sub-tapa", !lugar.libre && lugar.tapa.length > 0);
@@ -3481,7 +3567,9 @@ var MotorEscena = class extends Base {
         ancho: pedida.ancho ?? pedida.tamano ?? lado,
         alto: pedida.alto ?? pedida.tamano ?? lado,
         forma: pedida.forma === "rect" ? "rect" : "circulo",
-        zoom: pedida.zoom ?? 2
+        zoom: pedida.zoom ?? 2,
+        // Si ya tiene un lugar elegido (por la escena o por quien mira).
+        ubicada: pedida.x != null || pedida.y != null
       };
     }
     this._raiz.classList.toggle("sin-lupa", this.hasAttribute("sin-lupa") || pedida.boton === false);
@@ -3489,6 +3577,10 @@ var MotorEscena = class extends Base {
   }
   _usarLupa(activa) {
     if (!this._lupa) return;
+    if (activa && !this._lupa.ubicada && this._compilada) {
+      const foco = focoEn(this._compilada, this._reloj.t);
+      if (foco) return this._cambiarLupa({ activa, x: foco.x, y: foco.y });
+    }
     this._cambiarLupa({ activa });
   }
   _cambiarLupa(cambios) {
@@ -3608,7 +3700,7 @@ var MotorEscena = class extends Base {
       const dy = (e.clientY - a.y) / m2.d;
       [a.x, a.y] = [e.clientX, e.clientY];
       const l = this._lupa;
-      if (a.id === "__lupa") this._cambiarLupa({ x: l.x + dx, y: l.y + dy });
+      if (a.id === "__lupa") this._cambiarLupa({ x: l.x + dx, y: l.y + dy, ubicada: true });
       else if (l.forma === "circulo") {
         const d = Math.max(dx, dy) * 2;
         this._cambiarLupa({ ancho: l.ancho + d, alto: l.alto + d });
@@ -5484,6 +5576,12 @@ var codigo = definirPieza({
   tamano(p) {
     const m = medir(p);
     return { ancho: p.ancho, alto: m.alto };
+  },
+  // Lo que hay que mirar: la línea marcada (para la lupa de quien mira).
+  foco(p) {
+    if (!(p.marca > 0) || !(p.linea > 0)) return null;
+    const l = lineaDeCodigo(p, p.linea);
+    return { x: l.x, y: l.y };
   }
 });
 function medir(p) {
@@ -6916,7 +7014,7 @@ function crearNarrador(opciones = {}) {
 }
 
 // src/index.js
-var version = "0.12.0";
+var version = "0.12.1";
 definirComponente();
 definirLeccion();
 export {
@@ -6973,6 +7071,7 @@ export {
   figuras,
   fila,
   flecha,
+  focoEn,
   forma,
   formatearNumero,
   grafo,

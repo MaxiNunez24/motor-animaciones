@@ -6,7 +6,7 @@ import { ESTILOS } from './estilos.js';
 import { palabrasDe } from '../nucleo/palabras.js';
 import { resolverEstilo, cargarEstilo, esArchivo, cssDelEstilo, subtitulosDelEstilo, cargarFuentes, estiloPorDefecto } from '../estilos/index.js';
 import { crearReproductor } from '../sonido/reproductor.js';
-import { lugarLibre, revisarSuperposiciones, describirSuperposiciones } from '../piezas/superposiciones.js';
+import { lugarLibre, focoEn, revisarSuperposiciones, describirSuperposiciones } from '../piezas/superposiciones.js';
 
 // <motor-escena>: la forma de poner una escena en cualquier página.
 //
@@ -139,7 +139,7 @@ export class MotorEscena extends Base {
          * La lupa de quien mira, en coordenadas de la escena. Es de la vista,
          * como el zoom: sobrevive a rearmar y no sale en un video. Sus valores
          * de partida los puede traer la escena (lupa: {...}) o el estilo.
-         * @type {{ activa: boolean, x: number, y: number, ancho: number, alto: number, forma: 'circulo' | 'rect', zoom: number } | null}
+         * @type {{ activa: boolean, x: number, y: number, ancho: number, alto: number, forma: 'circulo' | 'rect', zoom: number, ubicada?: boolean } | null}
          */
         this._lupa = null;
         this._disposicion = null;
@@ -636,6 +636,8 @@ export class MotorEscena extends Base {
                 this._esquiva.clave = 'nada';
                 this._raiz.style.removeProperty('--ma-sub-esquiva');
                 this._raiz.classList.remove('sub-tapa');
+                this._subtitulo.style.removeProperty('max-width');
+                this._subtitulo.style.removeProperty('translate');
             }
             return;
         }
@@ -644,6 +646,9 @@ export class MotorEscena extends Base {
         this._esquiva.clave = clave;
         const m = this._svg.getScreenCTM();
         const sub = this._subtitulo;
+        // Se mide en su lugar y con su ancho de siempre: lo del subtítulo anterior no cuenta.
+        sub.style.removeProperty('max-width');
+        sub.style.removeProperty('translate');
         const padre = /** @type {HTMLElement | null} */ (sub.offsetParent);
         if (!m || !padre || !sub.offsetHeight) return;
         // Su lugar de siempre, sin las corridas de CSS (offset* no las cuenta).
@@ -654,12 +659,31 @@ export class MotorEscena extends Base {
             x0: (izq - m.e) / m.a, x1: (izq + sub.offsetWidth - m.e) / m.a,
             y0: (arr - m.f) / m.d, y1: (arr + sub.offsetHeight - m.f) / m.d,
         };
-        const lugar = lugarLibre(c, zona, s.desde, s.hasta);
+        // Para saber cuánto crece de alto si hay que angostarlo: lo que mide
+        // un renglón y lo que suma el relleno de arriba y de abajo.
+        const css = getComputedStyle(sub);
+        const renglon = (parseFloat(css.lineHeight) || parseFloat(css.fontSize) * 1.3) / m.d;
+        const relleno = (parseFloat(css.paddingTop) + parseFloat(css.paddingBottom)) / m.d;
+        // Lo que mide de alto con otro ancho, medido de verdad (el texto se
+        // parte distinto según la letra; una estimación se queda corta).
+        const altoPara = (ancho) => {
+            sub.style.maxWidth = `${Math.floor(ancho * m.a)}px`;
+            const alto = sub.offsetHeight / m.d;
+            sub.style.removeProperty('max-width');
+            return alto;
+        };
+        const lugar = lugarLibre(c, zona, s.desde, s.hasta, { renglon, relleno, altoPara });
         // De un salto, sin la transición de CSS: deslizándose pasaría por
         // encima de lo que justo quiere no tapar (y un video no puede depender
         // de una animación que corre en tiempo real).
         sub.style.transition = 'none';
         this._raiz.style.setProperty('--ma-sub-esquiva', `${Math.round(lugar.subir * m.d)}px`);
+        // Si el lugar libre es una columna: más angosto y corrido a un costado.
+        // (translate va aparte de transform: se suma a las corridas de CSS.)
+        if (lugar.ancho < zona.x1 - zona.x0 - 0.5) {
+            sub.style.maxWidth = `${Math.floor(lugar.ancho * m.a)}px`;
+            sub.style.translate = `${Math.round(lugar.correr * m.a)}px 0`;
+        }
         void sub.offsetWidth;
         sub.style.transition = '';
         this._raiz.classList.toggle('sub-tapa', !lugar.libre && lugar.tapa.length > 0);
@@ -808,6 +832,8 @@ export class MotorEscena extends Base {
                 alto: pedida.alto ?? pedida.tamano ?? lado,
                 forma: pedida.forma === 'rect' ? 'rect' : 'circulo',
                 zoom: pedida.zoom ?? 2,
+                // Si ya tiene un lugar elegido (por la escena o por quien mira).
+                ubicada: pedida.x != null || pedida.y != null,
             };
         }
         this._raiz.classList.toggle('sin-lupa', this.hasAttribute('sin-lupa') || pedida.boton === false);
@@ -816,6 +842,13 @@ export class MotorEscena extends Base {
 
     _usarLupa(activa) {
         if (!this._lupa) return;
+        // Al prenderla, arranca sobre lo que conviene mirar (la línea marcada,
+        // lo último que cambió) y no en el medio, que suele ser un hueco. Salvo
+        // que quien mira ya la haya llevado a algún lado, o que la escena diga dónde.
+        if (activa && !this._lupa.ubicada && this._compilada) {
+            const foco = focoEn(this._compilada, this._reloj.t);
+            if (foco) return this._cambiarLupa({ activa, x: foco.x, y: foco.y });
+        }
         this._cambiarLupa({ activa });
     }
 
@@ -945,7 +978,7 @@ export class MotorEscena extends Base {
             const dy = (e.clientY - a.y) / m.d;
             [a.x, a.y] = [e.clientX, e.clientY];
             const l = this._lupa;
-            if (a.id === '__lupa') this._cambiarLupa({ x: l.x + dx, y: l.y + dy });
+            if (a.id === '__lupa') this._cambiarLupa({ x: l.x + dx, y: l.y + dy, ubicada: true });
             else if (l.forma === 'circulo') {
                 const d = Math.max(dx, dy) * 2;
                 this._cambiarLupa({ ancho: l.ancho + d, alto: l.alto + d });

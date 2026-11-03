@@ -46,6 +46,7 @@ export const COMUNES = {
  *     actualizar: (partes: any, props: any, ctx: any) => void,
  *     tamano?: (props: any) => { ancho: number, alto: number },
  *     centro?: (props: any) => { x: number, y: number },
+ *     foco?: (props: any) => { x: number, y: number } | null,
  *     contenedor?: (partes: any) => SVGGElement,
  *     origenContenedor?: (props: any) => { x: number, y: number, escala: number },
  *     dependeDeOtras?: boolean,

@@ -37,12 +37,12 @@ Sin dependencias. 42 KB con gzip con todo (22 KB sin la capa pedagógica, en `mo
 
 `motor.min.js` es un script clásico a propósito: anda abriendo el `.html` con doble clic
 (`file://`), donde los módulos no cargan. Con internet también se puede usar desde jsDelivr:
-`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.12.0/dist/motor.min.js`.
+`https://cdn.jsdelivr.net/gh/MaxiNunez24/motor-animaciones@v0.12.1/dist/motor.min.js`.
 
 ## Desde otro proyecto (Astro, Vite…)
 
 ```bash
-pnpm add github:MaxiNunez24/motor-animaciones#v0.12.0
+pnpm add github:MaxiNunez24/motor-animaciones#v0.12.1
 ```
 
 ```js
@@ -120,8 +120,10 @@ enseguida, aunque esté en pausa. En una pantalla sin controles (`pantalla sin-c
 el mouse se esconde y no vuelve con un roce: vuelve con una sacudida, cuando alguien lo busca.
 
 **Subtítulos que esquivan**: cuando el subtítulo va encima del dibujo (pantalla completa, o los de
-reel), antes de que aparezca se fija si va a tapar algo mientras dure. Si tapa, sube hasta la
-primera franja libre; si no hay ninguna, se queda abajo con un fondo más firme. Se decide una vez
+reel), antes de que aparezca se fija si va a tapar algo mientras dure. Si tapa, busca lugar: una
+franja libre más arriba, o una columna libre a un costado (más angosto, con más renglones); de los
+lugares libres elige el que menos se aleja de lo de siempre. Si no hay ninguno, se queda abajo con un
+fondo más firme. Se decide una vez
 por subtítulo, de un salto (uno que se mueve mientras se lee, marea). Se apaga con
 `subtitulos: { esquivar: false }` en el estilo.
 
@@ -139,7 +141,8 @@ cambia la escena.
 
 **Lupa**: el botón de la lupa, junto al zoom, prende una lupa de quien mira. Se lleva arrastrándola,
 se agranda desde el asa, y dos botones cambian su forma (redonda o rectangular) y su aumento (1,5×
-a 4×). Nunca sale del dibujo. La escena (o el estilo) puede traerla preparada:
+a 4×). Nunca sale del dibujo. Al prenderla arranca sobre lo que conviene mirar: la línea marcada
+de un código, o lo último que cambió. La escena (o el estilo) puede traerla preparada:
 `lupa: { activa: true, forma: 'rect', ancho: 400, alto: 220, zoom: 3, x, y }`, o sin botón
 (`boton: false`). En un celular aparece en pantalla completa, para no tapar el dibujo.
 
@@ -446,7 +449,7 @@ las preguntas no frenan, se leen y quedan como cartel, y el paso siguiente dice 
 ## Versiones
 
 Lo que cambió en cada una está en [CHANGELOG.md](CHANGELOG.md). Cada versión publicada lleva su tag
-(`v0.12.0`): es lo que conviene fijar desde otro proyecto.
+(`v0.12.1`): es lo que conviene fijar desde otro proyecto.
 
 ## Trabajar en el motor
 

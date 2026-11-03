@@ -103,6 +103,13 @@ export const codigo = definirPieza({
         const m = medir(p);
         return { ancho: p.ancho, alto: m.alto };
     },
+
+    // Lo que hay que mirar: la línea marcada (para la lupa de quien mira).
+    foco(p) {
+        if (!(p.marca > 0) || !(p.linea > 0)) return null;
+        const l = lineaDeCodigo(p, p.linea);
+        return { x: l.x, y: l.y };
+    },
 });
 
 function medir(p) {

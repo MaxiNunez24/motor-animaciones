@@ -101,16 +101,31 @@ export function cruce(a, b) {
  * @param {number} [paso]
  */
 export function queTapa(compilada, zona, desde, hasta, paso = 0.25) {
+    return tapaEn(muestrear(compilada, desde, hasta, paso), zona);
+}
+
+// Lo que se ve en cada instante de un tramo: se calcula una vez y se prueba
+// contra muchos lugares posibles (buscar lugar es probar cientos).
+function muestrear(compilada, desde, hasta, paso = 0.25) {
+    const muestras = [];
+    for (let t = desde; t < hasta + 1e-9; t += paso) muestras.push(cajasEn(compilada, Math.min(t, hasta - 1e-6)));
+    return muestras;
+}
+
+// `roce`: qué parte de la pieza (o de la zona) tiene que quedar tapada para
+// que cuente. Para una franja a lo ancho, un roce de unos pixeles no importa;
+// para una columna, nada: si no, queda montada sobre el borde de lo de al lado.
+function tapaEn(muestras, zona, roce = 0.12) {
     const areaZona = (zona.x1 - zona.x0) * (zona.y1 - zona.y0) || 1;
     let peor = 0;
     const piezas = new Set();
-    for (let t = desde; t < hasta + 1e-9; t += paso) {
+    for (const cajas of muestras) {
         let suma = 0;
-        for (const c of cajasEn(compilada, Math.min(t, hasta - 1e-6))) {
+        for (const c of cajas) {
             const comun = cruce(zona, c);
             // Un roce de unos pixeles no tapa nada: cuenta si se pierde un
             // pedazo de verdad de la pieza (o del subtítulo).
-            if (comun > 0.12 * Math.min(areaZona, (c.x1 - c.x0) * (c.y1 - c.y0))) {
+            if (comun > roce * Math.min(areaZona, (c.x1 - c.x0) * (c.y1 - c.y0))) {
                 suma += comun;
                 piezas.add(c.id);
             }
@@ -138,32 +153,119 @@ export function zonaDeSubtitulo(compilada, donde, renglones = 2) {
 }
 
 /**
- * Dónde poner un subtítulo para que no tape nada mientras dura: empieza en
- * su lugar de siempre (abajo) y va subiendo de a poco hasta encontrar una
- * franja libre. Si no hay ninguna, la que menos tapa.
+ * Dónde poner un subtítulo para que no tape nada mientras dura. Prueba
+ * franjas a todo lo ancho, de abajo para arriba; y también más angostas
+ * (con más renglones), contra el costado izquierdo, al medio o contra el
+ * derecho: al final de un programa paso a paso no hay ninguna franja libre a
+ * lo ancho, pero sí una columna. De los lugares libres elige el que menos se
+ * aleja de lo de siempre (abajo, ancho, al medio). Si no hay ninguno, el que
+ * menos tapa (abajo, salvo que otro tape mucho menos).
  * @param {any} compilada
  * @param {{ x0: number, y0: number, x1: number, y1: number }} zona su lugar de siempre, en coordenadas de la escena
  * @param {number} desde
  * @param {number} hasta
- * @returns {{ subir: number, libre: boolean, tapa: string[] }} subir: cuánto más arriba, en unidades de la escena
+ * @param {{ renglon?: number, relleno?: number, anchos?: number[], altoPara?: (ancho: number) => number, aire?: number }} [opciones]
+ *     renglon y relleno (en unidades de la escena): para estimar cuánto crece
+ *     de alto al angostarlo; `altoPara`, si quien llama lo puede medir de
+ *     verdad (el componente lo mide en la página). `anchos`: qué fracciones
+ *     del ancho probar. `aire`: cuánto lugar dejar alrededor (por defecto, un
+ *     1 % de la escena), para que no quede pegado a lo que esquiva.
+ * @returns {{ subir: number, correr: number, ancho: number, alto: number, libre: boolean, tapa: string[] }}
+ *     subir: cuánto más arriba; correr: cuánto a la derecha (negativo: a la
+ *     izquierda); ancho y alto: los que va a tener. Todo en unidades de la escena.
  */
-export function lugarLibre(compilada, zona, desde, hasta) {
-    const alto = zona.y1 - zona.y0;
+export function lugarLibre(compilada, zona, desde, hasta, opciones = {}) {
+    const anchoBase = zona.x1 - zona.x0;
+    const altoBase = zona.y1 - zona.y0;
+    const relleno = opciones.relleno ?? 0;
+    const renglon = opciones.renglon ?? altoBase;
+    const anchos = opciones.anchos ?? [1, 0.75, 0.6, 0.45];
+    const margen = compilada.ancho * 0.02;
+    const centro = (zona.x0 + zona.x1) / 2;
     const paso = compilada.alto * 0.03;
-    // Más arriba que el borde de arriba no tiene sentido.
-    const max = Math.max(0, zona.y0 - compilada.alto * 0.02);
+    const muestras = muestrear(compilada, desde, hasta);
+    const aire = opciones.aire ?? compilada.ancho * 0.01;
+    const conAire = (z) => ({ x0: z.x0 - aire, x1: z.x1 + aire, y0: z.y0 - aire, y1: z.y1 + aire });
+    // Al angostarlo, lo escrito ocupa más renglones (lo mismo de texto en menos ancho).
+    const altoCon = (f) => {
+        if (f === 1) return altoBase;
+        if (opciones.altoPara) return opciones.altoPara(anchoBase * f);
+        const renglones = Math.max(1, Math.round((altoBase - relleno) / renglon));
+        return relleno + Math.ceil(renglones / f - 1e-9) * renglon;
+    };
+    let elegido = null;
+    for (const f of anchos) {
+        const ancho = anchoBase * f;
+        const alto = altoCon(f);
+        if (ancho < compilada.ancho * 0.2) continue;
+        // A lo ancho, al medio; angosto, también contra cada costado.
+        const xs = f === 1 ? [centro] : [centro, compilada.ancho - margen - ancho / 2, margen + ancho / 2];
+        for (const [k, x] of xs.entries()) {
+            const max = Math.max(0, zona.y1 - alto - compilada.alto * 0.02);
+            for (let subir = 0; subir <= max + 1e-9; subir += paso) {
+                const z = { x0: x - ancho / 2, x1: x + ancho / 2, y0: zona.y1 - subir - alto, y1: zona.y1 - subir };
+                if (f === 1 ? tapaEn(muestras, z).peor >= 0.02 : tapaEn(muestras, conAire(z), 0).peor > 0) continue;
+                // Lo que cuesta alejarse de lo de siempre: subir, angostarlo y
+                // correrlo a un costado. Subir poco y angostarlo un poco gana
+                // a irse arriba de todo.
+                const costo = subir / compilada.alto + (1 - f) * 0.6 + (k > 0 ? 0.05 : 0);
+                if (!elegido || costo < elegido.costo) elegido = { costo, subir, correr: x - centro, ancho, alto };
+                break;
+            }
+        }
+    }
+    if (elegido) return { subir: elegido.subir, correr: elegido.correr, ancho: elegido.ancho, alto: elegido.alto, libre: true, tapa: [] };
+    // Sin lugar libre: abajo, que es donde se lo busca, salvo que otro lugar
+    // a lo ancho tape mucho menos.
     let mejor = null;
+    const max = Math.max(0, zona.y0 - compilada.alto * 0.02);
     for (let subir = 0; subir <= max + 1e-9; subir += paso) {
-        const z = { ...zona, y0: zona.y0 - subir, y1: zona.y0 - subir + alto };
-        const r = queTapa(compilada, z, desde, hasta);
-        if (r.peor < 0.02) return { subir, libre: true, tapa: [] };
+        const r = tapaEn(muestras, { ...zona, y0: zona.y0 - subir, y1: zona.y1 - subir });
         if (!mejor || r.peor < mejor.peor - 1e-9) mejor = { subir, peor: r.peor, tapa: r.piezas };
     }
-    // Sin lugar libre: abajo, que es donde se lo busca, salvo que otro lugar
-    // tape mucho menos.
-    const abajo = queTapa(compilada, zona, desde, hasta);
-    if (mejor && mejor.peor < abajo.peor * 0.5) return { subir: mejor.subir, libre: false, tapa: mejor.tapa };
-    return { subir: 0, libre: false, tapa: abajo.piezas };
+    const abajo = tapaEn(muestras, zona);
+    const sube = mejor && mejor.peor < abajo.peor * 0.5;
+    return { subir: sube ? mejor.subir : 0, correr: 0, ancho: anchoBase, alto: altoBase, libre: false, tapa: sube ? mejor.tapa : abajo.piezas };
+}
+
+/**
+ * Dónde está lo que conviene mirar en el instante t: lo último que cambió (y
+ * que se ve). Si esa pieza dice dónde está lo suyo (un código, su línea
+ * marcada), ahí; si no, su centro. Lo usa la lupa de quien mira para arrancar
+ * sobre algo y no en el medio, que en muchas escenas es un hueco.
+ * @param {any} compilada
+ * @param {number} t
+ * @returns {{ x: number, y: number, id: string } | null}
+ */
+export function focoEn(compilada, t) {
+    const estado = compilada.estado(t);
+    const visibles = new Map(cajasEn(compilada, t).map((c) => [c.id, c]));
+    const igual = (a, b) => a === b || (typeof a === 'object' && JSON.stringify(a) === JSON.stringify(b));
+    const cambio = (antes) => [...visibles.keys()].filter((id) => {
+        const p = estado.piezas[id];
+        const q = antes.piezas[id];
+        return Object.keys(p).some((k) => typeof p[k] !== 'function' && !igual(p[k], q[k]));
+    });
+    let candidatas = [];
+    // Hacia atrás, de a cuarto de segundo, hasta encontrar algo que cambió.
+    for (let dt = 0.25; dt <= 15 && t - dt >= -0.25 && !candidatas.length; dt += 0.25) {
+        candidatas = cambio(compilada.estado(Math.max(0, t - dt)));
+    }
+    if (!candidatas.length) candidatas = [...visibles.keys()];
+    if (!candidatas.length) return null;
+    // De las que cambiaron juntas: la que sabe dónde está lo suyo; si no, la más chica (la más precisa).
+    const area = (id) => { const c = visibles.get(id); return (c.x1 - c.x0) * (c.y1 - c.y0); };
+    const id = candidatas.find((x) => compilada.tipos[x].foco?.(estado.piezas[x])) ?? candidatas.sort((a, b) => area(a) - area(b))[0];
+    const p = estado.piezas[id];
+    const propio = compilada.tipos[id].foco?.(p);
+    if (propio) {
+        // El foco viene en las coordenadas de la pieza (como su x e y): se pasa al dibujo entero.
+        const falso = { piezas: { ...estado.piezas, __foco: { x: propio.x, y: propio.y, escala: 1, dentro: p.dentro } } };
+        const r = posicionAbsoluta('__foco', falso, { ...compilada.tipos, __foco: {} });
+        return { x: r.x, y: r.y, id };
+    }
+    const c = visibles.get(id);
+    return { x: (c.x0 + c.x1) / 2, y: (c.y0 + c.y1) / 2, id };
 }
 
 /**

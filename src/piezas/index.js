@@ -13,4 +13,4 @@ export { grafo } from './grafo.js';
 export { forma } from './forma.js';
 export { el, poner, renglones } from './svg.js';
 export { partirLineas, revelar, caminoFlecha, posicionAbsoluta, aCoordenadasDe } from './geometria.js';
-export { cajasEn, queTapa, lugarLibre, zonaDeSubtitulo, revisarSuperposiciones, describirSuperposiciones } from './superposiciones.js';
+export { cajasEn, queTapa, lugarLibre, focoEn, zonaDeSubtitulo, revisarSuperposiciones, describirSuperposiciones } from './superposiciones.js';

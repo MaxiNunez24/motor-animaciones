@@ -352,3 +352,52 @@ describe('desdeTraza: error, alto y línea grande', async () => {
         assert.throws(() => desdePedidoHttp({ pedidos: [{ url: '/x' }] }), /necesita su respuesta/);
     });
 });
+
+describe('el subtítulo busca una columna, y la lupa arranca sobre algo', async () => {
+    const { lugarLibre, focoEn } = await import('../../src/piezas/superposiciones.js');
+    const { desdeTraza } = await import('../../src/pedagogico/index.js');
+
+    test('sin franja libre a lo ancho, se angosta y se corre a la columna libre', () => {
+        // Una columna llena a la izquierda, de arriba abajo; la derecha, vacía.
+        const c = compilar(escena({
+            ...Object.fromEntries([150, 330, 510, 690, 830].map((y, i) => [`p${i}`, caja({ x: 400, y, ancho: 700, alto: 120, texto: `paso ${i}` })])),
+        }, [{ subtitulo: 'Un subtítulo largo que a lo ancho taparía la columna de la izquierda.', dur: 3 }]));
+        const zona = { x0: 200, x1: 1400, y0: 780, y1: 870 };
+        const lugar = lugarLibre(c, zona, 0, 3, { renglon: 45, relleno: 0 });
+        assert.equal(lugar.libre, true);
+        assert.ok(lugar.ancho < 1200, `se angostó: ${lugar.ancho}`);
+        assert.ok(lugar.correr > 0, 'a la derecha');
+        const izquierda = 800 + lugar.correr - lugar.ancho / 2;
+        assert.ok(izquierda >= 750, `no se monta sobre las cajas: empieza en ${izquierda}`);
+        assert.ok(lugar.alto > 90, 'más angosto, más renglones');
+    });
+    test('con alto medido (altoPara), usa esa medida', () => {
+        const c = compilar(escena({ a: caja({ x: 400, y: 820, ancho: 700, alto: 120, texto: 'abajo a la izquierda' }) }, []));
+        const lugar = lugarLibre(c, { x0: 200, x1: 1400, y0: 780, y1: 870 }, 0, 1, { altoPara: (ancho) => 90 * (1200 / ancho) });
+        assert.equal(lugar.libre, true);
+        if (lugar.ancho < 1200) assert.ok(Math.abs(lugar.alto - 90 * (1200 / lugar.ancho)) < 1e-6);
+    });
+    test('la lupa arranca sobre la línea marcada de una traza', () => {
+        const traza = [
+            { linea: 1, variables: {} },
+            { linea: 2, variables: { a: { tipo: 'int', repr: '1' } } },
+            { linea: 3, variables: { a: { tipo: 'int', repr: '1' }, b: { tipo: 'int', repr: '2' } } },
+        ];
+        const c = compilar(desdeTraza({ codigo: 'a = 1\nb = 2\nprint(a + b)', traza }), { disposicion: { nombre: 'ancha' } });
+        const t = c.duracion - 0.5;
+        const foco = focoEn(c, t);
+        const p = c.estado(t).piezas.codigo;
+        assert.equal(foco.id, 'codigo');
+        assert.ok(Math.abs(foco.x - p.x) < 1);
+        assert.ok(foco.y > p.y - c.tipos.codigo.tamano(p).alto / 2 && foco.y < p.y + c.tipos.codigo.tamano(p).alto / 2);
+        // No en el medio de la escena.
+        assert.ok(Math.hypot(foco.x - c.ancho / 2, foco.y - c.alto / 2) > 100);
+    });
+    test('sin código, la lupa va a lo último que cambió', () => {
+        const c = compilar(escena({ a: caja({ x: 300, y: 300, texto: 'quieta' }), b: caja({ x: 1300, y: 700, texto: 'se mueve', opacidad: 0 }) },
+            [{ pieza: 'b', a: { opacidad: 1 }, dur: 0.5, en: 2 }, { espera: 1 }]));
+        const foco = focoEn(c, c.duracion);
+        assert.equal(foco.id, 'b');
+        assert.ok(Math.abs(foco.x - 1300) < 1 && Math.abs(foco.y - 700) < 1);
+    });
+});
